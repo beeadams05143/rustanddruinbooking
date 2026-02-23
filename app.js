@@ -1419,8 +1419,6 @@ function renderCalendar() {
     if (muted) cell.classList.add("muted");
     if (cellKey === selectedKey) cell.classList.add("selected");
 
-    const dots = document.createElement("div");
-    dots.className = "calendar-dots";
     const titles = document.createElement("div");
     titles.className = "calendar-titles";
 
@@ -1430,26 +1428,42 @@ function renderCalendar() {
       return cellDate >= startOfDay(start) && cellDate <= startOfDay(end);
     });
 
-    const types = new Set(dayEvents.map((event) => event.type));
-    types.forEach((type) => {
-      const dot = document.createElement("span");
-      dot.className = "calendar-dot";
-      if (type === "Confirmed") dot.classList.add("dot-confirmed");
-      if (type === "Hold") dot.classList.add("dot-hold");
-      if (type === "Blackout") dot.classList.add("dot-blackout");
-      dots.appendChild(dot);
-    });
+    const dayContracts = state.calendar.contracts.filter((contract) =>
+      dayEvents.some((event) => event.id === contract.event_id)
+    );
+    const signedContracts = dayContracts.filter((contract) => contract.file_path);
+    const pendingContracts = dayContracts.filter((contract) => !contract.file_path);
 
-    dayEvents.slice(0, 2).forEach((event) => {
-      const item = document.createElement("button");
-      item.className = "calendar-title-item";
-      item.textContent = event.title || event.type;
-      item.addEventListener("click", (evt) => {
-        evt.stopPropagation();
-        openContractForEvent(event.id);
+    if (signedContracts.length) {
+      signedContracts.slice(0, 2).forEach((contract) => {
+        const item = document.createElement("button");
+        item.className = "calendar-title-item";
+        item.textContent = contract.name || "Signed contract";
+        item.title = "Open signed contract";
+        item.addEventListener("click", (evt) => {
+          evt.stopPropagation();
+          openContractForEvent(contract.event_id);
+        });
+        titles.appendChild(item);
       });
-      titles.appendChild(item);
-    });
+    } else if (pendingContracts.length) {
+      const pending = document.createElement("div");
+      pending.className = "calendar-clip";
+      pending.textContent = `📎 ${pendingContracts[0].name || "Contract needed"}`;
+      titles.appendChild(pending);
+    } else {
+      dayEvents.slice(0, 1).forEach((event) => {
+        const item = document.createElement("button");
+        item.className = "calendar-title-item";
+        item.textContent = event.title || event.type;
+        item.title = "Open event";
+        item.addEventListener("click", (evt) => {
+          evt.stopPropagation();
+          openContractForEvent(event.id);
+        });
+        titles.appendChild(item);
+      });
+    }
 
     const hasSignedContract = dayEvents.some((event) =>
       state.calendar.contracts.find(
@@ -1472,11 +1486,7 @@ function renderCalendar() {
     if (hasSignedContract || hasDraftContract) {
       const marker = document.createElement("span");
       marker.className = "calendar-contract-marker";
-      if (hasSignedContract && hasDraftContract) {
-        marker.classList.add("mixed");
-        marker.textContent = "✓📎";
-        marker.title = "Signed contract uploaded and pending contract needed";
-      } else if (hasSignedContract) {
+      if (hasSignedContract) {
         marker.classList.add("signed");
         marker.textContent = "✓";
         marker.title = "Signed contract uploaded";
@@ -1488,25 +1498,7 @@ function renderCalendar() {
       dayTop.appendChild(marker);
     }
 
-    if (hasSignedContract && hasDraftContract) {
-      const clip = document.createElement("div");
-      clip.className = "calendar-clip";
-      clip.textContent = "✓ Uploaded + 📎 Pending";
-      titles.appendChild(clip);
-    } else if (hasSignedContract) {
-      const clip = document.createElement("div");
-      clip.className = "calendar-clip";
-      clip.textContent = "✓ Contract uploaded";
-      titles.appendChild(clip);
-    } else if (hasDraftContract) {
-      const draft = document.createElement("div");
-      draft.className = "calendar-clip";
-      draft.textContent = "📎 Contract needed";
-      titles.appendChild(draft);
-    }
-
     cell.appendChild(dayTop);
-    cell.appendChild(dots);
     cell.appendChild(titles);
     cell.addEventListener("click", () => {
       state.calendar.selectedDate = cellKey;
