@@ -96,6 +96,14 @@ body {
   margin-bottom: 28px;
 }
 
+.top-tabs {
+  margin-bottom: 14px;
+}
+
+.section-tabs {
+  margin-bottom: 22px;
+}
+
 .tab {
   border: 1px solid var(--stroke);
   background: var(--surface);

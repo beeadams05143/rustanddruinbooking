@@ -2244,22 +2244,55 @@ function setupListeners() {
     });
   }
 
-  document.querySelectorAll(".tab[data-tab]").forEach((tab) => {
+  const bookkeepingTabs = document.getElementById("bookkeepingTabs");
+  const scheduleTabs = document.getElementById("scheduleTabs");
+
+  const switchPanel = (target) => {
+    if (!target) return;
+    state.activeTab = target;
+    document.getElementById("agreementTab").classList.toggle("hidden", target !== "agreement");
+    document.getElementById("invoiceTab").classList.toggle("hidden", target !== "invoice");
+    document.getElementById("receiptTab").classList.toggle("hidden", target !== "receipt");
+    document.getElementById("calendarTab").classList.toggle("hidden", target !== "calendar");
+    document.getElementById("musiciansTab").classList.toggle("hidden", target !== "musicians");
+    document.getElementById("howtoTab").classList.toggle("hidden", target !== "howto");
+    document.querySelectorAll(".section-tab[data-panel]").forEach((btn) => {
+      btn.classList.toggle("active", btn.getAttribute("data-panel") === target);
+    });
+    updateMessagePreview();
+  };
+
+  const switchTop = (topTarget) => {
+    document.querySelectorAll(".top-tab[data-top]").forEach((btn) => {
+      btn.classList.toggle("active", btn.getAttribute("data-top") === topTarget);
+    });
+    if (bookkeepingTabs) bookkeepingTabs.classList.toggle("hidden", topTarget !== "bookkeeping");
+    if (scheduleTabs) scheduleTabs.classList.toggle("hidden", topTarget !== "calendar");
+
+    if (topTarget === "bookkeeping") {
+      const valid = state.activeTab === "agreement" || state.activeTab === "invoice" || state.activeTab === "receipt";
+      switchPanel(valid ? state.activeTab : "agreement");
+      return;
+    }
+    if (topTarget === "calendar") {
+      const valid = state.activeTab === "calendar" || state.activeTab === "musicians";
+      switchPanel(valid ? state.activeTab : "calendar");
+      return;
+    }
+    switchPanel("howto");
+  };
+
+  document.querySelectorAll(".section-tab[data-panel]").forEach((tab) => {
     tab.addEventListener("click", () => {
-      const target = tab.getAttribute("data-tab");
-      if (!target) return;
-      state.activeTab = target;
-      document.querySelectorAll(".tab[data-tab]").forEach((btn) => {
-        btn.classList.toggle("active", btn === tab);
-      });
-      document.getElementById("agreementTab").classList.toggle("hidden", target !== "agreement");
-      document.getElementById("invoiceTab").classList.toggle("hidden", target !== "invoice");
-      document.getElementById("receiptTab").classList.toggle("hidden", target !== "receipt");
-      document.getElementById("calendarTab").classList.toggle("hidden", target !== "calendar");
-      document.getElementById("musiciansTab").classList.toggle("hidden", target !== "musicians");
-      document.getElementById("allaboutTab").classList.toggle("hidden", target !== "allabout");
-      document.getElementById("howtoTab").classList.toggle("hidden", target !== "howto");
-      updateMessagePreview();
+      const target = tab.getAttribute("data-panel");
+      switchPanel(target);
+    });
+  });
+
+  document.querySelectorAll(".top-tab[data-top]").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const target = tab.getAttribute("data-top");
+      switchTop(target);
     });
   });
 
