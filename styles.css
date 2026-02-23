@@ -602,6 +602,44 @@ textarea {
   font-weight: 700;
 }
 
+.calendar-day-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.calendar-contract-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  line-height: 1;
+  font-weight: 700;
+  border: 1px solid var(--stroke);
+  background: #f6ead8;
+  color: var(--ink);
+}
+
+.calendar-contract-marker.signed {
+  background: #e8f5e6;
+  border-color: #9fc49c;
+}
+
+.calendar-contract-marker.pending {
+  background: #f7ebd3;
+  border-color: #d7b98d;
+}
+
+.calendar-contract-marker.mixed {
+  background: #eef0f7;
+  border-color: #b7bfd9;
+}
+
 .calendar-dots {
   display: flex;
   gap: 6px;
@@ -858,6 +896,13 @@ input[type="file"] {
 
   .calendar-day-number {
     font-size: 0.95rem;
+  }
+
+  .calendar-contract-marker {
+    min-width: 22px;
+    height: 18px;
+    padding: 0 5px;
+    font-size: 0.68rem;
   }
 
   .calendar-dots {

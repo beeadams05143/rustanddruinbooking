@@ -1419,10 +1419,6 @@ function renderCalendar() {
     if (muted) cell.classList.add("muted");
     if (cellKey === selectedKey) cell.classList.add("selected");
 
-    const number = document.createElement("div");
-    number.className = "calendar-day-number";
-    number.textContent = dayNumber;
-
     const dots = document.createElement("div");
     dots.className = "calendar-dots";
     const titles = document.createElement("div");
@@ -1465,19 +1461,51 @@ function renderCalendar() {
         (contract) => contract.event_id === event.id && !contract.file_path
       )
     );
-    if (hasSignedContract) {
+
+    const dayTop = document.createElement("div");
+    dayTop.className = "calendar-day-top";
+    const number = document.createElement("div");
+    number.className = "calendar-day-number";
+    number.textContent = dayNumber;
+    dayTop.appendChild(number);
+
+    if (hasSignedContract || hasDraftContract) {
+      const marker = document.createElement("span");
+      marker.className = "calendar-contract-marker";
+      if (hasSignedContract && hasDraftContract) {
+        marker.classList.add("mixed");
+        marker.textContent = "✓📎";
+        marker.title = "Signed contract uploaded and pending contract needed";
+      } else if (hasSignedContract) {
+        marker.classList.add("signed");
+        marker.textContent = "✓";
+        marker.title = "Signed contract uploaded";
+      } else {
+        marker.classList.add("pending");
+        marker.textContent = "📎";
+        marker.title = "Contract still needed";
+      }
+      dayTop.appendChild(marker);
+    }
+
+    if (hasSignedContract && hasDraftContract) {
       const clip = document.createElement("div");
       clip.className = "calendar-clip";
-      clip.textContent = "📎 Contract";
+      clip.textContent = "✓ Uploaded + 📎 Pending";
+      titles.appendChild(clip);
+    } else if (hasSignedContract) {
+      const clip = document.createElement("div");
+      clip.className = "calendar-clip";
+      clip.textContent = "✓ Contract uploaded";
       titles.appendChild(clip);
     } else if (hasDraftContract) {
       const draft = document.createElement("div");
       draft.className = "calendar-clip";
-      draft.textContent = "🚩 Pending contract";
+      draft.textContent = "📎 Contract needed";
       titles.appendChild(draft);
     }
 
-    cell.appendChild(number);
+    cell.appendChild(dayTop);
     cell.appendChild(dots);
     cell.appendChild(titles);
     cell.addEventListener("click", () => {
