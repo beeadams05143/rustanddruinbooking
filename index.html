@@ -29,14 +29,15 @@
       </header>
 
       <nav class="tabs top-tabs">
-        <button class="tab top-tab active" data-top="bookkeeping">Bookkeeping</button>
+        <button class="tab top-tab active" data-top="home">Home</button>
+        <button class="tab top-tab" data-top="bookkeeping">Bookkeeping</button>
         <button class="tab top-tab" data-top="calendar">Calendar</button>
         <button class="tab top-tab" data-top="about">About</button>
         <button class="tab cta" id="generatePdf">Generate PDF</button>
         <button class="tab" id="sharePdf" disabled>Share PDF</button>
       </nav>
 
-      <nav class="tabs section-tabs" id="bookkeepingTabs">
+      <nav class="tabs section-tabs hidden" id="bookkeepingTabs">
         <button class="tab section-tab active" data-panel="agreement">Agreement</button>
         <button class="tab section-tab" data-panel="invoice">Invoice</button>
         <button class="tab section-tab" data-panel="receipt">Receipt</button>
@@ -53,7 +54,19 @@
       </nav>
 
       <p id="pdfStatus" class="pdf-status"></p>
-      <div class="message-preview">
+      <main class="layout single" id="homeTab">
+        <section class="panel form-panel home-panel">
+          <h2>Start Here</h2>
+          <p class="muted">Choose where you want to work.</p>
+          <div class="home-grid">
+            <button class="home-folder" id="homeBookkeeping">Bookkeeping</button>
+            <button class="home-folder" id="homeCalendar">Calendar</button>
+            <button class="home-folder" id="homeAbout">About</button>
+          </div>
+        </section>
+      </main>
+
+      <div class="message-preview hidden" id="messagePreviewWrap">
         <div class="message-header">
           <h3 id="messageTitle">Agreement Message</h3>
           <button class="btn ghost" id="toggleMessage">Show message</button>
@@ -61,7 +74,7 @@
         <div id="messageBody" class="message-body hidden"></div>
       </div>
 
-      <main class="layout" id="agreementTab">
+      <main class="layout hidden" id="agreementTab">
         <section class="panel form-panel">
           <h2>Agreement Details</h2>
 

@@ -2247,10 +2247,15 @@ function setupListeners() {
   const bookkeepingTabs = document.getElementById("bookkeepingTabs");
   const scheduleTabs = document.getElementById("scheduleTabs");
   const aboutTabs = document.getElementById("aboutTabs");
+  const homeTab = document.getElementById("homeTab");
+  const messagePreviewWrap = document.getElementById("messagePreviewWrap");
+  const generatePdfBtn = document.getElementById("generatePdf");
+  const sharePdfBtn = document.getElementById("sharePdf");
 
   const switchPanel = (target) => {
     if (!target) return;
     state.activeTab = target;
+    if (homeTab) homeTab.classList.toggle("hidden", target !== "home");
     document.getElementById("agreementTab").classList.toggle("hidden", target !== "agreement");
     document.getElementById("invoiceTab").classList.toggle("hidden", target !== "invoice");
     document.getElementById("receiptTab").classList.toggle("hidden", target !== "receipt");
@@ -2258,6 +2263,11 @@ function setupListeners() {
     document.getElementById("musiciansTab").classList.toggle("hidden", target !== "musicians");
     document.getElementById("allaboutTab").classList.toggle("hidden", target !== "allabout");
     document.getElementById("howtoTab").classList.toggle("hidden", target !== "howto");
+    const inBookkeeping =
+      target === "agreement" || target === "invoice" || target === "receipt";
+    if (messagePreviewWrap) messagePreviewWrap.classList.toggle("hidden", !inBookkeeping);
+    if (generatePdfBtn) generatePdfBtn.classList.toggle("hidden", !inBookkeeping);
+    if (sharePdfBtn) sharePdfBtn.classList.toggle("hidden", !inBookkeeping);
     document.querySelectorAll(".section-tab[data-panel]").forEach((btn) => {
       btn.classList.toggle("active", btn.getAttribute("data-panel") === target);
     });
@@ -2271,6 +2281,11 @@ function setupListeners() {
     if (bookkeepingTabs) bookkeepingTabs.classList.toggle("hidden", topTarget !== "bookkeeping");
     if (scheduleTabs) scheduleTabs.classList.toggle("hidden", topTarget !== "calendar");
     if (aboutTabs) aboutTabs.classList.toggle("hidden", topTarget !== "about");
+
+    if (topTarget === "home") {
+      switchPanel("home");
+      return;
+    }
 
     if (topTarget === "bookkeeping") {
       const valid = state.activeTab === "agreement" || state.activeTab === "invoice" || state.activeTab === "receipt";
@@ -2299,6 +2314,19 @@ function setupListeners() {
       switchTop(target);
     });
   });
+
+  const homeBookkeeping = document.getElementById("homeBookkeeping");
+  if (homeBookkeeping) {
+    homeBookkeeping.addEventListener("click", () => switchTop("bookkeeping"));
+  }
+  const homeCalendar = document.getElementById("homeCalendar");
+  if (homeCalendar) {
+    homeCalendar.addEventListener("click", () => switchTop("calendar"));
+  }
+  const homeAbout = document.getElementById("homeAbout");
+  if (homeAbout) {
+    homeAbout.addEventListener("click", () => switchTop("about"));
+  }
 
   document.getElementById("agreementPdf").addEventListener("click", () => generatePdf("agreement"));
   const addPendingHoldBtn = document.getElementById("addPendingHold");
