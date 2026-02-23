@@ -576,7 +576,7 @@ function getAgreementTotals() {
     ? toNumber(state.agreement.lodgingRate)
     : 0;
   const travelLodgingTotal = travelFee + lodgingFee;
-  const feeSubtotal = performanceFeeEffective + adjustedDeposit;
+  const feeSubtotal = performanceFeeEffective + backlineFee + adjustedDeposit;
   const totalWithDeposit =
     performanceFeeEffective +
     addOnTotal +
