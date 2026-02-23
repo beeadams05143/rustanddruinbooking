@@ -258,6 +258,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_-XW9I_e7OR4TUMq0B4SG-Q_el-7vKPJ";
 const OVERRIDE_PIN_SETTING = "override_pin";
 const AUTO_HOLD_NOTE = "Pending contract signature (auto-created from agreement)";
 let holdSyncTimer = null;
+let switchTopView = null;
 
 function saveDraft() {
   try {
@@ -1230,10 +1231,84 @@ function initSupabaseClient() {
 }
 
 function updateSupabaseStatus(message, isError = false) {
-  const status = document.getElementById("supabaseStatus");
-  if (!status) return;
-  status.textContent = message;
-  status.classList.toggle("warning", isError);
+  ["supabaseStatus", "loginStatus"].forEach((id) => {
+    const status = document.getElementById(id);
+    if (!status) return;
+    status.textContent = message;
+    status.classList.toggle("warning", isError);
+  });
+}
+
+function syncAuthFields(email = "", password = "") {
+  const authEmail = document.getElementById("authEmail");
+  const authPassword = document.getElementById("authPassword");
+  const loginEmail = document.getElementById("loginEmail");
+  const loginPassword = document.getElementById("loginPassword");
+  if (authEmail) authEmail.value = email;
+  if (authPassword) authPassword.value = password;
+  if (loginEmail) loginEmail.value = email;
+  if (loginPassword) loginPassword.value = password;
+}
+
+async function signInWithCredentials(email, password) {
+  const client = state.calendar.client;
+  if (!client) {
+    updateSupabaseStatus("Supabase client not available.", true);
+    return false;
+  }
+  if (!email || !password) {
+    updateSupabaseStatus("Enter email and password first.", true);
+    return false;
+  }
+  const { error } = await client.auth.signInWithPassword({ email, password });
+  if (error) {
+    const lower = (error.message || "").toLowerCase();
+    if (lower.includes("email not confirmed")) {
+      updateSupabaseStatus(
+        "Sign in failed: email not confirmed. Open your Supabase confirmation email first.",
+        true
+      );
+      return false;
+    }
+    if (lower.includes("invalid login credentials")) {
+      updateSupabaseStatus(
+        "Sign in failed: invalid email/password. Reset password in Supabase Auth, then try again.",
+        true
+      );
+    } else {
+      updateSupabaseStatus(`Sign in failed: ${error.message}`, true);
+    }
+    return false;
+  }
+  syncAuthFields(email, password);
+  await refreshAuthState();
+  await loadOverridePin();
+  await ensureHoldEventForAgreement();
+  await fetchEventsForMonth();
+  await fetchContracts();
+  await fetchInvoices();
+  await fetchReceipts();
+  return true;
+}
+
+async function requestPasswordReset(email) {
+  const client = state.calendar.client;
+  if (!client) {
+    updateSupabaseStatus("Supabase client not available.", true);
+    return;
+  }
+  if (!email) {
+    updateSupabaseStatus("Enter your email first, then tap Reset password.", true);
+    return;
+  }
+  const { error } = await client.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href,
+  });
+  if (error) {
+    updateSupabaseStatus(`Password reset failed: ${error.message}`, true);
+    return;
+  }
+  updateSupabaseStatus("Password reset email sent. Open it, reset password, then sign in.");
 }
 
 async function openContractForEvent(eventId) {
@@ -1288,12 +1363,12 @@ async function refreshAuthState() {
   if (!client) return;
   const { data } = await client.auth.getSession();
   state.calendar.session = data?.session || null;
-  const status = document.getElementById("supabaseStatus");
-  if (status) {
-    status.textContent = state.calendar.session ? "Signed in." : "Signed out.";
-  }
+  updateSupabaseStatus(state.calendar.session ? "Signed in." : "Signed out.");
   if (state.calendar.session) {
     await loadOverridePin();
+  }
+  if (switchTopView) {
+    switchTopView(state.calendar.session ? "home" : "login");
   }
 }
 
@@ -2255,6 +2330,7 @@ function setupListeners() {
   const switchPanel = (target) => {
     if (!target) return;
     state.activeTab = target;
+    document.getElementById("loginTab").classList.toggle("hidden", target !== "login");
     if (homeTab) homeTab.classList.toggle("hidden", target !== "home");
     document.getElementById("agreementTab").classList.toggle("hidden", target !== "agreement");
     document.getElementById("invoiceTab").classList.toggle("hidden", target !== "invoice");
@@ -2275,12 +2351,22 @@ function setupListeners() {
   };
 
   const switchTop = (topTarget) => {
+    const signedIn = Boolean(state.calendar.session);
+    if (!signedIn && topTarget !== "login") {
+      updateSupabaseStatus("Sign in first to open the rest of Booking Suite.", true);
+      topTarget = "login";
+    }
     document.querySelectorAll(".top-tab[data-top]").forEach((btn) => {
       btn.classList.toggle("active", btn.getAttribute("data-top") === topTarget);
     });
     if (bookkeepingTabs) bookkeepingTabs.classList.toggle("hidden", topTarget !== "bookkeeping");
     if (scheduleTabs) scheduleTabs.classList.toggle("hidden", topTarget !== "calendar");
     if (aboutTabs) aboutTabs.classList.toggle("hidden", topTarget !== "about");
+
+    if (topTarget === "login") {
+      switchPanel("login");
+      return;
+    }
 
     if (topTarget === "home") {
       switchPanel("home");
@@ -2300,6 +2386,7 @@ function setupListeners() {
     const valid = state.activeTab === "allabout" || state.activeTab === "howto";
     switchPanel(valid ? state.activeTab : "allabout");
   };
+  switchTopView = switchTop;
 
   document.querySelectorAll(".section-tab[data-panel]").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -2364,38 +2451,7 @@ function setupListeners() {
     signInBtn.addEventListener("click", async () => {
       const email = document.getElementById("authEmail").value.trim();
       const password = document.getElementById("authPassword").value.trim();
-      const client = state.calendar.client;
-      if (!client) {
-        updateSupabaseStatus("Supabase client not available.", true);
-        return;
-      }
-      const { error } = await client.auth.signInWithPassword({ email, password });
-      if (error) {
-        const lower = (error.message || "").toLowerCase();
-        if (lower.includes("email not confirmed")) {
-          updateSupabaseStatus(
-            "Sign in failed: email not confirmed. Open your Supabase confirmation email first.",
-            true
-          );
-          return;
-        }
-        if (lower.includes("invalid login credentials")) {
-          updateSupabaseStatus(
-            "Sign in failed: invalid email/password. Reset password in Supabase Auth, then try again.",
-            true
-          );
-        } else {
-          updateSupabaseStatus(`Sign in failed: ${error.message}`, true);
-        }
-        return;
-      }
-      await refreshAuthState();
-      await loadOverridePin();
-      await ensureHoldEventForAgreement();
-      await fetchEventsForMonth();
-      await fetchContracts();
-      await fetchInvoices();
-      await fetchReceipts();
+      await signInWithCredentials(email, password);
     });
   }
 
@@ -2403,23 +2459,7 @@ function setupListeners() {
   if (resetPasswordBtn) {
     resetPasswordBtn.addEventListener("click", async () => {
       const email = document.getElementById("authEmail").value.trim();
-      const client = state.calendar.client;
-      if (!client) {
-        updateSupabaseStatus("Supabase client not available.", true);
-        return;
-      }
-      if (!email) {
-        updateSupabaseStatus("Enter your email first, then tap Reset password.", true);
-        return;
-      }
-      const { error } = await client.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.href,
-      });
-      if (error) {
-        updateSupabaseStatus(`Password reset failed: ${error.message}`, true);
-        return;
-      }
-      updateSupabaseStatus("Password reset email sent. Open it, reset password, then sign in.");
+      await requestPasswordReset(email);
     });
   }
 
@@ -2440,6 +2480,24 @@ function setupListeners() {
       updateContractList();
       updateInvoiceList();
       updateReceiptList();
+      if (switchTopView) switchTopView("login");
+    });
+  }
+
+  const loginSignInBtn = document.getElementById("loginSignIn");
+  if (loginSignInBtn) {
+    loginSignInBtn.addEventListener("click", async () => {
+      const email = document.getElementById("loginEmail").value.trim();
+      const password = document.getElementById("loginPassword").value.trim();
+      await signInWithCredentials(email, password);
+    });
+  }
+
+  const loginResetBtn = document.getElementById("loginResetPassword");
+  if (loginResetBtn) {
+    loginResetBtn.addEventListener("click", async () => {
+      const email = document.getElementById("loginEmail").value.trim();
+      await requestPasswordReset(email);
     });
   }
 
@@ -2516,6 +2574,7 @@ function setupListeners() {
         : "Hide message";
     });
   }
+  switchTop(state.calendar.session ? "home" : "login");
 }
 
 async function generatePdf(type) {

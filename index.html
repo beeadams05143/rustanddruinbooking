@@ -29,7 +29,8 @@
       </header>
 
       <nav class="tabs top-tabs">
-        <button class="tab top-tab active" data-top="home">Home</button>
+        <button class="tab top-tab active" data-top="login">Login</button>
+        <button class="tab top-tab" data-top="home">Home</button>
         <button class="tab top-tab" data-top="bookkeeping">Bookkeeping</button>
         <button class="tab top-tab" data-top="calendar">Calendar</button>
         <button class="tab top-tab" data-top="about">About</button>
@@ -54,7 +55,28 @@
       </nav>
 
       <p id="pdfStatus" class="pdf-status"></p>
-      <main class="layout single" id="homeTab">
+      <main class="layout single" id="loginTab">
+        <section class="panel form-panel home-panel">
+          <h2>Login</h2>
+          <p class="muted">Sign in to access Booking Suite.</p>
+          <div class="form-grid login-grid">
+            <label>
+              Email
+              <input id="loginEmail" type="email" placeholder="you@email.com" />
+            </label>
+            <label>
+              Password
+              <input id="loginPassword" type="password" placeholder="Password" />
+            </label>
+          </div>
+          <div class="inline-actions login-actions">
+            <button class="btn" id="loginSignIn">Sign in</button>
+            <button class="btn ghost" id="loginResetPassword">Reset password</button>
+            <p id="loginStatus" class="muted"></p>
+          </div>
+        </section>
+      </main>
+      <main class="layout single hidden" id="homeTab">
         <section class="panel form-panel home-panel">
           <h2>Start Here</h2>
           <p class="muted">Choose where you want to work.</p>

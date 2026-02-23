@@ -108,6 +108,17 @@ body {
   text-align: center;
 }
 
+.login-grid {
+  max-width: 520px;
+  margin: 16px auto 0;
+  text-align: left;
+}
+
+.login-actions {
+  justify-content: center;
+  margin-top: 16px;
+}
+
 .home-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(180px, 1fr));
