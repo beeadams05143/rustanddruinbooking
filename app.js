@@ -1849,7 +1849,9 @@ function updateContractEventOptions() {
 
 async function ensureHoldEventForAgreement() {
   const client = state.calendar.client;
-  if (!client || !state.calendar.session) return;
+  if (!client || !state.calendar.session) {
+    return { ok: false, reason: "not_signed_in" };
+  }
 
   const date = state.agreement.performanceDate;
   const startTime = state.agreement.performanceTime;
@@ -1858,7 +1860,9 @@ async function ensureHoldEventForAgreement() {
 
   const start = combineDateTime(date, startTime);
   const end = combineDateTime(date, endTime);
-  if (!start || !end || end <= start) return;
+  if (!start || !end || end <= start) {
+    return { ok: false, reason: "missing_fields" };
+  }
 
   const dayStart = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0);
   const dayEnd = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 23, 59, 59);
@@ -1891,10 +1895,10 @@ async function ensureHoldEventForAgreement() {
       })
       .select()
       .single();
-    if (error) return;
+    if (error) return { ok: false, reason: "event_insert_failed" };
     eventId = data.id;
   } else {
-    await client
+    const { error } = await client
       .from("events")
       .update({
         type: "Hold",
@@ -1905,6 +1909,7 @@ async function ensureHoldEventForAgreement() {
         override: false,
       })
       .eq("id", eventId);
+    if (error) return { ok: false, reason: "event_update_failed" };
   }
 
   const { data: existingContract } = await client
@@ -1914,21 +1919,24 @@ async function ensureHoldEventForAgreement() {
     .limit(1);
 
   if (!existingContract || !existingContract.length) {
-    await client.from("contracts").insert({
+    const { error } = await client.from("contracts").insert({
       name: `${title} Agreement`,
       file_path: null,
       event_id: eventId,
       status: "Pending signature",
     });
+    if (error) return { ok: false, reason: "contract_insert_failed" };
   } else if (!existingContract[0].file_path) {
-    await client
+    const { error } = await client
       .from("contracts")
       .update({ name: `${title} Agreement`, status: "Pending signature" })
       .eq("id", existingContract[0].id);
+    if (error) return { ok: false, reason: "contract_update_failed" };
   }
 
   await fetchEventsForMonth();
   await fetchContracts();
+  return { ok: true, reason: "synced", eventId };
 }
 
 function scheduleAgreementHoldSync() {
@@ -1938,6 +1946,26 @@ function scheduleAgreementHoldSync() {
   holdSyncTimer = setTimeout(() => {
     ensureHoldEventForAgreement();
   }, 700);
+}
+
+async function addAgreementToCalendarPending() {
+  const result = await ensureHoldEventForAgreement();
+  if (result?.ok) {
+    updateSupabaseStatus("Pending hold added/updated in calendar.");
+    return;
+  }
+  if (result?.reason === "not_signed_in") {
+    updateSupabaseStatus("Sign in on Calendar tab first, then tap Add to Calendar (Pending).", true);
+    return;
+  }
+  if (result?.reason === "missing_fields") {
+    updateSupabaseStatus(
+      "Set performance date, start time, and end time in Agreement, then tap Add to Calendar (Pending).",
+      true
+    );
+    return;
+  }
+  updateSupabaseStatus("Could not add pending hold right now. Try again.", true);
 }
 
 function syncAgreementForm() {
@@ -2125,6 +2153,10 @@ function setupListeners() {
   });
 
   document.getElementById("agreementPdf").addEventListener("click", () => generatePdf("agreement"));
+  const addPendingHoldBtn = document.getElementById("addPendingHold");
+  if (addPendingHoldBtn) {
+    addPendingHoldBtn.addEventListener("click", addAgreementToCalendarPending);
+  }
   document.getElementById("invoicePdf").addEventListener("click", () => generatePdf("invoice"));
   document.getElementById("receiptPdf").addEventListener("click", () => generatePdf("receipt"));
   document.getElementById("generatePdf").addEventListener("click", () => generatePdf(state.activeTab));
@@ -2163,6 +2195,7 @@ function setupListeners() {
       }
       await refreshAuthState();
       await loadOverridePin();
+      await ensureHoldEventForAgreement();
       await fetchEventsForMonth();
       await fetchContracts();
       await fetchInvoices();
