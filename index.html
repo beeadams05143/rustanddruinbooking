@@ -31,10 +31,9 @@
       <nav class="tabs top-tabs">
         <button class="tab top-tab active" data-top="bookkeeping">Bookkeeping</button>
         <button class="tab top-tab" data-top="calendar">Calendar</button>
-        <button class="tab top-tab" data-top="guides">Guides</button>
+        <button class="tab top-tab" data-top="about">About</button>
         <button class="tab cta" id="generatePdf">Generate PDF</button>
         <button class="tab" id="sharePdf" disabled>Share PDF</button>
-        <button class="tab" id="copyMessage">Copy Message</button>
       </nav>
 
       <nav class="tabs section-tabs" id="bookkeepingTabs">
@@ -46,6 +45,11 @@
       <nav class="tabs section-tabs hidden" id="scheduleTabs">
         <button class="tab section-tab active" data-panel="calendar">Calendar</button>
         <button class="tab section-tab" data-panel="musicians">Musicians</button>
+      </nav>
+
+      <nav class="tabs section-tabs hidden" id="aboutTabs">
+        <button class="tab section-tab active" data-panel="allabout">About This App</button>
+        <button class="tab section-tab" data-panel="howto">How To Use It</button>
       </nav>
 
       <p id="pdfStatus" class="pdf-status"></p>
@@ -290,6 +294,7 @@
           <div class="form-footer">
             <p class="inline-help">Client signs on PDF.</p>
             <button class="btn ghost" id="addPendingHold">Add to Calendar (Pending)</button>
+            <button class="btn ghost" id="agreementCopyMessage">Copy Agreement Message</button>
             <button class="primary" id="agreementPdf">Generate PDF</button>
           </div>
           <p id="agreementCalendarStatus" class="muted"></p>
@@ -501,6 +506,7 @@
             </label>
           </div>
           <div class="form-footer">
+            <button class="btn ghost" id="invoiceCopyMessage">Copy Invoice Message</button>
             <button class="primary" id="invoicePdf">Generate PDF</button>
           </div>
           <div class="form-section">
@@ -601,6 +607,7 @@
             </label>
           </div>
           <div class="form-footer">
+            <button class="btn ghost" id="receiptCopyMessage">Copy Receipt Message</button>
             <button class="primary" id="receiptPdf">Generate PDF</button>
           </div>
           <div class="form-section">
@@ -939,6 +946,38 @@
         </section>
       </main>
 
+      <main class="layout single hidden" id="allaboutTab">
+        <section class="panel form-panel">
+          <h2>About This App</h2>
+          <p class="muted">
+            Rust and Ruin Booking Suite is designed to make booking management faster,
+            cleaner, and more accurate from first inquiry to signed contract and payment.
+          </p>
+          <div class="howto-grid">
+            <article class="form-section howto-card">
+              <h3>What It Does</h3>
+              <ul class="howto-list">
+                <li><strong>Bookkeeping Hub:</strong> Agreement, Invoice, and Receipt tools in one workflow.</li>
+                <li><strong>Automatic Calculations:</strong> Hours, fees, backline, add-ons, deposit logic, and day-of totals.</li>
+                <li><strong>Calendar Control:</strong> Pending holds, confirmations, and conflict-aware saves with override PIN.</li>
+                <li><strong>Contract Tracking:</strong> Upload signed PDFs and open them directly from date chips on calendar.</li>
+                <li><strong>Messaging + Sharing:</strong> Generate PDFs, share from phone, and copy document-specific messages.</li>
+                <li><strong>Musician Planning:</strong> Roster, assignments, blackouts, and availability visibility.</li>
+              </ul>
+            </article>
+            <article class="form-section howto-card">
+              <h3>Why It Helps The Band</h3>
+              <ul class="howto-list">
+                <li><strong>Faster admin:</strong> fewer repeated steps and less manual calculation.</li>
+                <li><strong>More accurate:</strong> agreement numbers and payment docs stay aligned.</li>
+                <li><strong>More efficient:</strong> contracts, dates, and status are linked in one place.</li>
+                <li><strong>Easier handoff:</strong> same process every time for anyone on the team.</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+      </main>
+
       <main class="layout single hidden" id="howtoTab">
         <section class="panel form-panel">
           <h2>How To Use Booking Suite</h2>
@@ -948,35 +987,6 @@
           </p>
 
           <div class="howto-grid">
-            <article class="form-section howto-card">
-              <h3>All About This App</h3>
-              <p class="muted">
-                Rust and Ruin Booking Suite is your single command center for booking, paperwork,
-                scheduling, and musician coordination. Use it to move fast, stay organized, and
-                reduce mistakes from first client message to signed contract and final payment.
-              </p>
-              <ul class="howto-list">
-                <li><strong>Agreement Builder:</strong> Captures client/event details and auto-calculates hours, fees, add-ons, travel, deposits, and day-of totals so pricing stays accurate every time.</li>
-                <li><strong>Smart Fee Logic:</strong> Includes backline, add-ons, deposit rules, waive/credit options, and automatic totals to prevent undercharging and math errors.</li>
-                <li><strong>Live Contract Preview:</strong> Agreement updates instantly as you type, so what the client sees is always aligned with your latest terms.</li>
-                <li><strong>PDF Generator:</strong> Creates polished Agreement, Invoice, and Receipt PDFs on demand so documents are client-ready in seconds.</li>
-                <li><strong>Share + Copy Message:</strong> Share PDFs directly from phone and copy prebuilt client messages to speed up communication and keep messaging consistent.</li>
-                <li><strong>Calendar Holds + Confirmations:</strong> Add pending holds from agreement details, then promote events to confirmed when contracts are signed.</li>
-                <li><strong>Contract Upload Workflow:</strong> Upload signed PDFs and link to events; confirmed status and contract access stay tied to the right booking date.</li>
-                <li><strong>Accessible Date Markers:</strong> Date-level icons show status quickly: <strong>✓</strong> signed contract uploaded, <strong>📎</strong> contract still needed.</li>
-                <li><strong>Clickable Contract Names:</strong> Open contracts directly from calendar date chips for fast retrieval during calls, rehearsals, or travel.</li>
-                <li><strong>Conflict Protection + Override PIN:</strong> Detects overlapping events before save and supports manager overrides when needed.</li>
-                <li><strong>Invoices + Receipts:</strong> Build, save, upload, and track billing records so payment follow-up is faster and cleaner.</li>
-                <li><strong>Musician Management:</strong> Maintain roster, availability blackouts, assignment statuses, and booked/available date views for better lineup planning.</li>
-                <li><strong>Draft Persistence:</strong> Local draft save reduces re-entry and protects work during interruptions on phone or desktop.</li>
-              </ul>
-              <p class="muted">
-                Productivity tip: keep this app open during booking calls, fill Agreement live, click
-                Add to Calendar (Pending), then send PDF + copied message immediately. That single flow
-                keeps booking, paperwork, and scheduling synchronized with minimal admin time.
-              </p>
-            </article>
-
             <article class="form-section howto-card">
               <h3>1. Build Agreement</h3>
               <ol class="howto-list">

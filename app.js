@@ -2246,6 +2246,7 @@ function setupListeners() {
 
   const bookkeepingTabs = document.getElementById("bookkeepingTabs");
   const scheduleTabs = document.getElementById("scheduleTabs");
+  const aboutTabs = document.getElementById("aboutTabs");
 
   const switchPanel = (target) => {
     if (!target) return;
@@ -2255,6 +2256,7 @@ function setupListeners() {
     document.getElementById("receiptTab").classList.toggle("hidden", target !== "receipt");
     document.getElementById("calendarTab").classList.toggle("hidden", target !== "calendar");
     document.getElementById("musiciansTab").classList.toggle("hidden", target !== "musicians");
+    document.getElementById("allaboutTab").classList.toggle("hidden", target !== "allabout");
     document.getElementById("howtoTab").classList.toggle("hidden", target !== "howto");
     document.querySelectorAll(".section-tab[data-panel]").forEach((btn) => {
       btn.classList.toggle("active", btn.getAttribute("data-panel") === target);
@@ -2268,6 +2270,7 @@ function setupListeners() {
     });
     if (bookkeepingTabs) bookkeepingTabs.classList.toggle("hidden", topTarget !== "bookkeeping");
     if (scheduleTabs) scheduleTabs.classList.toggle("hidden", topTarget !== "calendar");
+    if (aboutTabs) aboutTabs.classList.toggle("hidden", topTarget !== "about");
 
     if (topTarget === "bookkeeping") {
       const valid = state.activeTab === "agreement" || state.activeTab === "invoice" || state.activeTab === "receipt";
@@ -2279,7 +2282,8 @@ function setupListeners() {
       switchPanel(valid ? state.activeTab : "calendar");
       return;
     }
-    switchPanel("howto");
+    const valid = state.activeTab === "allabout" || state.activeTab === "howto";
+    switchPanel(valid ? state.activeTab : "allabout");
   };
 
   document.querySelectorAll(".section-tab[data-panel]").forEach((tab) => {
@@ -2301,11 +2305,31 @@ function setupListeners() {
   if (addPendingHoldBtn) {
     addPendingHoldBtn.addEventListener("click", addAgreementToCalendarPending);
   }
+  const agreementCopyMessageBtn = document.getElementById("agreementCopyMessage");
+  if (agreementCopyMessageBtn) {
+    agreementCopyMessageBtn.addEventListener("click", async () => {
+      state.activeTab = "agreement";
+      await copyMessage();
+    });
+  }
   document.getElementById("invoicePdf").addEventListener("click", () => generatePdf("invoice"));
+  const invoiceCopyMessageBtn = document.getElementById("invoiceCopyMessage");
+  if (invoiceCopyMessageBtn) {
+    invoiceCopyMessageBtn.addEventListener("click", async () => {
+      state.activeTab = "invoice";
+      await copyMessage();
+    });
+  }
   document.getElementById("receiptPdf").addEventListener("click", () => generatePdf("receipt"));
+  const receiptCopyMessageBtn = document.getElementById("receiptCopyMessage");
+  if (receiptCopyMessageBtn) {
+    receiptCopyMessageBtn.addEventListener("click", async () => {
+      state.activeTab = "receipt";
+      await copyMessage();
+    });
+  }
   document.getElementById("generatePdf").addEventListener("click", () => generatePdf(state.activeTab));
   document.getElementById("sharePdf").addEventListener("click", shareLastPdf);
-  document.getElementById("copyMessage").addEventListener("click", copyMessage);
 
   const signInBtn = document.getElementById("signIn");
   if (signInBtn) {
