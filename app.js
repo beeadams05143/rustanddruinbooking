@@ -347,6 +347,12 @@ function formatHourValue(value) {
   return rounded.toFixed(2).replace(/\.?0+$/, "");
 }
 
+function formatNumberInput(value) {
+  const rounded = Math.round(value * 100) / 100;
+  if (Number.isInteger(rounded)) return String(rounded);
+  return rounded.toFixed(2);
+}
+
 function updatePerformanceHoursFromTimes() {
   const startTime = state.agreement.performanceTime;
   const endTime = state.agreement.performanceEndTime;
@@ -532,7 +538,6 @@ function getAgreementTotals() {
   const addOnTotal = Object.entries(addonFees).reduce((total, [key, value]) => {
     return state.agreement[key] ? total + value : total;
   }, 0);
-  const performanceFee = toNumber(state.agreement.feeTotal);
   const baseBandMembers = state.agreement.bandConfig === "Full Band" ? 4 : 2;
   const extraMembers = toNumber(state.agreement.additionalMusicians);
   const bandMembers = baseBandMembers + (extraMembers > 0 ? extraMembers : 0);
@@ -545,8 +550,7 @@ function getAgreementTotals() {
           state.agreement.performanceEndTime
         );
   const performanceFeeAuto = computedHours * 50 * bandMembers;
-  const performanceFeeEffective =
-    performanceFee > 0 ? performanceFee : performanceFeeAuto;
+  const performanceFeeEffective = performanceFeeAuto;
   const nonPerformanceHours = toNumber(state.agreement.nonPerformanceHours);
   const onsiteFee = state.agreement.chargeNonPerformance
     ? nonPerformanceHours * 50 * bandMembers
@@ -594,15 +598,35 @@ function getAgreementTotals() {
     travelLodgingTotal,
     holidayFee,
     performanceHoursTotal: computedHours,
-    eventSubtotal: performanceFeeAuto + onsiteFee + backlineFee + holidayFee,
+    eventSubtotal: performanceFeeEffective + onsiteFee + backlineFee + holidayFee,
     backlineFee,
     performanceFeeAuto,
     performanceFeeEffective,
   };
 }
 
+function updateFeesAndDepositsFields(totals) {
+  if (!state.agreement.depositWaived && !state.agreement.depositAmount) {
+    state.agreement.depositAmount = String(depositDefault);
+    const depositInput = document.getElementById("depositAmount");
+    if (depositInput) depositInput.value = state.agreement.depositAmount;
+  }
+
+  const feeValue = formatNumberInput(totals.performanceFeeEffective);
+  state.agreement.feeTotal = feeValue;
+  const feeInput = document.getElementById("feeTotal");
+  if (feeInput) feeInput.value = feeValue;
+
+  const dayOfDue = Math.max(0, totals.totalWithDeposit - totals.depositAmount);
+  const dayOfValue = toMoney(dayOfDue);
+  state.agreement.amountDueDayOf = dayOfValue;
+  const dayOfInput = document.getElementById("amountDueDayOf");
+  if (dayOfInput) dayOfInput.value = dayOfValue;
+}
+
 function updateAgreementPreview() {
   const totals = getAgreementTotals();
+  updateFeesAndDepositsFields(totals);
   document.querySelectorAll("[data-fill='clientName']").forEach((el) => {
     el.textContent = state.agreement.clientName || "__";
   });
