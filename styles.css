@@ -775,4 +775,97 @@ textarea {
   .addon-list {
     grid-template-columns: 1fr;
   }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .form-section {
+    padding: 14px;
+  }
+
+  .calendar-shell {
+    padding: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .calendar-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .calendar-title {
+    grid-column: 1 / -1;
+    text-align: center;
+    font-size: 1rem;
+  }
+
+  #calendarPrev,
+  #calendarNext {
+    width: 100%;
+    padding: 10px 12px;
+  }
+
+  .calendar-grid,
+  .calendar-weekdays {
+    min-width: 560px;
+  }
+
+  .calendar-day {
+    min-height: 96px;
+    padding: 8px 6px;
+  }
+
+  .calendar-titles {
+    font-size: 0.7rem;
+    line-height: 1.15;
+  }
+
+  .calendar-title-item {
+    padding: 3px 5px;
+  }
+
+  .inline-actions {
+    gap: 8px;
+  }
+
+  .inline-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .event-card header {
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
+  }
+
+  .event-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .event-actions .btn {
+    width: 100%;
+  }
+
+  .assignment-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .assignment-status {
+    width: 100%;
+  }
+
+  .assignment-status select {
+    width: 100%;
+    min-width: 0;
+  }
 }
