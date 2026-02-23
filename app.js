@@ -2144,6 +2144,13 @@ function setupListeners() {
       const { error } = await client.auth.signInWithPassword({ email, password });
       if (error) {
         const lower = (error.message || "").toLowerCase();
+        if (lower.includes("email not confirmed")) {
+          updateSupabaseStatus(
+            "Sign in failed: email not confirmed. Open your Supabase confirmation email first.",
+            true
+          );
+          return;
+        }
         if (lower.includes("invalid login credentials")) {
           updateSupabaseStatus(
             "Sign in failed: invalid email/password. Reset password in Supabase Auth, then try again.",
@@ -2160,6 +2167,30 @@ function setupListeners() {
       await fetchContracts();
       await fetchInvoices();
       await fetchReceipts();
+    });
+  }
+
+  const resetPasswordBtn = document.getElementById("resetPassword");
+  if (resetPasswordBtn) {
+    resetPasswordBtn.addEventListener("click", async () => {
+      const email = document.getElementById("authEmail").value.trim();
+      const client = state.calendar.client;
+      if (!client) {
+        updateSupabaseStatus("Supabase client not available.", true);
+        return;
+      }
+      if (!email) {
+        updateSupabaseStatus("Enter your email first, then tap Reset password.", true);
+        return;
+      }
+      const { error } = await client.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.href,
+      });
+      if (error) {
+        updateSupabaseStatus(`Password reset failed: ${error.message}`, true);
+        return;
+      }
+      updateSupabaseStatus("Password reset email sent. Open it, reset password, then sign in.");
     });
   }
 
