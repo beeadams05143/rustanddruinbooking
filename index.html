@@ -222,8 +222,20 @@
                 <input id="feeTotal" placeholder="1200" />
               </label>
               <label>
+                Backline / sound tech fee
+                <input id="feeBackline" readonly />
+              </label>
+              <label>
+                Add-ons total
+                <input id="feeAddons" readonly />
+              </label>
+              <label>
                 Deposit amount
                 <input id="depositAmount" placeholder="50" />
+              </label>
+              <label>
+                Deposit due (after credits)
+                <input id="feeDepositDue" readonly />
               </label>
               <label class="checkbox inline-note">
                 <input id="depositEnabled" type="checkbox" checked />
@@ -257,12 +269,6 @@
             </div>
             <p class="section-total">
               Fees &amp; deposits subtotal: <span data-fill="feesSubtotal"></span>
-            </p>
-            <p class="section-total">
-              Backline / sound tech fee: <span data-fill="backlineFee"></span>
-            </p>
-            <p class="section-total">
-              Deposit amount: <span data-fill="depositAmount"></span>
             </p>
             <p class="section-total">
               Deposit credits: <span data-fill="depositCredits"></span>

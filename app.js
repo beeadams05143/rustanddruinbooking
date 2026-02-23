@@ -576,7 +576,7 @@ function getAgreementTotals() {
     ? toNumber(state.agreement.lodgingRate)
     : 0;
   const travelLodgingTotal = travelFee + lodgingFee;
-  const feeSubtotal = performanceFeeEffective + backlineFee + adjustedDeposit;
+  const feeSubtotal = performanceFeeEffective + backlineFee + addOnTotal + adjustedDeposit;
   const totalWithDeposit =
     performanceFeeEffective +
     addOnTotal +
@@ -626,6 +626,15 @@ function updateFeesAndDepositsFields(totals) {
   state.agreement.feeTotal = feeValue;
   const feeInput = document.getElementById("feeTotal");
   if (feeInput) feeInput.value = feeValue;
+
+  const backlineInput = document.getElementById("feeBackline");
+  if (backlineInput) backlineInput.value = toMoney(totals.backlineFee);
+
+  const addonsInput = document.getElementById("feeAddons");
+  if (addonsInput) addonsInput.value = toMoney(totals.addOnTotal);
+
+  const depositDueInput = document.getElementById("feeDepositDue");
+  if (depositDueInput) depositDueInput.value = toMoney(totals.depositAmount);
 
   const dayOfDue = Math.max(0, totals.totalWithDeposit - totals.depositAmount);
   const dayOfValue = toMoney(dayOfDue);
