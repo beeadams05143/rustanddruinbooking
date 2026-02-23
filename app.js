@@ -1,0 +1,2227 @@
+const depositDefault = 50;
+const additionalSongFee = 50;
+
+const state = {
+  agreement: {
+    clientName: "",
+    clientEmail: "",
+    clientPhone: "",
+    performanceDate: "",
+    performanceTime: "",
+    performanceEndTime: "",
+    holidayWeekend: false,
+    hours: "",
+    feeTotal: "",
+    depositAmount: "50",
+    depositWaived: false,
+    promoCredit: false,
+    liveVideoCredit: false,
+    depositPaid: "",
+    amountDueDayOf: "",
+    bandConfig: "Full Band",
+    additionalMusicians: "0",
+    venueAddress: "",
+    nonPerformanceHours: "",
+    chargeNonPerformance: false,
+    backlineSound: false,
+    travelOutside: false,
+    travelHours: "",
+    travelBand: "Full Band",
+    lodgingEnabled: false,
+    lodgingRate: "250",
+    addonTent: false,
+    addonLights: false,
+    addonGenerator: false,
+    addonAdditionalSong: false,
+    addonRecordedSong: false,
+    addonMCing: false,
+    addonDJing: false,
+    requestedSongs: "",
+    signatureName: "",
+    signatureChecked: false,
+    signatureDate: "",
+    agreementCreatedDate: todayString(),
+  },
+  invoice: {
+    invoiceNumber: "INV-001",
+    clientName: "",
+    clientEmail: "",
+    issueDate: "",
+    dueDate: "",
+    description: "Live performance",
+    performanceFee: "",
+    depositDue: "",
+    depositPaid: "",
+    addons: "",
+    totalOverride: "",
+  },
+  receipt: {
+    receiptNumber: "RCPT-001",
+    clientName: "",
+    paymentDate: "",
+    amountPaid: "",
+    paymentMethod: "Venmo",
+    relatedInvoice: "",
+  },
+  calendar: {
+    overridePin: "",
+    client: null,
+    monthOffset: 0,
+    selectedDate: "",
+    selectedEventId: "",
+    events: [],
+    contracts: [],
+    session: null,
+  },
+  billing: {
+    invoices: [],
+    receipts: [],
+  },
+  activeTab: "agreement",
+};
+
+
+const agreementFields = [
+  "clientName",
+  "clientEmail",
+  "clientPhone",
+  "performanceDate",
+  "performanceTime",
+  "performanceEndTime",
+  "holidayWeekend",
+  "hours",
+  "feeTotal",
+  "depositAmount",
+  "depositWaived",
+  "promoCredit",
+  "liveVideoCredit",
+  "depositPaid",
+  "amountDueDayOf",
+  "bandConfig",
+  "additionalMusicians",
+  "venueAddress",
+  "backlineSound",
+  "nonPerformanceHours",
+  "chargeNonPerformance",
+  "travelOutside",
+  "travelHours",
+  "travelBand",
+  "lodgingEnabled",
+  "lodgingRate",
+  "addonTent",
+  "addonLights",
+  "addonGenerator",
+  "addonAdditionalSong",
+  "addonRecordedSong",
+  "addonMCing",
+  "addonDJing",
+  "requestedSongs",
+  "signatureName",
+  "signatureChecked",
+];
+
+const invoiceFields = [
+  "invoiceNumber",
+  "invoiceClientName",
+  "invoiceClientEmail",
+  "invoiceIssueDate",
+  "invoiceDueDate",
+  "invoiceDescription",
+  "invoicePerformanceFee",
+  "invoiceDepositDue",
+  "invoiceDepositPaid",
+  "invoiceAddons",
+  "invoiceTotalOverride",
+];
+
+const receiptFields = [
+  "receiptNumber",
+  "receiptClientName",
+  "receiptPaymentDate",
+  "receiptAmountPaid",
+  "receiptPaymentMethod",
+  "receiptRelatedInvoice",
+];
+
+function toNumber(value) {
+  const parsed = Number.parseFloat(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function toMoney(value) {
+  if (Number.isNaN(value)) return "$0.00";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+  }).format(value);
+}
+
+function todayString() {
+  return new Date().toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatTime(timeValue) {
+  if (!timeValue) return "__";
+  const parts = timeValue.split(":");
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1] ?? "0");
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return timeValue;
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatDate(dateValue) {
+  if (!dateValue) return "__";
+  const [year, month, day] = dateValue.split("-").map(Number);
+  if (!year || !month || !day) return dateValue;
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function hoursBetweenTimes(startTime, endTime) {
+  if (!startTime || !endTime) return 0;
+  const [startH, startM] = startTime.split(":").map(Number);
+  const [endH, endM] = endTime.split(":").map(Number);
+  if (
+    Number.isNaN(startH) ||
+    Number.isNaN(startM) ||
+    Number.isNaN(endH) ||
+    Number.isNaN(endM)
+  ) {
+    return 0;
+  }
+  const startMinutes = startH * 60 + startM;
+  let endMinutes = endH * 60 + endM;
+  if (endMinutes < startMinutes) {
+    endMinutes += 24 * 60;
+  }
+  return Math.max(0, (endMinutes - startMinutes) / 60);
+}
+
+const STORAGE_KEY = "rustandruin-booking-draft";
+const CALENDAR_SETTINGS_KEY = "rustandruin-calendar-settings";
+const SUPABASE_URL = "https://ipxjalcgiaqcyubrxqxu.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_-XW9I_e7OR4TUMq0B4SG-Q_el-7vKPJ";
+const OVERRIDE_PIN_SETTING = "override_pin";
+
+function saveDraft() {
+  try {
+    const payload = {
+      agreement: state.agreement,
+      invoice: state.invoice,
+      receipt: state.receipt,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    // ignore storage failures
+  }
+}
+
+function loadDraft() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return;
+    const parsed = JSON.parse(stored);
+    if (parsed.agreement) {
+      state.agreement = { ...state.agreement, ...parsed.agreement };
+    }
+    if (parsed.invoice) {
+      state.invoice = { ...state.invoice, ...parsed.invoice };
+    }
+    if (parsed.receipt) {
+      state.receipt = { ...state.receipt, ...parsed.receipt };
+    }
+  } catch (error) {
+    // ignore invalid storage
+  }
+}
+
+function saveCalendarSettings() {
+  try {
+    const payload = {
+      overridePin: state.calendar.overridePin,
+    };
+    localStorage.setItem(CALENDAR_SETTINGS_KEY, JSON.stringify(payload));
+  } catch (error) {
+    // ignore storage failures
+  }
+}
+
+function loadCalendarSettings() {
+  try {
+    const stored = localStorage.getItem(CALENDAR_SETTINGS_KEY);
+    if (!stored) return;
+    const parsed = JSON.parse(stored);
+    if (parsed.overridePin) state.calendar.overridePin = parsed.overridePin;
+  } catch (error) {
+    // ignore invalid storage
+  }
+}
+
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function formatDateInput(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatTimeInput(date) {
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function parseLocalDate(dateStr) {
+  if (!dateStr) return null;
+  const [year, month, day] = dateStr.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function combineDateTime(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return null;
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  return new Date(year, month - 1, day, hours, minutes || 0);
+}
+
+function formatShortDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function buildMessage(type) {
+  const clientName = state.agreement.clientName || "there";
+  const eventDate = state.agreement.performanceDate || "your event date";
+  const venue = state.agreement.venueAddress || "your venue";
+
+  if (type === "invoice") {
+    const subject = `Rust and Ruin Invoice – ${eventDate}`;
+    const body = `Hello ${state.invoice.clientName || clientName},\n\nAttached is your invoice for ${eventDate}. Please review the details and submit payment at your earliest convenience.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
+    return { title: "Invoice Message", subject, body };
+  }
+
+  if (type === "receipt") {
+    const subject = `Rust and Ruin Receipt – ${state.receipt.paymentDate || eventDate}`;
+    const body = `Hello ${state.receipt.clientName || clientName},\n\nAttached is your receipt. Thank you for your payment and for hosting Rust and Ruin.\n\nWe look forward to performing for you.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
+    return { title: "Receipt Message", subject, body };
+  }
+
+  const subject = `Rust and Ruin Performance Agreement – ${eventDate}`;
+  const body = `Hello ${clientName},\n\nAttached is the performance agreement for ${eventDate} at ${venue}. Please review and sign the agreement. You can sign with a finger/stylus on your phone, then send a clear photo or scan, or print and sign, return by mail.\n\nNext steps\n1. Sign and return the agreement.\n2. Submit the deposit.\n\nWe look forward to performing for you.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
+  return { title: "Agreement Message", subject, body };
+}
+
+function updateMessagePreview() {
+  const message = buildMessage(state.activeTab);
+  const title = document.getElementById("messageTitle");
+  const body = document.getElementById("messageBody");
+  if (title) title.textContent = message.title;
+  if (body) body.textContent = `${message.subject}\n\n${message.body}`;
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function isBetween(target, start, end) {
+  const t = startOfDay(target).getTime();
+  const s = startOfDay(start).getTime();
+  const e = startOfDay(end).getTime();
+  return t >= s && t <= e;
+}
+
+function getNthWeekdayOfMonth(year, monthIndex, weekday, nth) {
+  const first = new Date(year, monthIndex, 1);
+  const firstWeekday = (7 + weekday - first.getDay()) % 7;
+  return new Date(year, monthIndex, 1 + firstWeekday + (nth - 1) * 7);
+}
+
+function getLastWeekdayOfMonth(year, monthIndex, weekday) {
+  const last = new Date(year, monthIndex + 1, 0);
+  const offset = (7 + last.getDay() - weekday) % 7;
+  return new Date(year, monthIndex + 1, 0 - offset);
+}
+
+function getClosestWeekend(date) {
+  const day = date.getDay();
+  const prevSaturday = addDays(date, -((day + 1) % 7));
+  const nextSaturday = addDays(date, (6 - day + 7) % 7);
+  const prevDiff = Math.abs(startOfDay(date) - startOfDay(prevSaturday));
+  const nextDiff = Math.abs(startOfDay(nextSaturday) - startOfDay(date));
+
+  const chosen = prevDiff <= nextDiff ? prevSaturday : nextSaturday;
+  return {
+    start: addDays(chosen, -1),
+    end: addDays(chosen, 1),
+  };
+}
+
+function isHolidayWeekend(date) {
+  const year = date.getFullYear();
+
+  const memorialDay = getLastWeekdayOfMonth(year, 4, 1); // last Monday in May
+  const laborDay = getNthWeekdayOfMonth(year, 8, 1, 1); // first Monday in Sept
+  const presidentsDay = getNthWeekdayOfMonth(year, 1, 1, 3); // third Monday in Feb
+  const columbusDay = getNthWeekdayOfMonth(year, 9, 1, 2); // second Monday in Oct
+  const thanksgiving = getNthWeekdayOfMonth(year, 10, 4, 4); // fourth Thursday in Nov
+
+  const memorialWeekendStart = addDays(memorialDay, -3);
+  const memorialWeekendEnd = memorialDay;
+  const laborWeekendStart = addDays(laborDay, -3);
+  const laborWeekendEnd = laborDay;
+  const presidentsWeekendStart = addDays(presidentsDay, -3);
+  const presidentsWeekendEnd = presidentsDay;
+  const columbusWeekendStart = addDays(columbusDay, -3);
+  const columbusWeekendEnd = columbusDay;
+  const thanksgivingWeekendStart = thanksgiving;
+  const thanksgivingWeekendEnd = addDays(thanksgiving, 3);
+
+  const julyFourth = new Date(year, 6, 4);
+  const julyFourthStart = addDays(julyFourth, -1);
+  const julyFourthEnd = addDays(julyFourth, 1);
+
+  const halloween = new Date(year, 9, 31);
+  const halloweenWeekend = getClosestWeekend(halloween);
+  const valentines = new Date(year, 1, 14);
+  const valentinesWeekend = getClosestWeekend(valentines);
+
+  const christmasWeekStart = new Date(year, 11, 21);
+  const christmasWeekEnd = new Date(year, 11, 27);
+
+  const newYearsStart = new Date(year, 11, 31);
+  const newYearsEnd = new Date(year + 1, 0, 1);
+
+  return (
+    isBetween(date, memorialWeekendStart, memorialWeekendEnd) ||
+    isBetween(date, laborWeekendStart, laborWeekendEnd) ||
+    isBetween(date, presidentsWeekendStart, presidentsWeekendEnd) ||
+    isBetween(date, columbusWeekendStart, columbusWeekendEnd) ||
+    isBetween(date, thanksgivingWeekendStart, thanksgivingWeekendEnd) ||
+    isBetween(date, julyFourthStart, julyFourthEnd) ||
+    isBetween(date, halloweenWeekend.start, halloweenWeekend.end) ||
+    isBetween(date, valentinesWeekend.start, valentinesWeekend.end) ||
+    isBetween(date, christmasWeekStart, christmasWeekEnd) ||
+    isBetween(date, newYearsStart, newYearsEnd)
+  );
+}
+
+function updateHolidayFromDate() {
+  const dateValue = document.getElementById("performanceDate").value;
+  if (!dateValue) return;
+
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const selectedDate = new Date(year, month - 1, day);
+  const isHoliday = isHolidayWeekend(selectedDate);
+
+  state.agreement.holidayWeekend = isHoliday;
+  const holidayCheckbox = document.getElementById("holidayWeekend");
+  if (holidayCheckbox) holidayCheckbox.checked = isHoliday;
+
+  const warning = document.getElementById("holidayWarning");
+  if (warning) warning.classList.toggle("hidden", !isHoliday);
+}
+
+function setText(selector, value) {
+  document.querySelectorAll(selector).forEach((el) => {
+    el.textContent = value;
+  });
+}
+
+function getAgreementTotals() {
+  const depositAmount = state.agreement.depositWaived
+    ? 0
+    : state.agreement.depositAmount
+    ? toNumber(state.agreement.depositAmount)
+    : depositDefault;
+  const depositCredits =
+    (state.agreement.promoCredit ? 5 : 0) +
+    (state.agreement.liveVideoCredit ? 10 : 0);
+  const adjustedDeposit = Math.max(0, depositAmount - depositCredits);
+  const addonFees = {
+    addonTent: 25,
+    addonLights: 10,
+    addonGenerator: 75,
+    addonAdditionalSong: additionalSongFee,
+    addonRecordedSong: 5,
+    addonMCing: 50,
+    addonDJing: 50,
+  };
+  const addOnTotal = Object.entries(addonFees).reduce((total, [key, value]) => {
+    return state.agreement[key] ? total + value : total;
+  }, 0);
+  const performanceFee = toNumber(state.agreement.feeTotal);
+  const baseBandMembers = state.agreement.bandConfig === "Full Band" ? 4 : 2;
+  const extraMembers = toNumber(state.agreement.additionalMusicians);
+  const bandMembers = baseBandMembers + (extraMembers > 0 ? extraMembers : 0);
+  const manualPerformanceHours = toNumber(state.agreement.hours);
+  const computedHours =
+    manualPerformanceHours > 0
+      ? manualPerformanceHours
+      : hoursBetweenTimes(
+          state.agreement.performanceTime,
+          state.agreement.performanceEndTime
+        );
+  const performanceFeeAuto = computedHours * 50 * bandMembers;
+  const performanceFeeEffective =
+    performanceFee > 0 ? performanceFee : performanceFeeAuto;
+  const nonPerformanceHours = toNumber(state.agreement.nonPerformanceHours);
+  const onsiteFee = state.agreement.chargeNonPerformance
+    ? nonPerformanceHours * 50 * bandMembers
+    : 0;
+  const backlineFee = state.agreement.backlineSound ? 50 : 0;
+  const holidayFee = state.agreement.holidayWeekend
+    ? computedHours * 50 * bandMembers
+    : 0;
+  const travelHours = toNumber(state.agreement.travelHours);
+  const travelBaseMembers = state.agreement.travelBand === "Full Band" ? 4 : 2;
+  const travelBandMembers = travelBaseMembers + (extraMembers > 0 ? extraMembers : 0);
+  const travelFee = state.agreement.travelOutside
+    ? travelHours * 25 * travelBandMembers
+    : 0;
+  const lodgingFee = state.agreement.lodgingEnabled
+    ? toNumber(state.agreement.lodgingRate)
+    : 0;
+  const travelLodgingTotal = travelFee + lodgingFee;
+  const feeSubtotal = performanceFeeEffective + adjustedDeposit;
+  const totalWithDeposit =
+    performanceFeeEffective +
+    addOnTotal +
+    adjustedDeposit +
+    travelFee +
+    lodgingFee +
+    onsiteFee +
+    holidayFee +
+    backlineFee;
+
+  return {
+    depositAmount: adjustedDeposit,
+    depositCredits,
+    addOnTotal,
+    feeSubtotal,
+    totalWithDeposit,
+    performanceFee: performanceFeeEffective,
+    performanceFeeAuto,
+    travelFee,
+    travelHours,
+    bandMembers,
+    lodgingFee,
+    addonFees,
+    onsiteFee,
+    travelBandMembers,
+    travelLodgingTotal,
+    holidayFee,
+    performanceHoursTotal: computedHours,
+    eventSubtotal: performanceFeeAuto + onsiteFee + backlineFee + holidayFee,
+    backlineFee,
+    performanceFeeAuto,
+    performanceFeeEffective,
+  };
+}
+
+function updateAgreementPreview() {
+  const totals = getAgreementTotals();
+  document.querySelectorAll("[data-fill='clientName']").forEach((el) => {
+    el.textContent = state.agreement.clientName || "__";
+  });
+  setText("[data-fill='clientEmail']", state.agreement.clientEmail || "__");
+  setText("[data-fill='clientPhone']", state.agreement.clientPhone || "__");
+  setText("[data-fill='performanceDate']", formatDate(state.agreement.performanceDate));
+  setText("[data-fill='performanceTime']", formatTime(state.agreement.performanceTime));
+  setText("[data-fill='performanceEndTime']", formatTime(state.agreement.performanceEndTime));
+  setText("[data-fill='hours']", state.agreement.hours || "__");
+  setText(
+    "[data-fill='performanceHoursDisplay']",
+    totals.performanceHoursTotal.toFixed(2)
+  );
+  setText(
+    "[data-fill='nonPerformanceHours']",
+    state.agreement.chargeNonPerformance
+      ? state.agreement.nonPerformanceHours || "__"
+      : "__"
+  );
+  setText(
+    "[data-fill='nonPerformanceHoursDisplay']",
+    state.agreement.chargeNonPerformance
+      ? toNumber(state.agreement.nonPerformanceHours).toFixed(2)
+      : "0.00"
+  );
+  setText(
+    "[data-fill='holidayFee']",
+    state.agreement.holidayWeekend ? toMoney(totals.holidayFee) : "$0.00"
+  );
+  setText("[data-fill='bandConfig']", state.agreement.bandConfig);
+  setText("[data-fill='venueAddress']", state.agreement.venueAddress || "__");
+  setText("[data-fill='depositPaid']", state.agreement.depositPaid || "__");
+  setText("[data-fill='depositDue']", toMoney(totals.depositAmount));
+  setText("[data-fill='amountDueDayOf']", state.agreement.amountDueDayOf || "__");
+  setText("[data-fill='requestedSongs']", state.agreement.requestedSongs || "None");
+  setText("[data-fill='signatureName']", state.agreement.signatureName || "__");
+  setText("[data-fill='agreementCreatedDate']", state.agreement.agreementCreatedDate || todayString());
+
+  const promoBlock = document.getElementById("promoCreditsBlock");
+  if (promoBlock) {
+    promoBlock.classList.toggle("hidden", totals.depositCredits <= 0);
+  }
+
+  setText("[data-fill='performanceFee']", toMoney(totals.performanceFeeEffective));
+  setText("[data-fill='performanceFeeAuto']", toMoney(totals.performanceFeeAuto));
+  setText(
+    "[data-fill='depositAmount']",
+    state.agreement.depositWaived ? "Waived" : toMoney(totals.depositAmount)
+  );
+  setText(
+    "[data-fill='depositCredits']",
+    totals.depositCredits > 0 ? `-${toMoney(totals.depositCredits)}` : "$0.00"
+  );
+  setText("[data-fill='addonTotal']", toMoney(totals.addOnTotal));
+  setText("[data-fill='feesSubtotal']", toMoney(totals.feeSubtotal));
+  setText("[data-fill='totalWithDeposit']", toMoney(totals.totalWithDeposit));
+  setText("[data-fill='travelHours']", state.agreement.travelHours || "__");
+  setText(
+    "[data-fill='travelFee']",
+    state.agreement.travelOutside ? toMoney(totals.travelFee) : "$0.00"
+  );
+  setText("[data-fill='lodgingFee']", toMoney(totals.lodgingFee));
+  setText("[data-fill='travelLodgingTotal']", toMoney(totals.travelLodgingTotal));
+  setText("[data-fill='onsiteFee']", toMoney(totals.onsiteFee));
+  setText("[data-fill='performanceHoursTotal']", totals.performanceHoursTotal.toFixed(2));
+  setText("[data-fill='eventSubtotal']", toMoney(totals.eventSubtotal));
+  setText("[data-fill='backlineFee']", toMoney(totals.backlineFee));
+  updateMessagePreview();
+  const selectedAddons = Object.entries(totals.addonFees)
+    .filter(([key]) => state.agreement[key])
+    .map(([key, value]) => {
+      const labelMap = {
+        addonTent: "Tent",
+        addonLights: "Lights",
+        addonGenerator: "Generator",
+        addonAdditionalSong: "Additional song",
+        addonRecordedSong: "Recorded song beyond first",
+        addonMCing: "MC'ing",
+        addonDJing: "DJ'ing",
+      };
+      return `${labelMap[key]} (${toMoney(value)})`;
+    })
+    .join(", ");
+  setText("[data-fill='addonsSelected']", selectedAddons || "None");
+
+  const lodgingWrap = document.getElementById("lodgingRateWrap");
+  if (lodgingWrap) {
+    lodgingWrap.classList.toggle("hidden", !state.agreement.lodgingEnabled);
+  }
+
+  const travelDetails = document.getElementById("travelDetails");
+  if (travelDetails) {
+    travelDetails.classList.toggle("hidden", !state.agreement.travelOutside);
+  }
+
+  const warning = document.getElementById("holidayWarning");
+  if (warning) {
+    warning.classList.toggle("hidden", !state.agreement.holidayWeekend);
+  }
+
+  const nonPerformanceField = document.getElementById("nonPerformanceHours");
+  if (nonPerformanceField) {
+    nonPerformanceField.disabled = !state.agreement.chargeNonPerformance;
+  }
+}
+
+function updateInvoicePreview() {
+  const totals = getInvoiceTotals();
+  setText("[data-fill='invoiceNumber']", state.invoice.invoiceNumber || "__");
+  setText("[data-fill='invoiceClientName']", state.invoice.clientName || "__");
+  setText("[data-fill='invoiceClientEmail']", state.invoice.clientEmail || "__");
+  setText("[data-fill='invoiceIssueDate']", formatDate(state.invoice.issueDate));
+  setText("[data-fill='invoiceDueDate']", formatDate(state.invoice.dueDate));
+  setText("[data-fill='invoiceDescription']", state.invoice.description || "__");
+  setText("[data-fill='invoicePerformanceFee']", toMoney(totals.performanceFee));
+  setText("[data-fill='invoiceDepositDue']", toMoney(totals.depositDue));
+  setText("[data-fill='invoiceDepositPaid']", toMoney(totals.depositPaid));
+  setText("[data-fill='invoiceAddons']", toMoney(totals.addons));
+  setText("[data-fill='invoiceTotal']", totals.displayTotal);
+  updateMessagePreview();
+}
+
+function getInvoiceTotals() {
+  const performanceFee = toNumber(state.invoice.performanceFee);
+  const depositDue = toNumber(state.invoice.depositDue);
+  const depositPaid = toNumber(state.invoice.depositPaid);
+  const addons = toNumber(state.invoice.addons);
+  const totalDue = performanceFee + addons + depositDue;
+  const displayTotal = state.invoice.totalOverride
+    ? toMoney(toNumber(state.invoice.totalOverride))
+    : toMoney(totalDue > 0 ? totalDue : 0);
+  return { performanceFee, depositDue, depositPaid, addons, totalDue, displayTotal };
+}
+
+function updateReceiptPreview() {
+  setText("[data-fill='receiptNumber']", state.receipt.receiptNumber || "__");
+  setText("[data-fill='receiptClientName']", state.receipt.clientName || "__");
+  setText("[data-fill='receiptPaymentDate']", formatDate(state.receipt.paymentDate));
+  setText("[data-fill='receiptPaymentMethod']", state.receipt.paymentMethod || "__");
+  setText("[data-fill='receiptRelatedInvoice']", state.receipt.relatedInvoice || "__");
+  setText("[data-fill='receiptAmountPaid']", toMoney(toNumber(state.receipt.amountPaid)));
+  updateMessagePreview();
+}
+
+async function fetchInvoices() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) {
+    state.billing.invoices = [];
+    updateInvoiceList();
+    return;
+  }
+  const { data, error } = await client
+    .from("invoices")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) {
+    updateSupabaseStatus("Could not load invoices.", true);
+    return;
+  }
+  state.billing.invoices = data || [];
+  updateInvoiceList();
+}
+
+async function fetchReceipts() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) {
+    state.billing.receipts = [];
+    updateReceiptList();
+    return;
+  }
+  const { data, error } = await client
+    .from("receipts")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) {
+    updateSupabaseStatus("Could not load receipts.", true);
+    return;
+  }
+  state.billing.receipts = data || [];
+  updateReceiptList();
+}
+
+function updateInvoiceList() {
+  const list = document.getElementById("invoiceList");
+  const status = document.getElementById("invoiceStatus");
+  if (!list) return;
+  if (!state.billing.invoices.length) {
+    list.innerHTML = "<p class=\"muted\">No saved invoices yet.</p>";
+    if (status) status.textContent = "";
+    return;
+  }
+  list.innerHTML = "";
+  state.billing.invoices.forEach((invoice) => {
+    const card = document.createElement("div");
+    card.className = "event-card";
+    const header = document.createElement("header");
+    header.innerHTML = `<span>${invoice.invoice_number}</span><span>${invoice.paid ? "Paid" : "Unpaid"}</span>`;
+    const meta = document.createElement("div");
+    meta.className = "event-meta";
+    meta.textContent = `${invoice.client_name || "Client"} · ${formatShortDateTime(
+      invoice.created_at
+    )}`;
+    const actions = document.createElement("div");
+    actions.className = "event-actions";
+    if (invoice.file_path) {
+      const view = document.createElement("button");
+      view.className = "btn ghost";
+      view.textContent = "View PDF";
+      view.addEventListener("click", async () => {
+        const client = state.calendar.client;
+        if (!client || !state.calendar.session) return;
+        const { data, error } = await client
+          .storage
+          .from("signed-contracts")
+          .createSignedUrl(invoice.file_path, 60);
+        if (!error && data?.signedUrl) {
+          window.open(data.signedUrl, "_blank");
+        }
+      });
+      actions.appendChild(view);
+    }
+    const toggle = document.createElement("button");
+    toggle.className = "btn ghost";
+    toggle.textContent = invoice.paid ? "Mark unpaid" : "Mark paid";
+    toggle.addEventListener("click", async () => {
+      const client = state.calendar.client;
+      if (!client || !state.calendar.session) return;
+      await client
+        .from("invoices")
+        .update({ paid: !invoice.paid })
+        .eq("id", invoice.id);
+      await fetchInvoices();
+    });
+    actions.appendChild(toggle);
+    card.appendChild(header);
+    card.appendChild(meta);
+    card.appendChild(actions);
+    list.appendChild(card);
+  });
+}
+
+function updateReceiptList() {
+  const list = document.getElementById("receiptList");
+  const status = document.getElementById("receiptStatus");
+  if (!list) return;
+  if (!state.billing.receipts.length) {
+    list.innerHTML = "<p class=\"muted\">No saved receipts yet.</p>";
+    if (status) status.textContent = "";
+    return;
+  }
+  list.innerHTML = "";
+  state.billing.receipts.forEach((receipt) => {
+    const card = document.createElement("div");
+    card.className = "event-card";
+    const header = document.createElement("header");
+    header.innerHTML = `<span>${receipt.receipt_number}</span><span>${receipt.paid ? "Paid" : "Unpaid"}</span>`;
+    const meta = document.createElement("div");
+    meta.className = "event-meta";
+    meta.textContent = `${receipt.client_name || "Client"} · ${formatShortDateTime(
+      receipt.created_at
+    )}`;
+    const actions = document.createElement("div");
+    actions.className = "event-actions";
+    if (receipt.file_path) {
+      const view = document.createElement("button");
+      view.className = "btn ghost";
+      view.textContent = "View PDF";
+      view.addEventListener("click", async () => {
+        const client = state.calendar.client;
+        if (!client || !state.calendar.session) return;
+        const { data, error } = await client
+          .storage
+          .from("signed-contracts")
+          .createSignedUrl(receipt.file_path, 60);
+        if (!error && data?.signedUrl) {
+          window.open(data.signedUrl, "_blank");
+        }
+      });
+      actions.appendChild(view);
+    }
+    const toggle = document.createElement("button");
+    toggle.className = "btn ghost";
+    toggle.textContent = receipt.paid ? "Mark unpaid" : "Mark paid";
+    toggle.addEventListener("click", async () => {
+      const client = state.calendar.client;
+      if (!client || !state.calendar.session) return;
+      await client
+        .from("receipts")
+        .update({ paid: !receipt.paid })
+        .eq("id", receipt.id);
+      await fetchReceipts();
+    });
+    actions.appendChild(toggle);
+    card.appendChild(header);
+    card.appendChild(meta);
+    card.appendChild(actions);
+    list.appendChild(card);
+  });
+}
+
+async function saveInvoiceToSupabase() {
+  return saveInvoiceToSupabaseInternal(false);
+}
+
+async function saveInvoiceToSupabaseInternal(silent) {
+  const client = state.calendar.client;
+  const status = document.getElementById("invoiceStatus");
+  if (!client || !state.calendar.session) {
+    if (status && !silent) status.textContent = "Sign in to save invoices.";
+    return;
+  }
+  const totals = getInvoiceTotals();
+  const payload = {
+    invoice_number: state.invoice.invoiceNumber || "INV-001",
+    client_name: state.invoice.clientName,
+    client_email: state.invoice.clientEmail,
+    issue_date: state.invoice.issueDate || null,
+    due_date: state.invoice.dueDate || null,
+    description: state.invoice.description,
+    performance_fee: totals.performanceFee,
+    deposit_due: totals.depositDue,
+    deposit_paid: totals.depositPaid,
+    addons: totals.addons,
+    total_override: state.invoice.totalOverride || null,
+    total_due: toNumber(totals.displayTotal.replace(/[^0-9.-]/g, "")),
+    paid: false,
+  };
+
+  const { data: existing } = await client
+    .from("invoices")
+    .select("id")
+    .eq("invoice_number", payload.invoice_number)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (existing && existing.length) {
+    const { error } = await client.from("invoices").update(payload).eq("id", existing[0].id);
+    if (error) {
+      if (status && !silent) status.textContent = "Could not update invoice.";
+      return;
+    }
+  } else {
+    const { error } = await client.from("invoices").insert(payload);
+    if (error) {
+      if (status && !silent) status.textContent = "Could not save invoice.";
+      return;
+    }
+  }
+  if (status && !silent) status.textContent = "Invoice saved.";
+  await fetchInvoices();
+}
+
+async function saveReceiptToSupabase() {
+  return saveReceiptToSupabaseInternal(false);
+}
+
+async function saveReceiptToSupabaseInternal(silent) {
+  const client = state.calendar.client;
+  const status = document.getElementById("receiptStatus");
+  if (!client || !state.calendar.session) {
+    if (status && !silent) status.textContent = "Sign in to save receipts.";
+    return;
+  }
+  const payload = {
+    receipt_number: state.receipt.receiptNumber || "RCPT-001",
+    client_name: state.receipt.clientName,
+    payment_date: state.receipt.paymentDate || null,
+    amount_paid: toNumber(state.receipt.amountPaid),
+    payment_method: state.receipt.paymentMethod,
+    related_invoice: state.receipt.relatedInvoice,
+    paid: true,
+  };
+  const { data: existing } = await client
+    .from("receipts")
+    .select("id")
+    .eq("receipt_number", payload.receipt_number)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (existing && existing.length) {
+    const { error } = await client.from("receipts").update(payload).eq("id", existing[0].id);
+    if (error) {
+      if (status && !silent) status.textContent = "Could not update receipt.";
+      return;
+    }
+  } else {
+    const { error } = await client.from("receipts").insert(payload);
+    if (error) {
+      if (status && !silent) status.textContent = "Could not save receipt.";
+      return;
+    }
+  }
+  if (status && !silent) status.textContent = "Receipt saved.";
+  await fetchReceipts();
+}
+
+async function uploadInvoicePdf() {
+  const client = state.calendar.client;
+  const status = document.getElementById("invoiceStatus");
+  const fileInput = document.getElementById("invoiceFile");
+  if (!client || !state.calendar.session) {
+    if (status) status.textContent = "Sign in to upload.";
+    return;
+  }
+  const file = fileInput.files[0];
+  if (!file) {
+    if (status) status.textContent = "Choose an invoice PDF to upload.";
+    return;
+  }
+  const invoiceNumber = state.invoice.invoiceNumber || "INV-001";
+  const safeName = file.name.replace(/\s+/g, "-");
+  const path = `invoices/${Date.now()}-${safeName}`.replace(/[^a-zA-Z0-9-_/.]/g, "");
+  const { error: uploadError } = await client
+    .storage
+    .from("signed-contracts")
+    .upload(path, file, { upsert: true });
+  if (uploadError) {
+    if (status) status.textContent = "Invoice upload failed.";
+    return;
+  }
+  const { data: existing } = await client
+    .from("invoices")
+    .select("id")
+    .eq("invoice_number", invoiceNumber)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (existing && existing.length) {
+    await client.from("invoices").update({ file_path: path }).eq("id", existing[0].id);
+  } else {
+    await client.from("invoices").insert({
+      invoice_number: invoiceNumber,
+      client_name: state.invoice.clientName,
+      client_email: state.invoice.clientEmail,
+      issue_date: state.invoice.issueDate || null,
+      due_date: state.invoice.dueDate || null,
+      description: state.invoice.description,
+      performance_fee: toNumber(state.invoice.performanceFee),
+      deposit_due: toNumber(state.invoice.depositDue),
+      deposit_paid: toNumber(state.invoice.depositPaid),
+      addons: toNumber(state.invoice.addons),
+      total_override: state.invoice.totalOverride || null,
+      total_due: toNumber(getInvoiceTotals().displayTotal.replace(/[^0-9.-]/g, "")),
+      paid: false,
+      file_path: path,
+    });
+  }
+  if (status) status.textContent = "Invoice PDF uploaded.";
+  fileInput.value = "";
+  await fetchInvoices();
+}
+
+async function uploadReceiptPdf() {
+  const client = state.calendar.client;
+  const status = document.getElementById("receiptStatus");
+  const fileInput = document.getElementById("receiptFile");
+  if (!client || !state.calendar.session) {
+    if (status) status.textContent = "Sign in to upload.";
+    return;
+  }
+  const file = fileInput.files[0];
+  if (!file) {
+    if (status) status.textContent = "Choose a receipt PDF to upload.";
+    return;
+  }
+  const receiptNumber = state.receipt.receiptNumber || "RCPT-001";
+  const safeName = file.name.replace(/\s+/g, "-");
+  const path = `receipts/${Date.now()}-${safeName}`.replace(/[^a-zA-Z0-9-_/.]/g, "");
+  const { error: uploadError } = await client
+    .storage
+    .from("signed-contracts")
+    .upload(path, file, { upsert: true });
+  if (uploadError) {
+    if (status) status.textContent = "Receipt upload failed.";
+    return;
+  }
+  const { data: existing } = await client
+    .from("receipts")
+    .select("id")
+    .eq("receipt_number", receiptNumber)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (existing && existing.length) {
+    await client.from("receipts").update({ file_path: path }).eq("id", existing[0].id);
+  } else {
+    await client.from("receipts").insert({
+      receipt_number: receiptNumber,
+      client_name: state.receipt.clientName,
+      payment_date: state.receipt.paymentDate || null,
+      amount_paid: toNumber(state.receipt.amountPaid),
+      payment_method: state.receipt.paymentMethod,
+      related_invoice: state.receipt.relatedInvoice,
+      paid: true,
+      file_path: path,
+    });
+  }
+  if (status) status.textContent = "Receipt PDF uploaded.";
+  fileInput.value = "";
+  await fetchReceipts();
+}
+
+async function autoSaveInvoicePdf(blob, fileName) {
+  const client = state.calendar.client;
+  const status = document.getElementById("invoiceStatus");
+  if (!client || !state.calendar.session) return;
+  const safeName = fileName.replace(/\s+/g, "-");
+  const path = `invoices/${Date.now()}-${safeName}`.replace(/[^a-zA-Z0-9-_/.]/g, "");
+  const { error: uploadError } = await client
+    .storage
+    .from("signed-contracts")
+    .upload(path, blob, { upsert: true, contentType: "application/pdf" });
+  if (uploadError) {
+    if (status) status.textContent = "Auto-upload failed.";
+    return;
+  }
+  const invoiceNumber = state.invoice.invoiceNumber || "INV-001";
+  await client
+    .from("invoices")
+    .update({ file_path: path })
+    .eq("invoice_number", invoiceNumber);
+  if (status) status.textContent = "Invoice saved + PDF uploaded.";
+  await fetchInvoices();
+}
+
+async function autoSaveReceiptPdf(blob, fileName) {
+  const client = state.calendar.client;
+  const status = document.getElementById("receiptStatus");
+  if (!client || !state.calendar.session) return;
+  const safeName = fileName.replace(/\s+/g, "-");
+  const path = `receipts/${Date.now()}-${safeName}`.replace(/[^a-zA-Z0-9-_/.]/g, "");
+  const { error: uploadError } = await client
+    .storage
+    .from("signed-contracts")
+    .upload(path, blob, { upsert: true, contentType: "application/pdf" });
+  if (uploadError) {
+    if (status) status.textContent = "Auto-upload failed.";
+    return;
+  }
+  const receiptNumber = state.receipt.receiptNumber || "RCPT-001";
+  await client
+    .from("receipts")
+    .update({ file_path: path })
+    .eq("receipt_number", receiptNumber);
+  if (status) status.textContent = "Receipt saved + PDF uploaded.";
+  await fetchReceipts();
+}
+
+function initSupabaseClient() {
+  if (!window.supabase || !window.supabase.createClient) {
+    state.calendar.client = null;
+    return;
+  }
+  state.calendar.client = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY
+  );
+}
+
+function updateSupabaseStatus(message, isError = false) {
+  const status = document.getElementById("supabaseStatus");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("warning", isError);
+}
+
+async function openContractForEvent(eventId) {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) return;
+  let contract = state.calendar.contracts.find((item) => item.event_id === eventId);
+  if (!contract) {
+    await fetchContracts();
+    contract = state.calendar.contracts.find((item) => item.event_id === eventId);
+  }
+  if (!contract) {
+    const event = state.calendar.events.find((item) => item.id === eventId);
+    if (event?.title) {
+      contract = state.calendar.contracts.find((item) =>
+        item.name.toLowerCase().includes(event.title.toLowerCase())
+      );
+      if (contract) {
+        const { error } = await client
+          .from("contracts")
+          .update({ event_id: eventId })
+          .eq("id", contract.id);
+        if (error) {
+          updateSupabaseStatus("Could not link contract to event.", true);
+        } else {
+          await fetchContracts();
+          updateSupabaseStatus("Contract matched by name and linked.");
+        }
+      }
+    }
+  }
+  if (!contract) {
+    updateSupabaseStatus("No contract linked to this event yet.", true);
+    return;
+  }
+  if (!contract.file_path) {
+    updateSupabaseStatus("Draft contract saved. Upload a signed PDF to open it.", true);
+    return;
+  }
+  const { data, error } = await client
+    .storage
+    .from("signed-contracts")
+    .createSignedUrl(contract.file_path, 60);
+  if (error || !data?.signedUrl) {
+    updateSupabaseStatus(`Could not open contract: ${error?.message || "Unknown error"}`, true);
+    return;
+  }
+  window.open(data.signedUrl, "_blank");
+}
+
+async function refreshAuthState() {
+  const client = state.calendar.client;
+  if (!client) return;
+  const { data } = await client.auth.getSession();
+  state.calendar.session = data?.session || null;
+  const status = document.getElementById("supabaseStatus");
+  if (status) {
+    status.textContent = state.calendar.session ? "Signed in." : "Signed out.";
+  }
+  if (state.calendar.session) {
+    await loadOverridePin();
+  }
+}
+
+async function loadOverridePin() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) return;
+  const { data, error } = await client
+    .from("app_settings")
+    .select("value")
+    .eq("key", OVERRIDE_PIN_SETTING)
+    .maybeSingle();
+
+  if (error) {
+    updateSupabaseStatus("Could not load override PIN.", true);
+    return;
+  }
+
+  if (data?.value) {
+    state.calendar.overridePin = data.value;
+    const pinField = document.getElementById("overridePin");
+    if (pinField) pinField.value = "••••";
+  }
+}
+
+async function fetchEventsForMonth() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) {
+    state.calendar.events = [];
+    renderCalendar();
+    updateEventList();
+    return;
+  }
+
+  const monthStart = getCalendarMonth();
+  const rangeStart = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1);
+  const rangeEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0, 23, 59, 59);
+
+  const { data, error } = await client
+    .from("events")
+    .select("*")
+    .lt("start_time", rangeEnd.toISOString())
+    .gt("end_time", rangeStart.toISOString())
+    .order("start_time", { ascending: true });
+
+  if (error) {
+    updateSupabaseStatus("Could not load calendar events.", true);
+    return;
+  }
+
+  state.calendar.events = data || [];
+  renderCalendar();
+  updateEventList();
+  updateContractEventOptions();
+}
+
+async function fetchContracts() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) {
+    state.calendar.contracts = [];
+    updateContractList();
+    return;
+  }
+
+  const { data, error } = await client
+    .from("contracts")
+    .select("*")
+    .order("uploaded_at", { ascending: false })
+    .limit(200);
+
+  if (error) {
+    updateSupabaseStatus("Could not load contracts.", true);
+    return;
+  }
+
+  state.calendar.contracts = data || [];
+  updateContractList();
+}
+
+function getCalendarMonth() {
+  const base = new Date();
+  return new Date(base.getFullYear(), base.getMonth() + state.calendar.monthOffset, 1);
+}
+
+function renderCalendar() {
+  const grid = document.getElementById("calendarGrid");
+  const title = document.getElementById("calendarTitle");
+  if (!grid || !title) return;
+
+  const monthStart = getCalendarMonth();
+  const monthName = monthStart.toLocaleString(undefined, { month: "long", year: "numeric" });
+  title.textContent = monthName;
+  grid.innerHTML = "";
+
+  const startWeekday = monthStart.getDay();
+  const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
+  const prevMonthDays = new Date(monthStart.getFullYear(), monthStart.getMonth(), 0).getDate();
+
+  const totalCells = 42;
+  const selectedKey = state.calendar.selectedDate || formatDateInput(new Date());
+
+  for (let i = 0; i < totalCells; i += 1) {
+    const cell = document.createElement("div");
+    cell.className = "calendar-day";
+
+    let dayNumber = i - startWeekday + 1;
+    let cellMonth = monthStart.getMonth();
+    let cellYear = monthStart.getFullYear();
+    let muted = false;
+
+    if (dayNumber <= 0) {
+      dayNumber = prevMonthDays + dayNumber;
+      cellMonth -= 1;
+      muted = true;
+    } else if (dayNumber > daysInMonth) {
+      dayNumber -= daysInMonth;
+      cellMonth += 1;
+      muted = true;
+    }
+
+    const cellDate = new Date(cellYear, cellMonth, dayNumber);
+    const cellKey = formatDateInput(cellDate);
+
+    if (muted) cell.classList.add("muted");
+    if (cellKey === selectedKey) cell.classList.add("selected");
+
+    const number = document.createElement("div");
+    number.className = "calendar-day-number";
+    number.textContent = dayNumber;
+
+    const dots = document.createElement("div");
+    dots.className = "calendar-dots";
+    const titles = document.createElement("div");
+    titles.className = "calendar-titles";
+
+    const dayEvents = state.calendar.events.filter((event) => {
+      const start = new Date(event.start_time);
+      const end = new Date(event.end_time);
+      return cellDate >= startOfDay(start) && cellDate <= startOfDay(end);
+    });
+
+    const types = new Set(dayEvents.map((event) => event.type));
+    types.forEach((type) => {
+      const dot = document.createElement("span");
+      dot.className = "calendar-dot";
+      if (type === "Confirmed") dot.classList.add("dot-confirmed");
+      if (type === "Hold") dot.classList.add("dot-hold");
+      if (type === "Blackout") dot.classList.add("dot-blackout");
+      dots.appendChild(dot);
+    });
+
+    dayEvents.slice(0, 2).forEach((event) => {
+      const item = document.createElement("button");
+      item.className = "calendar-title-item";
+      item.textContent = event.title || event.type;
+      item.addEventListener("click", (evt) => {
+        evt.stopPropagation();
+        openContractForEvent(event.id);
+      });
+      titles.appendChild(item);
+    });
+
+    const hasSignedContract = dayEvents.some((event) =>
+      state.calendar.contracts.find(
+        (contract) => contract.event_id === event.id && contract.file_path
+      )
+    );
+    const hasDraftContract = dayEvents.some((event) =>
+      state.calendar.contracts.find(
+        (contract) => contract.event_id === event.id && !contract.file_path
+      )
+    );
+    if (hasSignedContract) {
+      const clip = document.createElement("div");
+      clip.className = "calendar-clip";
+      clip.textContent = "📎 Contract";
+      titles.appendChild(clip);
+    } else if (hasDraftContract) {
+      const draft = document.createElement("div");
+      draft.className = "calendar-clip";
+      draft.textContent = "Draft contract";
+      titles.appendChild(draft);
+    }
+
+    cell.appendChild(number);
+    cell.appendChild(dots);
+    cell.appendChild(titles);
+    cell.addEventListener("click", () => {
+      state.calendar.selectedDate = cellKey;
+      renderCalendar();
+      populateCalendarForm(cellKey);
+      updateEventList();
+    });
+
+    grid.appendChild(cell);
+  }
+}
+
+function populateCalendarForm(dateValue) {
+  const startDate = document.getElementById("calendarStartDate");
+  const endDate = document.getElementById("calendarEndDate");
+  if (startDate && !startDate.value) startDate.value = dateValue;
+  if (endDate && !endDate.value) endDate.value = dateValue;
+}
+
+function updateEventList() {
+  const list = document.getElementById("eventList");
+  const selectedLabel = document.getElementById("selectedEventLabel");
+  if (!list) return;
+
+  const selected = state.calendar.selectedDate || formatDateInput(new Date());
+  const selectedDate = parseLocalDate(selected);
+  if (!selectedDate) return;
+
+  const events = state.calendar.events.filter((event) => {
+    const start = new Date(event.start_time);
+    const end = new Date(event.end_time);
+    return selectedDate >= startOfDay(start) && selectedDate <= startOfDay(end);
+  });
+
+  if (!events.length) {
+    list.innerHTML = "<p class=\"muted\">No events for this date.</p>";
+    state.calendar.selectedEventId = "";
+    if (selectedLabel) selectedLabel.textContent = "Selected event: None";
+    return;
+  }
+
+  list.innerHTML = "";
+  events.forEach((event) => {
+    const card = document.createElement("div");
+    card.className = "event-card";
+    if (state.calendar.selectedEventId === event.id) {
+      card.classList.add("selected");
+    }
+    const header = document.createElement("header");
+    header.innerHTML = `<span>${event.title || event.type}</span><span>${event.type}</span>`;
+    header.addEventListener("click", () => {
+      openContractForEvent(event.id);
+    });
+    const meta = document.createElement("div");
+    meta.className = "event-meta";
+    meta.textContent = `${formatShortDateTime(event.start_time)} → ${formatShortDateTime(
+      event.end_time
+    )}`;
+    meta.addEventListener("click", () => {
+      openContractForEvent(event.id);
+    });
+    const notes = document.createElement("div");
+    notes.className = "event-meta";
+    notes.textContent = event.notes || "";
+
+    const actions = document.createElement("div");
+    actions.className = "event-actions";
+    const selectBtn = document.createElement("button");
+    selectBtn.className = "btn ghost";
+    selectBtn.textContent = "Select";
+    selectBtn.addEventListener("click", () => {
+      state.calendar.selectedEventId = event.id;
+      if (selectedLabel) {
+        selectedLabel.textContent = `Selected event: ${event.title || event.type}`;
+      }
+      updateEventList();
+      updateContractList();
+    });
+    actions.appendChild(selectBtn);
+    const del = document.createElement("button");
+    del.className = "btn ghost";
+    del.textContent = "Delete";
+    del.addEventListener("click", () => deleteCalendarEvent(event.id));
+    actions.appendChild(del);
+
+    card.appendChild(header);
+    card.appendChild(meta);
+    if (event.notes) card.appendChild(notes);
+    const contract = state.calendar.contracts.find((item) => item.event_id === event.id);
+    if (contract && !contract.file_path) {
+      const badge = document.createElement("span");
+      badge.className = "badge-inline draft";
+      badge.textContent = "Draft contract";
+      card.appendChild(badge);
+    }
+    if (contract && contract.file_path) {
+      const link = document.createElement("button");
+      link.className = "btn ghost";
+      link.textContent = "View contract";
+      link.addEventListener("click", (evt) => {
+        evt.preventDefault();
+        openContractForEvent(event.id);
+      });
+      card.appendChild(link);
+    }
+    card.appendChild(actions);
+    list.appendChild(card);
+  });
+
+  if (selectedLabel) {
+    const current = events.find((item) => item.id === state.calendar.selectedEventId);
+    selectedLabel.textContent = current
+      ? `Selected event: ${current.title || current.type}`
+      : "Selected event: None";
+  }
+}
+
+async function deleteCalendarEvent(id) {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) return;
+  await client.from("events").delete().eq("id", id);
+  await fetchEventsForMonth();
+  await fetchContracts();
+}
+
+async function handleCalendarSave() {
+  const client = state.calendar.client;
+  const warning = document.getElementById("calendarConflict");
+  const pinWrap = document.getElementById("overridePinWrap");
+  const pinInput = document.getElementById("overridePinInput");
+
+  if (!client || !state.calendar.session) {
+    updateSupabaseStatus("Sign in to save events.", true);
+    return;
+  }
+
+  const type = document.getElementById("calendarType").value;
+  const title = document.getElementById("calendarEventTitle").value.trim();
+  const startDate = document.getElementById("calendarStartDate").value;
+  const startTime = document.getElementById("calendarStartTime").value;
+  let endDate = document.getElementById("calendarEndDate").value;
+  const endTime = document.getElementById("calendarEndTime").value;
+  const notes = document.getElementById("calendarNotes").value.trim();
+
+  if (!endDate && startDate) endDate = startDate;
+
+  const start = combineDateTime(startDate, startTime);
+  const end = combineDateTime(endDate, endTime);
+
+  if (!start || !end || end <= start) {
+    updateSupabaseStatus("Start/end date and time are required.", true);
+    return;
+  }
+
+  const { data: conflicts, error } = await client
+    .from("events")
+    .select("*")
+    .lt("start_time", end.toISOString())
+    .gt("end_time", start.toISOString());
+
+  if (error) {
+    updateSupabaseStatus("Could not check conflicts.", true);
+    return;
+  }
+
+  const conflictList = (conflicts || []).filter((event) => event.type !== "Blackout");
+  if (conflictList.length) {
+    warning.classList.remove("hidden");
+    warning.textContent = `Conflict: ${conflictList
+      .map((event) => event.title || event.type)
+      .join(", ")}. Enter PIN to override.`;
+    pinWrap.classList.remove("hidden");
+
+    if (!pinInput.value || pinInput.value !== state.calendar.overridePin) {
+      updateSupabaseStatus("Override PIN required for conflicting events.", true);
+      return;
+    }
+    warning.textContent = "Override accepted. Saving event...";
+  } else {
+    warning.classList.add("hidden");
+    pinWrap.classList.add("hidden");
+    if (pinInput) pinInput.value = "";
+  }
+
+  const { error: insertError } = await client.from("events").insert({
+    type,
+    title,
+    start_time: start.toISOString(),
+    end_time: end.toISOString(),
+    notes,
+    override: conflictList.length > 0,
+  });
+
+  if (insertError) {
+    updateSupabaseStatus("Could not save event.", true);
+    return;
+  }
+
+  updateSupabaseStatus("Event saved.");
+  clearCalendarForm();
+  await fetchEventsForMonth();
+}
+
+function clearCalendarForm() {
+  const ids = [
+    "calendarEventTitle",
+    "calendarStartTime",
+    "calendarEndTime",
+    "calendarNotes",
+  ];
+  ids.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+}
+
+async function handleContractUpload() {
+  const client = state.calendar.client;
+  const status = document.getElementById("contractStatus");
+  if (!client || !state.calendar.session) {
+    if (status) status.textContent = "Sign in to upload.";
+    return;
+  }
+
+  const name = document.getElementById("contractName").value.trim();
+  const fileInput = document.getElementById("contractFile");
+  const eventId = document.getElementById("contractEventId").value || null;
+  const file = fileInput.files[0];
+
+  if (!file) {
+    if (status) status.textContent = "Choose a PDF to upload.";
+    return;
+  }
+
+  const safeName = name || file.name.replace(/\\s+/g, "-");
+  const path = `contracts/${Date.now()}-${safeName}`.replace(/[^a-zA-Z0-9-_/.]/g, "");
+
+  const { error: uploadError } = await client
+    .storage
+    .from("signed-contracts")
+    .upload(path, file, { upsert: true });
+
+  if (uploadError) {
+    if (status) status.textContent = "Upload failed.";
+    return;
+  }
+
+  if (eventId) {
+    const { data: existing } = await client
+      .from("contracts")
+      .select("*")
+      .eq("event_id", eventId)
+      .limit(1);
+    if (existing && existing.length) {
+      const { error: updateError } = await client
+        .from("contracts")
+        .update({ file_path: path, name: safeName, status: "Signed" })
+        .eq("id", existing[0].id);
+      if (updateError) {
+        if (status) status.textContent = "Saved file but could not update contract.";
+        return;
+      }
+    } else {
+      const { error: insertError } = await client.from("contracts").insert({
+        name: safeName,
+        file_path: path,
+        event_id: eventId,
+        status: "Signed",
+      });
+      if (insertError) {
+        if (status) status.textContent = "Saved file but could not store metadata.";
+        return;
+      }
+    }
+  } else {
+    const { error: insertError } = await client.from("contracts").insert({
+      name: safeName,
+      file_path: path,
+      event_id: eventId,
+      status: "Signed",
+    });
+    if (insertError) {
+      if (status) status.textContent = "Saved file but could not store metadata.";
+      return;
+    }
+  }
+
+  if (status) status.textContent = "Contract uploaded.";
+  fileInput.value = "";
+  document.getElementById("contractName").value = "";
+  await fetchContracts();
+  if (eventId) {
+    await openContractForEvent(eventId);
+  }
+}
+
+function updateContractList() {
+  const list = document.getElementById("contractList");
+  if (!list) return;
+  if (!state.calendar.contracts.length) {
+    list.innerHTML = "<p class=\"muted\">No signed contracts yet.</p>";
+    return;
+  }
+
+  list.innerHTML = "";
+  state.calendar.contracts.forEach((contract) => {
+    const card = document.createElement("div");
+    card.className = "event-card";
+    const header = document.createElement("header");
+    header.innerHTML = `<span>${contract.name}</span><span>${formatShortDateTime(
+      contract.uploaded_at
+    )}</span>`;
+    if (!contract.event_id && state.calendar.selectedEventId) {
+      const linkBtn = document.createElement("button");
+      linkBtn.className = "btn ghost";
+      linkBtn.textContent = "Link to selected event";
+      linkBtn.addEventListener("click", async () => {
+        const client = state.calendar.client;
+        if (!client || !state.calendar.session) return;
+        const { error } = await client
+          .from("contracts")
+          .update({ event_id: state.calendar.selectedEventId })
+          .eq("id", contract.id);
+        if (error) {
+          updateSupabaseStatus("Could not link contract to event.", true);
+          return;
+        }
+        await fetchContracts();
+        await fetchEventsForMonth();
+        updateSupabaseStatus("Contract linked to event.");
+      });
+      card.appendChild(linkBtn);
+    }
+    const link = document.createElement("button");
+    link.className = "btn ghost";
+    link.textContent = "Download";
+    link.addEventListener("click", async (event) => {
+      event.preventDefault();
+      const client = state.calendar.client;
+      if (!client) return;
+      const { data, error } = await client
+        .storage
+        .from("signed-contracts")
+        .createSignedUrl(contract.file_path, 60);
+      if (!error && data?.signedUrl) {
+        window.open(data.signedUrl, "_blank");
+      }
+    });
+    card.appendChild(header);
+    card.appendChild(link);
+    list.appendChild(card);
+  });
+}
+
+function updateContractEventOptions() {
+  const select = document.getElementById("contractEventId");
+  if (!select) return;
+  select.innerHTML = "<option value=\"\">No link</option>";
+  state.calendar.events.forEach((event) => {
+    const option = document.createElement("option");
+    option.value = event.id;
+    option.textContent = `${event.title || event.type} (${formatShortDateTime(
+      event.start_time
+    )})`;
+    select.appendChild(option);
+  });
+}
+
+async function ensureHoldEventForAgreement() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) return;
+
+  const date = state.agreement.performanceDate;
+  const startTime = state.agreement.performanceTime;
+  const endTime = state.agreement.performanceEndTime;
+  const title = state.agreement.clientName || "Hold";
+
+  const start = combineDateTime(date, startTime);
+  const end = combineDateTime(date, endTime);
+  if (!start || !end || end <= start) return;
+
+  const { data: existing } = await client
+    .from("events")
+    .select("*")
+    .eq("type", "Hold")
+    .eq("title", title)
+    .eq("start_time", start.toISOString())
+    .eq("end_time", end.toISOString())
+    .limit(1);
+
+  let eventId = existing && existing.length ? existing[0].id : null;
+
+  if (!eventId) {
+    const { data, error } = await client
+      .from("events")
+      .insert({
+        type: "Hold",
+        title,
+        start_time: start.toISOString(),
+        end_time: end.toISOString(),
+        notes: "Auto-created from agreement",
+        override: false,
+      })
+      .select()
+      .single();
+    if (error) return;
+    eventId = data.id;
+  }
+
+  const { data: existingContract } = await client
+    .from("contracts")
+    .select("*")
+    .eq("event_id", eventId)
+    .limit(1);
+
+  if (!existingContract || !existingContract.length) {
+    await client.from("contracts").insert({
+      name: `${title} Agreement`,
+      file_path: null,
+      event_id: eventId,
+      status: "Draft",
+    });
+  }
+
+  await fetchEventsForMonth();
+  await fetchContracts();
+}
+
+function syncAgreementForm() {
+  agreementFields.forEach((field) => {
+    const el = document.getElementById(field);
+    if (!el) return;
+    if (el.type === "checkbox") {
+      el.checked = state.agreement[field];
+    } else {
+      el.value = state.agreement[field];
+    }
+  });
+}
+
+function syncInvoiceForm() {
+  const map = {
+    invoiceNumber: "invoiceNumber",
+    invoiceClientName: "clientName",
+    invoiceClientEmail: "clientEmail",
+    invoiceIssueDate: "issueDate",
+    invoiceDueDate: "dueDate",
+    invoiceDescription: "description",
+    invoicePerformanceFee: "performanceFee",
+    invoiceDepositDue: "depositDue",
+    invoiceDepositPaid: "depositPaid",
+    invoiceAddons: "addons",
+    invoiceTotalOverride: "totalOverride",
+  };
+
+  Object.keys(map).forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = state.invoice[map[id]];
+  });
+}
+
+function syncReceiptForm() {
+  const map = {
+    receiptNumber: "receiptNumber",
+    receiptClientName: "clientName",
+    receiptPaymentDate: "paymentDate",
+    receiptAmountPaid: "amountPaid",
+    receiptPaymentMethod: "paymentMethod",
+    receiptRelatedInvoice: "relatedInvoice",
+  };
+
+  Object.keys(map).forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = state.receipt[map[id]];
+  });
+}
+
+function setupListeners() {
+  agreementFields.forEach((field) => {
+    const el = document.getElementById(field);
+    if (!el) return;
+    const handler = () => {
+      if (el.type === "checkbox") {
+        state.agreement[field] = el.checked;
+      } else {
+        state.agreement[field] = el.value;
+      }
+      if (field === "lodgingEnabled") {
+        updateAgreementPreview();
+      }
+      if (field === "performanceDate") {
+        updateHolidayFromDate();
+      }
+      if (field === "chargeNonPerformance" && !state.agreement.chargeNonPerformance) {
+        state.agreement.nonPerformanceHours = "";
+        const nonPerformanceField = document.getElementById("nonPerformanceHours");
+        if (nonPerformanceField) nonPerformanceField.value = "";
+      }
+      updateAgreementPreview();
+      saveDraft();
+    };
+    el.addEventListener("input", handler);
+    el.addEventListener("change", handler);
+  });
+
+  invoiceFields.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", () => {
+      const map = {
+        invoiceNumber: "invoiceNumber",
+        invoiceClientName: "clientName",
+        invoiceClientEmail: "clientEmail",
+        invoiceIssueDate: "issueDate",
+        invoiceDueDate: "dueDate",
+        invoiceDescription: "description",
+        invoicePerformanceFee: "performanceFee",
+        invoiceDepositDue: "depositDue",
+        invoiceDepositPaid: "depositPaid",
+        invoiceAddons: "addons",
+        invoiceTotalOverride: "totalOverride",
+      };
+      state.invoice[map[id]] = el.value;
+      updateInvoicePreview();
+    });
+  });
+
+  receiptFields.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", () => {
+      const map = {
+        receiptNumber: "receiptNumber",
+        receiptClientName: "clientName",
+        receiptPaymentDate: "paymentDate",
+        receiptAmountPaid: "amountPaid",
+        receiptPaymentMethod: "paymentMethod",
+        receiptRelatedInvoice: "relatedInvoice",
+      };
+      state.receipt[map[id]] = el.value;
+      updateReceiptPreview();
+    });
+  });
+
+  const invoiceBandFull = document.getElementById("invoiceBandFull");
+  const invoiceBandDuo = document.getElementById("invoiceBandDuo");
+  const invoiceDescription = document.getElementById("invoiceDescription");
+  if (invoiceBandFull && invoiceBandDuo && invoiceDescription) {
+    invoiceBandFull.addEventListener("change", () => {
+      if (invoiceBandFull.checked) {
+        invoiceBandDuo.checked = false;
+        invoiceDescription.value = "Live performance - Full Band";
+        state.invoice.description = invoiceDescription.value;
+        updateInvoicePreview();
+      }
+    });
+    invoiceBandDuo.addEventListener("change", () => {
+      if (invoiceBandDuo.checked) {
+        invoiceBandFull.checked = false;
+        invoiceDescription.value = "Live performance - Duo";
+        state.invoice.description = invoiceDescription.value;
+        updateInvoicePreview();
+      }
+    });
+  }
+
+  document.querySelectorAll(".tab[data-tab]").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const target = tab.getAttribute("data-tab");
+      if (!target) return;
+      state.activeTab = target;
+      document.querySelectorAll(".tab[data-tab]").forEach((btn) => {
+        btn.classList.toggle("active", btn === tab);
+      });
+      document.getElementById("agreementTab").classList.toggle("hidden", target !== "agreement");
+      document.getElementById("invoiceTab").classList.toggle("hidden", target !== "invoice");
+      document.getElementById("receiptTab").classList.toggle("hidden", target !== "receipt");
+      document.getElementById("calendarTab").classList.toggle("hidden", target !== "calendar");
+      updateMessagePreview();
+    });
+  });
+
+  document.getElementById("agreementPdf").addEventListener("click", () => generatePdf("agreement"));
+  document.getElementById("invoicePdf").addEventListener("click", () => generatePdf("invoice"));
+  document.getElementById("receiptPdf").addEventListener("click", () => generatePdf("receipt"));
+  document.getElementById("generatePdf").addEventListener("click", () => generatePdf(state.activeTab));
+  document.getElementById("sharePdf").addEventListener("click", shareLastPdf);
+  document.getElementById("copyMessage").addEventListener("click", copyMessage);
+
+  const signInBtn = document.getElementById("signIn");
+  if (signInBtn) {
+    signInBtn.addEventListener("click", async () => {
+      const email = document.getElementById("authEmail").value.trim();
+      const password = document.getElementById("authPassword").value.trim();
+      const client = state.calendar.client;
+      if (!client) {
+        updateSupabaseStatus("Supabase client not available.", true);
+        return;
+      }
+      const { error } = await client.auth.signInWithPassword({ email, password });
+      if (error) {
+        updateSupabaseStatus(`Sign in failed: ${error.message}`, true);
+        return;
+      }
+      await refreshAuthState();
+      await loadOverridePin();
+      await fetchEventsForMonth();
+      await fetchContracts();
+      await fetchInvoices();
+      await fetchReceipts();
+    });
+  }
+
+  const signOutBtn = document.getElementById("signOut");
+  if (signOutBtn) {
+    signOutBtn.addEventListener("click", async () => {
+      const client = state.calendar.client;
+      if (!client) return;
+      await client.auth.signOut();
+      state.calendar.session = null;
+      updateSupabaseStatus("Signed out.");
+      state.calendar.events = [];
+      state.calendar.contracts = [];
+      state.billing.invoices = [];
+      state.billing.receipts = [];
+      renderCalendar();
+      updateEventList();
+      updateContractList();
+      updateInvoiceList();
+      updateReceiptList();
+    });
+  }
+
+  const calendarPrev = document.getElementById("calendarPrev");
+  const calendarNext = document.getElementById("calendarNext");
+  if (calendarPrev) {
+    calendarPrev.addEventListener("click", () => {
+      state.calendar.monthOffset -= 1;
+      fetchEventsForMonth();
+    });
+  }
+  if (calendarNext) {
+    calendarNext.addEventListener("click", () => {
+      state.calendar.monthOffset += 1;
+      fetchEventsForMonth();
+    });
+  }
+
+  const calendarSave = document.getElementById("calendarSave");
+  if (calendarSave) calendarSave.addEventListener("click", handleCalendarSave);
+  const calendarClear = document.getElementById("calendarClear");
+  if (calendarClear) calendarClear.addEventListener("click", clearCalendarForm);
+
+  const calendarStartDate = document.getElementById("calendarStartDate");
+  if (calendarStartDate) {
+    calendarStartDate.addEventListener("change", () => {
+      if (calendarStartDate.value) {
+        state.calendar.selectedDate = calendarStartDate.value;
+        renderCalendar();
+        updateEventList();
+      }
+    });
+  }
+
+  const calendarAllDay = document.getElementById("calendarAllDay");
+  if (calendarAllDay) {
+    calendarAllDay.addEventListener("change", () => {
+      const typeSelect = document.getElementById("calendarType");
+      const startTime = document.getElementById("calendarStartTime");
+      const endTime = document.getElementById("calendarEndTime");
+      if (calendarAllDay.checked) {
+        if (typeSelect) typeSelect.value = "Blackout";
+        if (startTime) startTime.value = "00:00";
+        if (endTime) endTime.value = "23:59";
+        if (startTime) startTime.setAttribute("disabled", "disabled");
+        if (endTime) endTime.setAttribute("disabled", "disabled");
+      } else {
+        if (startTime) startTime.removeAttribute("disabled");
+        if (endTime) endTime.removeAttribute("disabled");
+      }
+    });
+  }
+
+  const uploadContract = document.getElementById("uploadContract");
+  if (uploadContract) uploadContract.addEventListener("click", handleContractUpload);
+
+  const invoiceSave = document.getElementById("invoiceSave");
+  if (invoiceSave) invoiceSave.addEventListener("click", saveInvoiceToSupabase);
+  const invoiceUpload = document.getElementById("invoiceUpload");
+  if (invoiceUpload) invoiceUpload.addEventListener("click", uploadInvoicePdf);
+  const receiptSave = document.getElementById("receiptSave");
+  if (receiptSave) receiptSave.addEventListener("click", saveReceiptToSupabase);
+  const receiptUpload = document.getElementById("receiptUpload");
+  if (receiptUpload) receiptUpload.addEventListener("click", uploadReceiptPdf);
+
+  const toggleMessage = document.getElementById("toggleMessage");
+  if (toggleMessage) {
+    toggleMessage.addEventListener("click", () => {
+      const body = document.getElementById("messageBody");
+      if (!body) return;
+      body.classList.toggle("hidden");
+      toggleMessage.textContent = body.classList.contains("hidden")
+        ? "Show message"
+        : "Hide message";
+    });
+  }
+}
+
+async function generatePdf(type) {
+  const statusEl = document.getElementById("pdfStatus");
+  const shareButton = document.getElementById("sharePdf");
+  if (!window.html2canvas || !window.jspdf) {
+    statusEl.textContent = "PDF tools not loaded. Using Print instead.";
+    window.print();
+    return;
+  }
+
+  statusEl.textContent = "Generating PDF...";
+
+  const previewMap = {
+    agreement: "agreementPreview",
+    invoice: "invoicePreview",
+    receipt: "receiptPreview",
+  };
+
+  const target = document.getElementById(previewMap[type]);
+  if (!target) return;
+
+  document.body.classList.add("pdf-export");
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+
+  let canvas = null;
+  try {
+    canvas = await window.html2canvas(target, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      useCORS: true,
+    });
+  } catch (error) {
+    statusEl.textContent = "PDF generation failed. Try refreshing the page.";
+    document.body.classList.remove("pdf-export");
+    return;
+  }
+  document.body.classList.remove("pdf-export");
+
+  const imgData = canvas.toDataURL("image/png");
+  const pdf = new window.jspdf.jsPDF({
+    orientation: "portrait",
+    unit: "pt",
+    format: "letter",
+  });
+
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = pdf.internal.pageSize.getHeight();
+  const margin = 0;
+  const maxWidth = pdfWidth - margin * 2;
+  const maxHeight = pdfHeight - margin * 2;
+  const scale = Math.min(maxWidth / canvas.width, maxHeight / canvas.height);
+  const renderWidth = canvas.width * scale;
+  const renderHeight = canvas.height * scale;
+  const xOffset = (pdfWidth - renderWidth) / 2;
+  const yOffset = (pdfHeight - renderHeight) / 2;
+
+  pdf.addImage(imgData, "PNG", xOffset, yOffset, renderWidth, renderHeight);
+
+  const fileNameMap = {
+    agreement: `RustAndRuin-Agreement-${state.agreement.clientName || "Client"}.pdf`,
+    invoice: `RustAndRuin-Invoice-${state.invoice.invoiceNumber}.pdf`,
+    receipt: `RustAndRuin-Receipt-${state.receipt.receiptNumber}.pdf`,
+  };
+
+  const fileName = fileNameMap[type];
+  pdf.save(fileName);
+  lastPdfBlob = pdf.output("blob");
+  lastPdfName = fileName;
+  if (shareButton) {
+    shareButton.disabled = !navigator.canShare;
+  }
+  statusEl.textContent = "PDF generated.";
+  setTimeout(() => {
+    statusEl.textContent = "";
+  }, 3000);
+
+  if (type === "agreement") {
+    await ensureHoldEventForAgreement();
+  } else if (type === "invoice") {
+    await saveInvoiceToSupabaseInternal(true);
+    if (lastPdfBlob) {
+      await autoSaveInvoicePdf(lastPdfBlob, fileName);
+    }
+  } else if (type === "receipt") {
+    await saveReceiptToSupabaseInternal(true);
+    if (lastPdfBlob) {
+      await autoSaveReceiptPdf(lastPdfBlob, fileName);
+    }
+  }
+}
+
+let lastPdfBlob = null;
+let lastPdfName = "RustAndRuin-Agreement.pdf";
+
+async function shareLastPdf() {
+  const statusEl = document.getElementById("pdfStatus");
+  if (!lastPdfBlob) {
+    statusEl.textContent = "Generate a PDF first.";
+    return;
+  }
+
+  const file = new File([lastPdfBlob], lastPdfName, { type: "application/pdf" });
+  if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: "Rust and Ruin Agreement",
+      });
+      statusEl.textContent = "Shared.";
+    } catch (error) {
+      statusEl.textContent = "Share canceled.";
+    }
+  } else {
+    statusEl.textContent = "Sharing not supported. Use the downloaded PDF.";
+  }
+}
+
+async function copyMessage() {
+  const statusEl = document.getElementById("pdfStatus");
+  const message = buildMessage(state.activeTab);
+  const payload = `${message.subject}\n\n${message.body}`;
+
+  try {
+    await navigator.clipboard.writeText(payload);
+    statusEl.textContent = "Message copied.";
+  } catch (error) {
+    statusEl.textContent = "Could not copy message.";
+  }
+}
+
+function init() {
+  loadDraft();
+  loadCalendarSettings();
+  if (!state.agreement.agreementCreatedDate) {
+    state.agreement.agreementCreatedDate = todayString();
+  }
+  if (!state.agreement.chargeNonPerformance) {
+    state.agreement.nonPerformanceHours = "";
+  }
+  syncAgreementForm();
+  syncInvoiceForm();
+  syncReceiptForm();
+  const overridePinInput = document.getElementById("overridePin");
+  if (overridePinInput) {
+    overridePinInput.value = state.calendar.overridePin ? "••••" : "";
+  }
+  state.calendar.selectedDate = formatDateInput(new Date());
+  initSupabaseClient();
+  refreshAuthState();
+  updateHolidayFromDate();
+  updateAgreementPreview();
+  updateInvoicePreview();
+  updateReceiptPreview();
+  updateMessagePreview();
+  setupListeners();
+  renderCalendar();
+  fetchEventsForMonth();
+  fetchContracts();
+  fetchInvoices();
+  fetchReceipts();
+}
+
+init();

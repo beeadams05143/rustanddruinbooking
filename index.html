@@ -1,0 +1,916 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rust and Ruin Booking Suite</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Work+Sans:wght@300;400;500;600&display=swap"
+    />
+  </head>
+  <body>
+    <div class="page">
+      <header class="app-header">
+        <div>
+          <img class="logo" src="logo.png" alt="Rust and Ruin logo" />
+          <p class="eyebrow">Rust and Ruin Booking Suite</p>
+          <h1>Performance Agreements, Invoices, and Receipts</h1>
+          <p class="subhead">
+            Build, sign, and export client-ready paperwork in minutes.
+          </p>
+        </div>
+        <div class="band-card">
+          <p class="band-title">Rust and Ruin</p>
+          <p>That 70s Retro Band</p>
+          <p>Chester, VT</p>
+        </div>
+      </header>
+
+      <nav class="tabs">
+        <button class="tab active" data-tab="agreement">Agreement</button>
+        <button class="tab" data-tab="invoice">Invoice</button>
+        <button class="tab" data-tab="receipt">Receipt</button>
+        <button class="tab" data-tab="calendar">Calendar</button>
+        <button class="tab" data-tab="musicians">Musicians</button>
+        <button class="tab cta" id="generatePdf">Generate PDF</button>
+        <button class="tab" id="sharePdf" disabled>Share PDF</button>
+        <button class="tab" id="copyMessage">Copy Message</button>
+      </nav>
+
+      <p id="pdfStatus" class="pdf-status"></p>
+      <div class="message-preview">
+        <div class="message-header">
+          <h3 id="messageTitle">Agreement Message</h3>
+          <button class="btn ghost" id="toggleMessage">Show message</button>
+        </div>
+        <div id="messageBody" class="message-body hidden"></div>
+      </div>
+
+      <main class="layout" id="agreementTab">
+        <section class="panel form-panel">
+          <h2>Agreement Details</h2>
+
+          <div class="form-section">
+            <h3>Client</h3>
+            <div class="form-grid">
+              <label>
+                Client name
+                <input id="clientName" placeholder="Jane Booker" />
+              </label>
+              <label>
+                Client email
+                <input id="clientEmail" type="email" placeholder="jane@email.com" />
+              </label>
+              <label>
+                Client phone
+                <input id="clientPhone" placeholder="(802) 555-0101" />
+              </label>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>Event</h3>
+            <div class="form-grid">
+              <label>
+                Performance date
+                <input id="performanceDate" type="date" />
+              </label>
+              <div class="checkbox-group">
+                <label class="checkbox">
+                  <input id="holidayWeekend" type="checkbox" />
+                  Holiday weekend (holiday rate)
+                </label>
+                <p id="holidayWarning" class="holiday-warning hidden">
+                  THIS IS A HOLIDAY WEEKEND
+                </p>
+              </div>
+              <label>
+                Performance start time (on stage)
+                <input id="performanceTime" type="time" />
+              </label>
+              <label>
+                Performance end time (on stage)
+                <input id="performanceEndTime" type="time" />
+              </label>
+              <label>
+                Performance hours (on stage)
+                <input id="hours" placeholder="3" />
+              </label>
+              <div class="field-stack">
+                <label>
+                  Non-performance hours on site
+                  <input id="nonPerformanceHours" disabled />
+                </label>
+                <label class="checkbox inline-note">
+                  <input id="chargeNonPerformance" type="checkbox" />
+                  Charge for non-performance time
+                </label>
+              </div>
+              <label>
+                Band configuration
+                <select id="bandConfig">
+                  <option>Full Band</option>
+                  <option>Duo</option>
+                </select>
+              </label>
+              <label>
+                Additional musicians (beyond band size)
+                <input id="additionalMusicians" placeholder="0" />
+              </label>
+              <label class="checkbox">
+                <input id="backlineSound" type="checkbox" />
+                Backline / sound tech (+$50 per show)
+              </label>
+              <label>
+                Venue address (GPS)
+                <textarea id="venueAddress" placeholder="123 Main St, City, ST 00000"></textarea>
+              </label>
+            </div>
+            <p class="section-total">
+              Performance time total: <span data-fill="performanceHoursTotal"></span> hours
+            </p>
+            <p class="section-total">
+              Event subtotal (before add-ons & travel): <span data-fill="eventSubtotal"></span>
+            </p>
+          </div>
+
+          <div class="form-section">
+            <h3>Travel &amp; Lodging</h3>
+            <div class="form-grid">
+              <label class="checkbox">
+                <input id="travelOutside" type="checkbox" />
+                Travel time is outside of 2 hours from 56 Kevadus Circle
+              </label>
+              <div id="travelDetails" class="hidden">
+                <label>
+                  Hours outside of 2-hour radius
+                  <input id="travelHours" placeholder="0.5" />
+                </label>
+                <label>
+                  Travel band size
+                  <select id="travelBand">
+                    <option>Full Band</option>
+                    <option>Duo</option>
+                  </select>
+                </label>
+              </div>
+              <label class="checkbox">
+                <input id="lodgingEnabled" type="checkbox" />
+                Lodging needed (camp/site)
+              </label>
+              <label id="lodgingRateWrap" class="hidden">
+                Lodging rate
+                <select id="lodgingRate">
+                  <option value="250">Full Band ($250)</option>
+                  <option value="125">Duo ($125)</option>
+                </select>
+              </label>
+            </div>
+            <p class="section-total">
+              Travel &amp; lodging total: <span data-fill="travelLodgingTotal"></span>
+            </p>
+          </div>
+
+          <div class="form-section">
+            <h3>Add-ons</h3>
+            <div class="addon-list">
+              <label class="checkbox">
+                <input id="addonTent" type="checkbox" />
+                Tent (+$25)
+              </label>
+              <label class="checkbox">
+                <input id="addonLights" type="checkbox" />
+                Lights (+$10)
+              </label>
+              <label class="checkbox">
+                <input id="addonGenerator" type="checkbox" />
+                Generator (+$75)
+              </label>
+              <label class="checkbox">
+                <input id="addonAdditionalSong" type="checkbox" />
+                Special request song performance (outside our catalog, +$50)
+              </label>
+              <label class="checkbox">
+                <input id="addonRecordedSong" type="checkbox" />
+                Recorded song beyond first (+$5)
+              </label>
+              <label class="checkbox">
+                <input id="addonMCing" type="checkbox" />
+                MC&apos;ing (event announcements, introductions, or timeline cues, +$50)
+              </label>
+              <label class="checkbox">
+                <input id="addonDJing" type="checkbox" />
+                DJ&apos;ing (recorded music sets, dances, or background playlists, +$50)
+              </label>
+            </div>
+            <label class="addon-notes">
+              Requested songs (details)
+              <textarea id="requestedSongs" placeholder="List requested songs here..."></textarea>
+            </label>
+            <p class="section-total">
+              Add-ons total: <span data-fill="addonTotal"></span>
+            </p>
+          </div>
+
+          <div class="form-section">
+            <h3>Fees &amp; Deposits</h3>
+            <div class="form-grid">
+              <label>
+                Performance fee
+                <input id="feeTotal" placeholder="1200" />
+              </label>
+              <label>
+                Deposit amount
+                <input id="depositAmount" placeholder="50" />
+              </label>
+              <label class="checkbox">
+                <input id="depositWaived" type="checkbox" />
+                Waive deposit (preferred venue)
+              </label>
+              <div class="field-stack">
+                <label class="checkbox">
+                  <input id="promoCredit" type="checkbox" />
+                  $5 deposit credit for promo post + tag
+                </label>
+                <label class="checkbox">
+                  <input id="liveVideoCredit" type="checkbox" />
+                  $10 deposit credit for live video + tag
+                </label>
+                <p class="inline-help">
+                  By selecting credits, client agrees to make the posts.
+                </p>
+              </div>
+              <label>
+                Deposit paid
+                <input id="depositPaid" />
+              </label>
+              <label>
+                Amount due day of
+                <input id="amountDueDayOf" placeholder="$1150" />
+              </label>
+            </div>
+            <p class="section-total">
+              Fees &amp; deposits subtotal: <span data-fill="feesSubtotal"></span>
+            </p>
+            <p class="section-total">
+              Deposit credits: <span data-fill="depositCredits"></span>
+            </p>
+            <p class="section-total">
+              Deposit due: <span data-fill="depositDue"></span>
+            </p>
+          </div>
+
+          <div class="form-footer">
+            <p class="inline-help">Client signs on PDF.</p>
+            <button class="primary" id="agreementPdf">Generate PDF</button>
+          </div>
+        </section>
+
+        <section class="panel preview-panel" aria-label="Agreement preview">
+          <div class="contract" id="agreementPreview">
+            <div class="contract-header">
+              <div>
+                <p class="contract-tag">Performance Contract</p>
+                  <h2>Rust and Ruin</h2>
+              <p class="contract-note">
+                Help us grow. Tag Instagram @Rust and Ruin, Facebook @rustandruinvt.
+              </p>
+              </div>
+              <div class="contract-meta">
+                <p>Full Band / Duo: <span data-fill="bandConfig"></span></p>
+                <p>Agreement created: <span data-fill="agreementCreatedDate"></span></p>
+              </div>
+            </div>
+
+            <div class="contract-section">
+              <h3>1. Fees</h3>
+              <p>
+                Payment of fees: <span data-fill="totalWithDeposit"></span> for
+                <span data-fill="performanceHoursDisplay"></span> hours. Performance date:
+                <span data-fill="performanceDate"></span> from
+                <span data-fill="performanceTime"></span> to
+                <span data-fill="performanceEndTime"></span>. Performance hours (on stage):
+                <span data-fill="performanceHoursDisplay"></span> hours · Non-performance hours on site:
+                <span data-fill="nonPerformanceHoursDisplay"></span> hours · Non-performance time surcharge:
+                <span data-fill="onsiteFee"></span> · Holiday rate surcharge:
+                <span data-fill="holidayFee"></span> · Performance fee:
+                <span data-fill="performanceFeeAuto"></span>. Add-ons total:
+                <span data-fill="addonTotal"></span>. Travel: <span data-fill="travelFee"></span>.
+                Lodging: <span data-fill="lodgingFee"></span>. Backline/sound tech:
+                <span data-fill="backlineFee"></span>. Non-performance time fee:
+                <span data-fill="onsiteFee"></span>. Payment must be made prior to performance. Pay in
+                cash, check to Rust and Ruin, Venmo @rustandruinvt, or PayPal @rustandruin. Deposit:
+                <span data-fill="depositAmount"></span>. Contract is void if not returned within 10 days.
+                <span id="promoCreditsInline" class="hidden">
+                  Promo credits: $5 for a promo post with tag and $10 for a live video with tag. If
+                  selected, client agrees to make those posts. Credits are applied to the deposit.
+                  Tag Instagram @Rust and Ruin, Facebook @rustandruinvt. Deposit credits (promo/live
+                  video) require client to post and tag Rust and Ruin.
+                </span>
+              </p>
+            </div>
+
+            <div class="contract-section">
+              <h3>2. Scheduling, Load-In, Breaks, Play Time</h3>
+              <p>
+                Rust and Ruin arrives one hour before sound check. If providing sound, up to 45 minutes
+                are required to set up and test. A 10-minute break per 90 minutes is typical. Load-in,
+                sound check, and breakdown are included in the performance fee. Non-performance time on
+                site is only billed when additional on-site time is requested by the client or venue
+                (for example, weddings, memorials, or speeches). Non-performance time (if selected) is
+                billed at $50/hour per band member and is prorated to actual time (e.g., 0.25, 0.50,
+                0.75, or 1+ hours). Current billed time:
+                <span data-fill="nonPerformanceHoursDisplay"></span> hours.
+              </p>
+            </div>
+
+            <div class="contract-section">
+              <h3>3. Cover, Additional Lights, Sound Equipment, Mileage</h3>
+              <p>
+                Outdoor events require ground cover and shelter (tent/porch/tarp). Sound and light
+                equipment needs will be noted in add-ons. Travel time from 56 Kevadus Circle:
+                <span data-fill="travelHours"></span> hours outside the 2-hour radius. Travel fee:
+                <span data-fill="travelFee"></span>.
+              </p>
+            </div>
+
+            <div class="contract-section">
+              <h3>4. Cancellation</h3>
+              <p>
+                The deposit is non-refundable. Because bookings are made 90 days in advance and
+                musicians are contracted, cancellations with less than 90 days notice require payment
+                of the full performance fee and the deposit is forfeited.
+              </p>
+            </div>
+
+            <div class="contract-section">
+              <h3>5. Additional Song Requests / MC&apos;ing / DJ&apos;ing · Add-ons</h3>
+              <p>
+                Additional songs beyond the list are $50 each. Recorded song requests include one
+                complimentary request, with additional at $5 each. MC&apos;ing covers event
+                announcements, introductions, and timeline cues. DJ&apos;ing covers curated recorded
+                music sets (for example, dinner background music, first/last dance songs, and
+                transitions between sets). Selected add-ons:
+                <span data-fill="addonsSelected"></span>. Requested songs:
+                <span data-fill="requestedSongs"></span>.
+              </p>
+            </div>
+
+            <div class="contract-summary">
+              <div>
+                <p>Deposit paid: <span data-fill="depositPaid"></span></p>
+                <p>Deposit credits: <span data-fill="depositCredits"></span></p>
+                <p>Deposit due: <span data-fill="depositDue"></span></p>
+                <p>Amount due day of: <span data-fill="amountDueDayOf"></span></p>
+              </div>
+              <div>
+                <div class="summary-header">
+                  <p class="summary-title">Summary</p>
+                  <span class="badge">Auto-calculated</span>
+                </div>
+                <p>
+                  Performance hours (on stage):
+                  <span data-fill="performanceHoursDisplay"></span> hours
+                </p>
+                <p>Performance fee: <span data-fill="performanceFeeAuto"></span></p>
+                <p>Holiday rate surcharge: <span data-fill="holidayFee"></span></p>
+                <p>Add-ons total: <span data-fill="addonTotal"></span></p>
+                <p>Deposit credits: <span data-fill="depositCredits"></span></p>
+                <p>Lodging fee: <span data-fill="lodgingFee"></span></p>
+                <p>Travel fee: <span data-fill="travelFee"></span></p>
+                <p>Non-performance time fee: <span data-fill="onsiteFee"></span></p>
+                <p>Backline / sound tech: <span data-fill="backlineFee"></span></p>
+                <p>Total due w/deposit: <span data-fill="totalWithDeposit"></span></p>
+              </div>
+            </div>
+
+            <div class="contract-signatures">
+              <div>
+                <p>Client name: <span data-fill="clientName"></span></p>
+                <p>Client email: <span data-fill="clientEmail"></span></p>
+                <p>Client phone: <span data-fill="clientPhone"></span></p>
+                <p>Signature: <span data-fill="signatureName"></span></p>
+                <p>Date: <span data-fill="signatureDate"></span></p>
+                <p class="signature-note">
+                  Client signature required. Please sign with a finger/stylus on your phone, then send a
+                  clear photo or scan, or print and sign, return by mail.
+                </p>
+              </div>
+              <div>
+                <p>Manager signature: Josh Adams</p>
+                <p>Venue address: <span data-fill="venueAddress"></span></p>
+              </div>
+            </div>
+
+            <footer class="contract-footer">
+              <p>Rust and Ruin · 56 Kevadus Circle · Chester, VT 05143</p>
+              <p>rustandruinvt@gmail.com · 802-952-6609 (Josh) · 802-952-8225 (Beth)</p>
+              <p>www.rustandruin.info</p>
+            </footer>
+          </div>
+        </section>
+      </main>
+
+      <main class="layout hidden" id="invoiceTab">
+        <section class="panel form-panel">
+          <h2>Invoice Details</h2>
+          <div class="form-grid">
+            <label>
+              Invoice number
+              <input id="invoiceNumber" value="INV-001" />
+            </label>
+            <label>
+              Client name
+              <input id="invoiceClientName" />
+            </label>
+            <label>
+              Client email
+              <input id="invoiceClientEmail" />
+            </label>
+            <label>
+              Issue date
+              <input id="invoiceIssueDate" type="date" />
+            </label>
+            <label>
+              Due date
+              <input id="invoiceDueDate" type="date" />
+            </label>
+            <label>
+              Description
+              <input id="invoiceDescription" value="Live performance" />
+            </label>
+            <div class="checkbox-group">
+              <label class="checkbox">
+                <input id="invoiceBandFull" type="checkbox" />
+                Live performance - Full Band
+              </label>
+              <label class="checkbox">
+                <input id="invoiceBandDuo" type="checkbox" />
+                Live performance - Duo
+              </label>
+            </div>
+            <label>
+              Performance fee
+              <input id="invoicePerformanceFee" />
+            </label>
+            <label>
+              Deposit due (in addition to performance fee)
+              <input id="invoiceDepositDue" />
+            </label>
+            <label>
+              Deposit paid
+              <input id="invoiceDepositPaid" />
+            </label>
+            <label>
+              Add-ons
+              <input id="invoiceAddons" />
+            </label>
+            <label>
+              Manual total override (total due)
+              <input id="invoiceTotalOverride" placeholder="$0.00" />
+              <span class="field-note">Use this only if you want the total due to be exactly this amount.</span>
+            </label>
+          </div>
+          <div class="form-footer">
+            <button class="primary" id="invoicePdf">Generate PDF</button>
+          </div>
+          <div class="form-section">
+            <h3>Saved Invoices</h3>
+            <div class="form-grid">
+              <label>
+                Upload invoice PDF
+                <input id="invoiceFile" type="file" accept="application/pdf" />
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button class="btn" id="invoiceSave">Save invoice to cloud</button>
+              <button class="btn ghost" id="invoiceUpload">Upload PDF</button>
+              <p id="invoiceStatus" class="muted"></p>
+            </div>
+            <div id="invoiceList" class="event-list"></div>
+          </div>
+        </section>
+
+        <section class="panel preview-panel" aria-label="Invoice preview">
+          <div class="invoice" id="invoicePreview">
+            <div class="invoice-header">
+              <div>
+                <p class="contract-tag">Invoice</p>
+                <h2>Rust and Ruin</h2>
+                <p data-fill="invoiceNumber"></p>
+              </div>
+              <div>
+                <p>Performance date: <span data-fill="performanceDate"></span></p>
+                <p>Issue date: <span data-fill="invoiceIssueDate"></span></p>
+                <p>Due date: <span data-fill="invoiceDueDate"></span></p>
+              </div>
+            </div>
+            <div class="invoice-body">
+              <p>Bill to: <span data-fill="invoiceClientName"></span></p>
+              <p>Email: <span data-fill="invoiceClientEmail"></span></p>
+              <div class="invoice-line">
+                <span data-fill="invoiceDescription"></span>
+                <span data-fill="invoicePerformanceFee"></span>
+              </div>
+              <div class="invoice-line">
+                <span>Deposit due (in addition)</span>
+                <span data-fill="invoiceDepositDue"></span>
+              </div>
+              <div class="invoice-line">
+                <span>Deposit paid</span>
+                <span data-fill="invoiceDepositPaid"></span>
+              </div>
+              <div class="invoice-line">
+                <span>Add-ons</span>
+                <span data-fill="invoiceAddons"></span>
+              </div>
+              <div class="invoice-total">
+                <span>Total due</span>
+                <span data-fill="invoiceTotal"></span>
+              </div>
+            </div>
+            <footer class="contract-footer">
+              <p>Payment: Venmo @rustandruinvt · PayPal @rustandruin</p>
+              <p>rustandruinvt@gmail.com · 802-952-6609</p>
+            </footer>
+          </div>
+        </section>
+      </main>
+
+      <main class="layout hidden" id="receiptTab">
+        <section class="panel form-panel">
+          <h2>Receipt Details</h2>
+          <div class="form-grid">
+            <label>
+              Receipt number
+              <input id="receiptNumber" value="RCPT-001" />
+            </label>
+            <label>
+              Client name
+              <input id="receiptClientName" />
+            </label>
+            <label>
+              Payment date
+              <input id="receiptPaymentDate" type="date" />
+            </label>
+            <label>
+              Amount paid
+              <input id="receiptAmountPaid" />
+            </label>
+            <label>
+              Payment method
+              <select id="receiptPaymentMethod">
+                <option>Venmo</option>
+                <option>PayPal</option>
+                <option>Check</option>
+                <option>Cash</option>
+              </select>
+            </label>
+            <label>
+              Related invoice
+              <input id="receiptRelatedInvoice" />
+            </label>
+          </div>
+          <div class="form-footer">
+            <button class="primary" id="receiptPdf">Generate PDF</button>
+          </div>
+          <div class="form-section">
+            <h3>Saved Receipts</h3>
+            <div class="form-grid">
+              <label>
+                Upload receipt PDF
+                <input id="receiptFile" type="file" accept="application/pdf" />
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button class="btn" id="receiptSave">Save receipt to cloud</button>
+              <button class="btn ghost" id="receiptUpload">Upload PDF</button>
+              <p id="receiptStatus" class="muted"></p>
+            </div>
+            <div id="receiptList" class="event-list"></div>
+          </div>
+        </section>
+
+        <section class="panel preview-panel" aria-label="Receipt preview">
+          <div class="receipt" id="receiptPreview">
+            <div class="invoice-header">
+              <div>
+                <p class="contract-tag">Receipt</p>
+                <h2>Rust and Ruin</h2>
+                <p data-fill="receiptNumber"></p>
+              </div>
+              <div>
+                <p>Performance date: <span data-fill="performanceDate"></span></p>
+                <p>Payment date: <span data-fill="receiptPaymentDate"></span></p>
+              </div>
+            </div>
+            <div class="invoice-body">
+              <p>Received from: <span data-fill="receiptClientName"></span></p>
+              <p>Payment method: <span data-fill="receiptPaymentMethod"></span></p>
+              <p>Related invoice: <span data-fill="receiptRelatedInvoice"></span></p>
+              <div class="invoice-total">
+                <span>Total paid</span>
+                <span data-fill="receiptAmountPaid"></span>
+              </div>
+            </div>
+            <footer class="contract-footer">
+              <p>Thank you for supporting live music.</p>
+              <p>rustandruinvt@gmail.com · 802-952-6609</p>
+            </footer>
+          </div>
+        </section>
+      </main>
+
+      <main class="layout single hidden" id="calendarTab">
+        <section class="panel form-panel">
+          <h2>Band Calendar</h2>
+
+          <div class="form-section">
+            <h3>Sign In</h3>
+            <div class="form-grid">
+              <label>
+                Email
+                <input id="authEmail" type="email" placeholder="you@email.com" />
+              </label>
+              <label>
+                Password
+                <input id="authPassword" type="password" placeholder="Password" />
+              </label>
+              <label>
+                Shared override PIN
+                <input id="overridePin" type="password" placeholder="Loaded from Supabase" disabled />
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button class="btn" id="signIn">Sign in</button>
+              <button class="btn ghost" id="signOut">Sign out</button>
+              <p id="supabaseStatus" class="muted"></p>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>Calendar</h3>
+            <div class="calendar-shell">
+              <div class="calendar-header">
+                <button class="btn ghost" id="calendarPrev">Previous</button>
+                <div class="calendar-title" id="calendarTitle">Month Year</div>
+                <button class="btn ghost" id="calendarNext">Next</button>
+              </div>
+              <div class="calendar-grid calendar-weekdays">
+                <div>Sun</div>
+                <div>Mon</div>
+                <div>Tue</div>
+                <div>Wed</div>
+                <div>Thu</div>
+                <div>Fri</div>
+                <div>Sat</div>
+              </div>
+              <div class="calendar-grid" id="calendarGrid"></div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>Add or Update Event</h3>
+            <div class="form-grid">
+              <label>
+                Event type
+                <select id="calendarType">
+                  <option value="Hold">Hold</option>
+                  <option value="Confirmed">Confirmed</option>
+                  <option value="Blackout">Blackout</option>
+                </select>
+              </label>
+              <label>
+                Title
+                <input id="calendarEventTitle" placeholder="Client or event name" />
+              </label>
+              <label>
+                Start date
+                <input id="calendarStartDate" type="date" />
+              </label>
+              <label>
+                Start time
+                <input id="calendarStartTime" type="time" />
+              </label>
+              <label>
+                End date
+                <input id="calendarEndDate" type="date" />
+              </label>
+              <label>
+                End time
+                <input id="calendarEndTime" type="time" />
+              </label>
+              <label>
+                Notes
+                <textarea id="calendarNotes" placeholder="Any details or notes"></textarea>
+              </label>
+            </div>
+            <div class="form-subsection">
+              <h4>Musician assignments</h4>
+              <div id="musicianAssignments" class="assignment-list"></div>
+              <p class="muted">Mark who&apos;s playing and the assignment status.</p>
+            </div>
+            <div class="form-subsection">
+              <h4>Musician blackout (unavailable)</h4>
+              <div class="form-grid">
+                <label>
+                  Musician
+                  <select id="blackoutMusician"></select>
+                </label>
+                <label>
+                  Start date
+                  <input id="blackoutStartDate" type="date" />
+                </label>
+                <label>
+                  Start time
+                  <input id="blackoutStartTime" type="time" />
+                </label>
+                <label>
+                  End date
+                  <input id="blackoutEndDate" type="date" />
+                </label>
+                <label>
+                  End time
+                  <input id="blackoutEndTime" type="time" />
+                </label>
+                <label>
+                  Notes
+                  <textarea id="blackoutNotes" placeholder="Reason or note"></textarea>
+                </label>
+              </div>
+              <div class="checkbox-group">
+                <label class="checkbox">
+                  <input id="blackoutAllDay" type="checkbox" />
+                  All-day blackout
+                </label>
+              </div>
+              <div class="inline-actions">
+                <button class="btn ghost" id="saveBlackout">Save blackout</button>
+                <p id="blackoutStatus" class="muted"></p>
+              </div>
+            </div>
+            <div class="checkbox-group">
+              <label class="checkbox">
+                <input id="calendarAllDay" type="checkbox" />
+                All-day blackout
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button class="btn" id="calendarSave">Save event</button>
+              <button class="btn ghost" id="calendarClear">Clear form</button>
+              <p id="calendarConflict" class="warning hidden"></p>
+              <label class="pin-field hidden" id="overridePinWrap">
+                Override PIN
+                <input id="overridePinInput" type="password" placeholder="Enter PIN to override" />
+              </label>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>Events on selected day</h3>
+            <p class="muted" id="selectedEventLabel">Selected event: None</p>
+            <p class="muted">
+              How to link a contract: Click a date, then click <strong>Select</strong> on the event.
+              In the Signed Contracts list, click <strong>Link to selected event</strong>.
+            </p>
+            <div id="eventList" class="event-list"></div>
+          </div>
+
+          <div class="form-section">
+            <h3>Signed Contracts</h3>
+            <div class="form-grid">
+              <label>
+                Contract name
+                <input id="contractName" placeholder="Client name + date" />
+              </label>
+              <label>
+                Related event (optional)
+                <select id="contractEventId">
+                  <option value="">No link</option>
+                </select>
+              </label>
+              <label>
+                Upload PDF
+                <input id="contractFile" type="file" accept="application/pdf" />
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button class="btn" id="uploadContract">Upload signed contract</button>
+              <p id="contractStatus" class="muted"></p>
+            </div>
+            <div id="contractList" class="event-list"></div>
+          </div>
+        </section>
+      </main>
+
+      <main class="layout single hidden" id="musiciansTab">
+        <section class="panel form-panel">
+          <h2>Musicians</h2>
+
+          <div class="form-section">
+            <h3>Roster</h3>
+            <div class="form-grid">
+              <label>
+                Musician name
+                <input id="musicianName" placeholder="Name" />
+              </label>
+              <label>
+                Role
+                <input id="musicianRole" placeholder="Instrument / role" />
+              </label>
+              <label class="checkbox inline-note">
+                <input id="musicianActive" type="checkbox" checked />
+                Active
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button class="btn" id="addMusician">Add musician</button>
+              <button class="btn ghost" id="seedMusicians">Seed default roster</button>
+              <p id="musicianStatus" class="muted"></p>
+            </div>
+            <div id="musicianList" class="event-list"></div>
+          </div>
+
+          <div class="form-section">
+            <h3>Musician Blackouts</h3>
+            <div class="form-grid">
+              <label>
+                Musician
+                <select id="rosterBlackoutMusician"></select>
+              </label>
+              <label>
+                Start date
+                <input id="rosterBlackoutStartDate" type="date" />
+              </label>
+              <label>
+                Start time
+                <input id="rosterBlackoutStartTime" type="time" />
+              </label>
+              <label>
+                End date
+                <input id="rosterBlackoutEndDate" type="date" />
+              </label>
+              <label>
+                End time
+                <input id="rosterBlackoutEndTime" type="time" />
+              </label>
+              <label>
+                Notes
+                <textarea id="rosterBlackoutNotes" placeholder="Reason or note"></textarea>
+              </label>
+            </div>
+            <div class="checkbox-group">
+              <label class="checkbox">
+                <input id="rosterBlackoutAllDay" type="checkbox" />
+                All-day blackout
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button class="btn" id="saveRosterBlackout">Save blackout</button>
+              <p id="rosterBlackoutStatus" class="muted"></p>
+            </div>
+            <div id="blackoutList" class="event-list"></div>
+          </div>
+
+          <div class="form-section">
+            <h3>Assignments &amp; Availability</h3>
+            <div class="form-grid">
+              <label>
+                Filter by musician
+                <select id="assignmentFilterMusician"></select>
+              </label>
+              <div class="checkbox-group">
+                <label class="checkbox">
+                  <input id="assignmentStatusPending" type="checkbox" checked />
+                  Pending
+                </label>
+                <label class="checkbox">
+                  <input id="assignmentStatusConfirmed" type="checkbox" checked />
+                  Confirmed
+                </label>
+              </div>
+            </div>
+            <div id="assignmentList" class="event-list"></div>
+          </div>
+
+          <div class="form-section">
+            <h3>Booked Dates (Who&apos;s Playing)</h3>
+            <div id="bookedDatesList" class="event-list"></div>
+          </div>
+
+          <div class="form-section">
+            <h3>Available Dates to Book (Next 60 Days)</h3>
+            <div id="availableDatesList" class="event-list"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
