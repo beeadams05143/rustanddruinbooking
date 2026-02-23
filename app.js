@@ -2143,7 +2143,15 @@ function setupListeners() {
       }
       const { error } = await client.auth.signInWithPassword({ email, password });
       if (error) {
-        updateSupabaseStatus(`Sign in failed: ${error.message}`, true);
+        const lower = (error.message || "").toLowerCase();
+        if (lower.includes("invalid login credentials")) {
+          updateSupabaseStatus(
+            "Sign in failed: invalid email/password. Reset password in Supabase Auth, then try again.",
+            true
+          );
+        } else {
+          updateSupabaseStatus(`Sign in failed: ${error.message}`, true);
+        }
         return;
       }
       await refreshAuthState();
