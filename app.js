@@ -2256,6 +2256,8 @@ function setupListeners() {
       document.getElementById("invoiceTab").classList.toggle("hidden", target !== "invoice");
       document.getElementById("receiptTab").classList.toggle("hidden", target !== "receipt");
       document.getElementById("calendarTab").classList.toggle("hidden", target !== "calendar");
+      document.getElementById("musiciansTab").classList.toggle("hidden", target !== "musicians");
+      document.getElementById("howtoTab").classList.toggle("hidden", target !== "howto");
       updateMessagePreview();
     });
   });

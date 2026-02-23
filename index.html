@@ -34,6 +34,7 @@
         <button class="tab" data-tab="receipt">Receipt</button>
         <button class="tab" data-tab="calendar">Calendar</button>
         <button class="tab" data-tab="musicians">Musicians</button>
+        <button class="tab" data-tab="howto">How To</button>
         <button class="tab cta" id="generatePdf">Generate PDF</button>
         <button class="tab" id="sharePdf" disabled>Share PDF</button>
         <button class="tab" id="copyMessage">Copy Message</button>
@@ -926,6 +927,76 @@
           <div class="form-section">
             <h3>Available Dates to Book (Next 60 Days)</h3>
             <div id="availableDatesList" class="event-list"></div>
+          </div>
+        </section>
+      </main>
+
+      <main class="layout single hidden" id="howtoTab">
+        <section class="panel form-panel">
+          <h2>How To Use Booking Suite</h2>
+          <p class="muted">
+            Quick guide for creating agreements, managing holds, uploading signed contracts,
+            and keeping the calendar accurate.
+          </p>
+
+          <div class="howto-grid">
+            <article class="form-section howto-card">
+              <h3>1. Build Agreement</h3>
+              <ol class="howto-list">
+                <li>Fill client name, date, start time, and end time.</li>
+                <li>Hours, fees, deposit, and day-of amount auto-calculate.</li>
+                <li>Choose add-ons and travel options if needed.</li>
+                <li>Use <strong>Generate PDF</strong> when ready.</li>
+              </ol>
+            </article>
+
+            <article class="form-section howto-card">
+              <h3>2. Add Pending Date To Calendar</h3>
+              <ol class="howto-list">
+                <li>Sign in on the Calendar tab first.</li>
+                <li>In Agreement, click <strong>Add to Calendar (Pending)</strong>.</li>
+                <li>A <strong>Hold</strong> event is created with pending contract status.</li>
+                <li>Calendar date marker: <strong>📎</strong> means contract still needed.</li>
+              </ol>
+            </article>
+
+            <article class="form-section howto-card">
+              <h3>3. Select And Confirm Event</h3>
+              <ol class="howto-list">
+                <li>On Calendar, click the event and press <strong>Select</strong>.</li>
+                <li>The form loads the selected event for editing.</li>
+                <li>Change type to <strong>Confirmed</strong> and click <strong>Save event</strong>.</li>
+              </ol>
+            </article>
+
+            <article class="form-section howto-card">
+              <h3>4. Upload Signed Contract</h3>
+              <ol class="howto-list">
+                <li>In Signed Contracts, choose the PDF file.</li>
+                <li>Set <strong>Related event</strong> (or use selected event).</li>
+                <li>Click <strong>Upload signed contract</strong>.</li>
+                <li>Event is auto-marked Confirmed when upload is linked.</li>
+                <li>Calendar date marker: <strong>✓</strong> means signed contract uploaded.</li>
+              </ol>
+            </article>
+
+            <article class="form-section howto-card">
+              <h3>5. Contract Markers On Calendar</h3>
+              <ul class="howto-list">
+                <li><strong>✓</strong> Signed contract is uploaded for that date.</li>
+                <li><strong>📎</strong> Contract is still needed for that date.</li>
+                <li>Contract name chips on each date are clickable.</li>
+              </ul>
+            </article>
+
+            <article class="form-section howto-card">
+              <h3>6. Sign-In / PIN Troubleshooting</h3>
+              <ul class="howto-list">
+                <li>If login fails, use <strong>Reset password</strong> in Calendar sign-in.</li>
+                <li>Override PIN loads only after successful login.</li>
+                <li>Override PIN is stored in Supabase table <code>app_settings</code>, key <code>override_pin</code>.</li>
+              </ul>
+            </article>
           </div>
         </section>
       </main>
