@@ -13,6 +13,7 @@ const state = {
     hours: "",
     feeTotal: "",
     depositAmount: "50",
+    depositEnabled: true,
     depositWaived: false,
     promoCredit: false,
     liveVideoCredit: false,
@@ -92,6 +93,7 @@ const agreementFields = [
   "hours",
   "feeTotal",
   "depositAmount",
+  "depositEnabled",
   "depositWaived",
   "promoCredit",
   "liveVideoCredit",
@@ -517,15 +519,20 @@ function setText(selector, value) {
 }
 
 function getAgreementTotals() {
-  const depositAmount = state.agreement.depositWaived
+  const depositEnabled = state.agreement.depositEnabled !== false;
+  const rawDepositAmount = depositEnabled
+    ? state.agreement.depositAmount
+      ? toNumber(state.agreement.depositAmount)
+      : depositDefault
+    : 0;
+  const depositWaived = depositEnabled && state.agreement.depositWaived;
+  const depositCredits = depositEnabled && !depositWaived
+    ? (state.agreement.promoCredit ? 5 : 0) +
+      (state.agreement.liveVideoCredit ? 10 : 0)
+    : 0;
+  const adjustedDeposit = depositWaived
     ? 0
-    : state.agreement.depositAmount
-    ? toNumber(state.agreement.depositAmount)
-    : depositDefault;
-  const depositCredits =
-    (state.agreement.promoCredit ? 5 : 0) +
-    (state.agreement.liveVideoCredit ? 10 : 0);
-  const adjustedDeposit = Math.max(0, depositAmount - depositCredits);
+    : Math.max(0, rawDepositAmount - depositCredits);
   const addonFees = {
     addonTent: 25,
     addonLights: 10,
@@ -582,6 +589,9 @@ function getAgreementTotals() {
 
   return {
     depositAmount: adjustedDeposit,
+    rawDepositAmount,
+    depositEnabled,
+    depositWaived,
     depositCredits,
     addOnTotal,
     feeSubtotal,
@@ -606,7 +616,7 @@ function getAgreementTotals() {
 }
 
 function updateFeesAndDepositsFields(totals) {
-  if (!state.agreement.depositWaived && !state.agreement.depositAmount) {
+  if (totals.depositEnabled && !totals.depositWaived && !state.agreement.depositAmount) {
     state.agreement.depositAmount = String(depositDefault);
     const depositInput = document.getElementById("depositAmount");
     if (depositInput) depositInput.value = state.agreement.depositAmount;
@@ -674,7 +684,11 @@ function updateAgreementPreview() {
   setText("[data-fill='performanceFeeAuto']", toMoney(totals.performanceFeeAuto));
   setText(
     "[data-fill='depositAmount']",
-    state.agreement.depositWaived ? "Waived" : toMoney(totals.depositAmount)
+    !totals.depositEnabled
+      ? "Not required"
+      : totals.depositWaived
+      ? "Waived"
+      : toMoney(totals.depositAmount)
   );
   setText(
     "[data-fill='depositCredits']",
@@ -730,6 +744,26 @@ function updateAgreementPreview() {
   const nonPerformanceField = document.getElementById("nonPerformanceHours");
   if (nonPerformanceField) {
     nonPerformanceField.disabled = !state.agreement.chargeNonPerformance;
+  }
+
+  const depositAmountInput = document.getElementById("depositAmount");
+  if (depositAmountInput) {
+    depositAmountInput.disabled = !totals.depositEnabled || totals.depositWaived;
+  }
+
+  const depositWaivedInput = document.getElementById("depositWaived");
+  if (depositWaivedInput) {
+    depositWaivedInput.disabled = !totals.depositEnabled;
+  }
+
+  const promoCreditInput = document.getElementById("promoCredit");
+  if (promoCreditInput) {
+    promoCreditInput.disabled = !totals.depositEnabled || totals.depositWaived;
+  }
+
+  const liveVideoCreditInput = document.getElementById("liveVideoCredit");
+  if (liveVideoCreditInput) {
+    liveVideoCreditInput.disabled = !totals.depositEnabled || totals.depositWaived;
   }
 }
 
@@ -1936,6 +1970,23 @@ function setupListeners() {
         state.agreement.nonPerformanceHours = "";
         const nonPerformanceField = document.getElementById("nonPerformanceHours");
         if (nonPerformanceField) nonPerformanceField.value = "";
+      }
+      if (field === "depositEnabled") {
+        if (!state.agreement.depositEnabled) {
+          state.agreement.depositWaived = false;
+          state.agreement.promoCredit = false;
+          state.agreement.liveVideoCredit = false;
+          const waived = document.getElementById("depositWaived");
+          if (waived) waived.checked = false;
+          const promo = document.getElementById("promoCredit");
+          if (promo) promo.checked = false;
+          const live = document.getElementById("liveVideoCredit");
+          if (live) live.checked = false;
+        } else if (!state.agreement.depositAmount) {
+          state.agreement.depositAmount = String(depositDefault);
+          const depositInput = document.getElementById("depositAmount");
+          if (depositInput) depositInput.value = state.agreement.depositAmount;
+        }
       }
       updateAgreementPreview();
       saveDraft();
