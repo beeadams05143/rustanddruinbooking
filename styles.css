@@ -638,6 +638,7 @@ textarea {
   background: #fff;
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
 .event-card.selected {
@@ -649,16 +650,37 @@ textarea {
   display: flex;
   justify-content: space-between;
   font-weight: 700;
+  gap: 10px;
+  min-width: 0;
+}
+
+.event-card header span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .event-meta {
   color: var(--ink-soft);
   font-size: 0.9rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .event-actions {
   display: flex;
   gap: 8px;
+  min-width: 0;
+}
+
+.event-actions .btn {
+  white-space: normal;
+}
+
+input[type="file"] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .badge-inline {
