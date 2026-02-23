@@ -165,14 +165,59 @@ function todayString() {
   });
 }
 
+function parseTimeValue(timeValue) {
+  if (!timeValue || typeof timeValue !== "string") return null;
+  const normalized = timeValue.trim().toUpperCase();
+
+  const match12 = normalized.match(/^(\d{1,2}):(\d{2})\s*([AP]M)$/);
+  if (match12) {
+    let hours = Number(match12[1]);
+    const minutes = Number(match12[2]);
+    const meridiem = match12[3];
+    if (
+      Number.isNaN(hours) ||
+      Number.isNaN(minutes) ||
+      hours < 1 ||
+      hours > 12 ||
+      minutes < 0 ||
+      minutes > 59
+    ) {
+      return null;
+    }
+    if (meridiem === "AM") {
+      hours = hours === 12 ? 0 : hours;
+    } else {
+      hours = hours === 12 ? 12 : hours + 12;
+    }
+    return { hours, minutes };
+  }
+
+  const match24 = normalized.match(/^(\d{1,2}):(\d{2})$/);
+  if (match24) {
+    const hours = Number(match24[1]);
+    const minutes = Number(match24[2]);
+    if (
+      Number.isNaN(hours) ||
+      Number.isNaN(minutes) ||
+      hours < 0 ||
+      hours > 23 ||
+      minutes < 0 ||
+      minutes > 59
+    ) {
+      return null;
+    }
+    return { hours, minutes };
+  }
+
+  return null;
+}
+
 function formatTime(timeValue) {
   if (!timeValue) return "__";
-  const parts = timeValue.split(":");
-  const hours = Number(parts[0]);
-  const minutes = Number(parts[1] ?? "0");
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) return timeValue;
+  const parsed = parseTimeValue(timeValue);
+  if (!parsed) return timeValue;
   const date = new Date();
-  date.setHours(hours, minutes, 0, 0);
+  date.setHours(parsed.hours, parsed.minutes, 0, 0);
   return date.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
@@ -193,18 +238,11 @@ function formatDate(dateValue) {
 
 function hoursBetweenTimes(startTime, endTime) {
   if (!startTime || !endTime) return 0;
-  const [startH, startM] = startTime.split(":").map(Number);
-  const [endH, endM] = endTime.split(":").map(Number);
-  if (
-    Number.isNaN(startH) ||
-    Number.isNaN(startM) ||
-    Number.isNaN(endH) ||
-    Number.isNaN(endM)
-  ) {
-    return 0;
-  }
-  const startMinutes = startH * 60 + startM;
-  let endMinutes = endH * 60 + endM;
+  const parsedStart = parseTimeValue(startTime);
+  const parsedEnd = parseTimeValue(endTime);
+  if (!parsedStart || !parsedEnd) return 0;
+  const startMinutes = parsedStart.hours * 60 + parsedStart.minutes;
+  let endMinutes = parsedEnd.hours * 60 + parsedEnd.minutes;
   if (endMinutes < startMinutes) {
     endMinutes += 24 * 60;
   }
@@ -298,8 +336,27 @@ function parseLocalDate(dateStr) {
 function combineDateTime(dateStr, timeStr) {
   if (!dateStr || !timeStr) return null;
   const [year, month, day] = dateStr.split("-").map(Number);
-  const [hours, minutes] = timeStr.split(":").map(Number);
-  return new Date(year, month - 1, day, hours, minutes || 0);
+  const parsedTime = parseTimeValue(timeStr);
+  if (!parsedTime) return null;
+  return new Date(year, month - 1, day, parsedTime.hours, parsedTime.minutes || 0);
+}
+
+function formatHourValue(value) {
+  const rounded = Math.round(value * 100) / 100;
+  if (Number.isInteger(rounded)) return String(rounded);
+  return rounded.toFixed(2).replace(/\.?0+$/, "");
+}
+
+function updatePerformanceHoursFromTimes() {
+  const startTime = state.agreement.performanceTime;
+  const endTime = state.agreement.performanceEndTime;
+  if (!startTime || !endTime) return;
+  const computedHours = hoursBetweenTimes(startTime, endTime);
+  if (computedHours <= 0) return;
+  const hoursValue = formatHourValue(computedHours);
+  state.agreement.hours = hoursValue;
+  const hoursInput = document.getElementById("hours");
+  if (hoursInput) hoursInput.value = hoursValue;
 }
 
 function formatShortDateTime(value) {
@@ -1848,6 +1905,9 @@ function setupListeners() {
       if (field === "performanceDate") {
         updateHolidayFromDate();
       }
+      if (field === "performanceTime" || field === "performanceEndTime") {
+        updatePerformanceHoursFromTimes();
+      }
       if (field === "chargeNonPerformance" && !state.agreement.chargeNonPerformance) {
         state.agreement.nonPerformanceHours = "";
         const nonPerformanceField = document.getElementById("nonPerformanceHours");
@@ -2212,6 +2272,7 @@ function init() {
   initSupabaseClient();
   refreshAuthState();
   updateHolidayFromDate();
+  updatePerformanceHoursFromTimes();
   updateAgreementPreview();
   updateInvoicePreview();
   updateReceiptPreview();
