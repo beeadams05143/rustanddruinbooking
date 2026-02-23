@@ -34,6 +34,7 @@
         <button class="tab" data-tab="receipt">Receipt</button>
         <button class="tab" data-tab="calendar">Calendar</button>
         <button class="tab" data-tab="musicians">Musicians</button>
+        <button class="tab" data-tab="allabout">All About</button>
         <button class="tab" data-tab="howto">How To</button>
         <button class="tab cta" id="generatePdf">Generate PDF</button>
         <button class="tab" id="sharePdf" disabled>Share PDF</button>
@@ -1037,6 +1038,39 @@
                 <li>If login fails, use <strong>Reset password</strong> in Calendar sign-in.</li>
                 <li>Override PIN loads only after successful login.</li>
                 <li>Override PIN is stored in Supabase table <code>app_settings</code>, key <code>override_pin</code>.</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <main class="layout single hidden" id="allaboutTab">
+        <section class="panel form-panel">
+          <h2>All About This App</h2>
+          <p class="muted">
+            Rust and Ruin Booking Suite is your single command center for booking, paperwork,
+            scheduling, billing, and band coordination.
+          </p>
+          <div class="howto-grid">
+            <article class="form-section howto-card">
+              <h3>Everything It Does</h3>
+              <ul class="howto-list">
+                <li><strong>Agreements:</strong> Build complete contracts with auto-calculated hours, fees, deposits, add-ons, and travel.</li>
+                <li><strong>Invoices + Receipts:</strong> Generate payment docs quickly and keep records consistent.</li>
+                <li><strong>PDF Workflow:</strong> Generate, share, and copy client-ready messages from one screen.</li>
+                <li><strong>Calendar System:</strong> Add pending holds, resolve conflicts, confirm events, and track contract status by date.</li>
+                <li><strong>Contract Tracking:</strong> Upload signed PDFs, link to events, and open documents from calendar chips.</li>
+                <li><strong>Musician Planning:</strong> Manage roster, availability blackouts, assignment status, and upcoming coverage.</li>
+              </ul>
+            </article>
+            <article class="form-section howto-card">
+              <h3>Why It Helps</h3>
+              <ul class="howto-list">
+                <li><strong>Faster:</strong> One flow from agreement to calendar to signed contract.</li>
+                <li><strong>More accurate:</strong> Automatic pricing and totals reduce manual mistakes.</li>
+                <li><strong>More productive:</strong> Reusable message copy and one-tap PDF sharing cut admin time.</li>
+                <li><strong>More organized:</strong> Holds, confirmations, and signed docs stay linked by date.</li>
+                <li><strong>Better visibility:</strong> Date markers and contract chips show what still needs action.</li>
               </ul>
             </article>
           </div>

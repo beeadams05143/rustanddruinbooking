@@ -2257,6 +2257,7 @@ function setupListeners() {
       document.getElementById("receiptTab").classList.toggle("hidden", target !== "receipt");
       document.getElementById("calendarTab").classList.toggle("hidden", target !== "calendar");
       document.getElementById("musiciansTab").classList.toggle("hidden", target !== "musicians");
+      document.getElementById("allaboutTab").classList.toggle("hidden", target !== "allabout");
       document.getElementById("howtoTab").classList.toggle("hidden", target !== "howto");
       updateMessagePreview();
     });
