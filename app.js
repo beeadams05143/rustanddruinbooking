@@ -256,6 +256,8 @@ const CALENDAR_SETTINGS_KEY = "rustandruin-calendar-settings";
 const SUPABASE_URL = "https://ipxjalcgiaqcyubrxqxu.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_-XW9I_e7OR4TUMq0B4SG-Q_el-7vKPJ";
 const OVERRIDE_PIN_SETTING = "override_pin";
+const AUTO_HOLD_NOTE = "Pending contract signature (auto-created from agreement)";
+let holdSyncTimer = null;
 
 function saveDraft() {
   try {
@@ -1471,7 +1473,7 @@ function renderCalendar() {
     } else if (hasDraftContract) {
       const draft = document.createElement("div");
       draft.className = "calendar-clip";
-      draft.textContent = "Draft contract";
+      draft.textContent = "🚩 Pending contract";
       titles.appendChild(draft);
     }
 
@@ -1569,7 +1571,7 @@ function updateEventList() {
     if (contract && !contract.file_path) {
       const badge = document.createElement("span");
       badge.className = "badge-inline draft";
-      badge.textContent = "Draft contract";
+      badge.textContent = "🚩 Pending contract";
       card.appendChild(badge);
     }
     if (contract && contract.file_path) {
@@ -1858,16 +1860,23 @@ async function ensureHoldEventForAgreement() {
   const end = combineDateTime(date, endTime);
   if (!start || !end || end <= start) return;
 
+  const dayStart = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0);
+  const dayEnd = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 23, 59, 59);
+
   const { data: existing } = await client
     .from("events")
     .select("*")
     .eq("type", "Hold")
-    .eq("title", title)
-    .eq("start_time", start.toISOString())
-    .eq("end_time", end.toISOString())
-    .limit(1);
+    .gte("start_time", dayStart.toISOString())
+    .lte("start_time", dayEnd.toISOString())
+    .limit(50);
 
-  let eventId = existing && existing.length ? existing[0].id : null;
+  const autoHold = (existing || []).find((event) =>
+    (event.notes || "").toLowerCase().includes("auto-created from agreement")
+  );
+  const exactHold = (existing || []).find((event) => event.title === title);
+  const matchedHold = autoHold || exactHold || null;
+  let eventId = matchedHold ? matchedHold.id : null;
 
   if (!eventId) {
     const { data, error } = await client
@@ -1877,13 +1886,25 @@ async function ensureHoldEventForAgreement() {
         title,
         start_time: start.toISOString(),
         end_time: end.toISOString(),
-        notes: "Auto-created from agreement",
+        notes: AUTO_HOLD_NOTE,
         override: false,
       })
       .select()
       .single();
     if (error) return;
     eventId = data.id;
+  } else {
+    await client
+      .from("events")
+      .update({
+        type: "Hold",
+        title,
+        start_time: start.toISOString(),
+        end_time: end.toISOString(),
+        notes: AUTO_HOLD_NOTE,
+        override: false,
+      })
+      .eq("id", eventId);
   }
 
   const { data: existingContract } = await client
@@ -1897,12 +1918,26 @@ async function ensureHoldEventForAgreement() {
       name: `${title} Agreement`,
       file_path: null,
       event_id: eventId,
-      status: "Draft",
+      status: "Pending signature",
     });
+  } else if (!existingContract[0].file_path) {
+    await client
+      .from("contracts")
+      .update({ name: `${title} Agreement`, status: "Pending signature" })
+      .eq("id", existingContract[0].id);
   }
 
   await fetchEventsForMonth();
   await fetchContracts();
+}
+
+function scheduleAgreementHoldSync() {
+  if (holdSyncTimer) {
+    clearTimeout(holdSyncTimer);
+  }
+  holdSyncTimer = setTimeout(() => {
+    ensureHoldEventForAgreement();
+  }, 700);
 }
 
 function syncAgreementForm() {
@@ -1996,6 +2031,14 @@ function setupListeners() {
           const depositInput = document.getElementById("depositAmount");
           if (depositInput) depositInput.value = state.agreement.depositAmount;
         }
+      }
+      if (
+        field === "clientName" ||
+        field === "performanceDate" ||
+        field === "performanceTime" ||
+        field === "performanceEndTime"
+      ) {
+        scheduleAgreementHoldSync();
       }
       updateAgreementPreview();
       saveDraft();
@@ -2362,6 +2405,7 @@ function init() {
   updateReceiptPreview();
   updateMessagePreview();
   setupListeners();
+  scheduleAgreementHoldSync();
   renderCalendar();
   fetchEventsForMonth();
   fetchContracts();
