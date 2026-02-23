@@ -1948,14 +1948,42 @@ function scheduleAgreementHoldSync() {
   }, 700);
 }
 
+function setAgreementCalendarStatus(message, isError = false) {
+  const status = document.getElementById("agreementCalendarStatus");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("warning", isError);
+}
+
+function focusCalendarOnDate(dateStr) {
+  const target = parseLocalDate(dateStr);
+  if (!target) return;
+  const now = new Date();
+  const monthDiff =
+    (target.getFullYear() - now.getFullYear()) * 12 +
+    (target.getMonth() - now.getMonth());
+  state.calendar.monthOffset = monthDiff;
+  state.calendar.selectedDate = formatDateInput(target);
+}
+
 async function addAgreementToCalendarPending() {
+  setAgreementCalendarStatus("Adding pending hold to calendar...");
   const result = await ensureHoldEventForAgreement();
   if (result?.ok) {
+    const dateValue = state.agreement.performanceDate;
+    if (dateValue) {
+      focusCalendarOnDate(dateValue);
+      await fetchEventsForMonth();
+      renderCalendar();
+      updateEventList();
+    }
     updateSupabaseStatus("Pending hold added/updated in calendar.");
+    setAgreementCalendarStatus("Added. Open Calendar tab to review the pending hold.");
     return;
   }
   if (result?.reason === "not_signed_in") {
     updateSupabaseStatus("Sign in on Calendar tab first, then tap Add to Calendar (Pending).", true);
+    setAgreementCalendarStatus("Sign in on Calendar tab first.", true);
     return;
   }
   if (result?.reason === "missing_fields") {
@@ -1963,9 +1991,12 @@ async function addAgreementToCalendarPending() {
       "Set performance date, start time, and end time in Agreement, then tap Add to Calendar (Pending).",
       true
     );
+    setAgreementCalendarStatus("Missing date/start/end time in Agreement.", true);
     return;
   }
-  updateSupabaseStatus("Could not add pending hold right now. Try again.", true);
+  const reasonLabel = result?.reason ? ` (${result.reason})` : "";
+  updateSupabaseStatus(`Could not add pending hold right now${reasonLabel}.`, true);
+  setAgreementCalendarStatus(`Could not add pending hold${reasonLabel}.`, true);
 }
 
 function syncAgreementForm() {
