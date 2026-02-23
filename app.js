@@ -1498,6 +1498,29 @@ function populateCalendarForm(dateValue) {
   if (endDate && !endDate.value) endDate.value = dateValue;
 }
 
+function populateCalendarFormFromEvent(event) {
+  if (!event) return;
+  const type = document.getElementById("calendarType");
+  const title = document.getElementById("calendarEventTitle");
+  const startDate = document.getElementById("calendarStartDate");
+  const startTime = document.getElementById("calendarStartTime");
+  const endDate = document.getElementById("calendarEndDate");
+  const endTime = document.getElementById("calendarEndTime");
+  const notes = document.getElementById("calendarNotes");
+  const contractEventId = document.getElementById("contractEventId");
+
+  const start = new Date(event.start_time);
+  const end = new Date(event.end_time);
+  if (type) type.value = event.type || "Hold";
+  if (title) title.value = event.title || "";
+  if (startDate) startDate.value = formatDateInput(start);
+  if (startTime) startTime.value = formatTimeInput(start);
+  if (endDate) endDate.value = formatDateInput(end);
+  if (endTime) endTime.value = formatTimeInput(end);
+  if (notes) notes.value = event.notes || "";
+  if (contractEventId) contractEventId.value = event.id;
+}
+
 function updateEventList() {
   const list = document.getElementById("eventList");
   const selectedLabel = document.getElementById("selectedEventLabel");
@@ -1554,6 +1577,7 @@ function updateEventList() {
       if (selectedLabel) {
         selectedLabel.textContent = `Selected event: ${event.title || event.type}`;
       }
+      populateCalendarFormFromEvent(event);
       updateEventList();
       updateContractList();
     });
@@ -1644,7 +1668,10 @@ async function handleCalendarSave() {
     return;
   }
 
-  const conflictList = (conflicts || []).filter((event) => event.type !== "Blackout");
+  const conflictList = (conflicts || []).filter((event) => {
+    if (event.id === state.calendar.selectedEventId) return false;
+    return event.type !== "Blackout";
+  });
   if (conflictList.length) {
     warning.classList.remove("hidden");
     warning.textContent = `Conflict: ${conflictList
@@ -1663,23 +1690,37 @@ async function handleCalendarSave() {
     if (pinInput) pinInput.value = "";
   }
 
-  const { error: insertError } = await client.from("events").insert({
+  const payload = {
     type,
     title,
     start_time: start.toISOString(),
     end_time: end.toISOString(),
     notes,
     override: conflictList.length > 0,
-  });
+  };
 
-  if (insertError) {
-    updateSupabaseStatus("Could not save event.", true);
-    return;
+  if (state.calendar.selectedEventId) {
+    const { error: updateError } = await client
+      .from("events")
+      .update(payload)
+      .eq("id", state.calendar.selectedEventId);
+    if (updateError) {
+      updateSupabaseStatus("Could not update selected event.", true);
+      return;
+    }
+    updateSupabaseStatus("Selected event updated.");
+  } else {
+    const { error: insertError } = await client.from("events").insert(payload);
+    if (insertError) {
+      updateSupabaseStatus("Could not save event.", true);
+      return;
+    }
+    updateSupabaseStatus("Event saved.");
   }
 
-  updateSupabaseStatus("Event saved.");
   clearCalendarForm();
   await fetchEventsForMonth();
+  updateContractEventOptions();
 }
 
 function clearCalendarForm() {
@@ -1693,6 +1734,11 @@ function clearCalendarForm() {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
+  state.calendar.selectedEventId = "";
+  const selectedLabel = document.getElementById("selectedEventLabel");
+  if (selectedLabel) selectedLabel.textContent = "Selected event: None";
+  const contractEventId = document.getElementById("contractEventId");
+  if (contractEventId) contractEventId.value = "";
 }
 
 async function handleContractUpload() {
@@ -1705,7 +1751,8 @@ async function handleContractUpload() {
 
   const name = document.getElementById("contractName").value.trim();
   const fileInput = document.getElementById("contractFile");
-  const eventId = document.getElementById("contractEventId").value || null;
+  const selectedEventId = state.calendar.selectedEventId || "";
+  const eventId = document.getElementById("contractEventId").value || selectedEventId || null;
   const file = fileInput.files[0];
 
   if (!file) {
@@ -1769,7 +1816,17 @@ async function handleContractUpload() {
   if (status) status.textContent = "Contract uploaded.";
   fileInput.value = "";
   document.getElementById("contractName").value = "";
+  if (eventId) {
+    const { error: eventUpdateError } = await client
+      .from("events")
+      .update({ type: "Confirmed" })
+      .eq("id", eventId);
+    if (eventUpdateError && status) {
+      status.textContent = "Contract uploaded, but event could not be marked confirmed.";
+    }
+  }
   await fetchContracts();
+  await fetchEventsForMonth();
   if (eventId) {
     await openContractForEvent(eventId);
   }
