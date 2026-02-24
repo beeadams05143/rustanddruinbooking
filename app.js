@@ -1029,10 +1029,40 @@ function renderManagerChecklist(events) {
   });
 }
 
+function updateShowRecordCounts() {
+  const fullEl = document.getElementById("showCountFull");
+  const duoEl = document.getElementById("showCountDuo");
+  const totalEl = document.getElementById("showCountTotal");
+  if (!fullEl || !duoEl || !totalEl) return;
+
+  const currentYear = new Date().getFullYear();
+  const bookedShows = state.calendar.events.filter((event) => {
+    const kind = String(event?.type || "").toLowerCase();
+    if (kind !== "confirmed") return false;
+    const start = new Date(event?.start_time || 0);
+    return Number.isFinite(start.getTime()) && start.getFullYear() === currentYear;
+  });
+
+  const fullCount = bookedShows.filter((event) => {
+    const text = `${event?.title || ""} ${event?.notes || ""}`.toLowerCase();
+    return text.includes("full band") || text.includes("full");
+  }).length;
+
+  const duoCount = bookedShows.filter((event) => {
+    const text = `${event?.title || ""} ${event?.notes || ""}`.toLowerCase();
+    return text.includes("duo");
+  }).length;
+
+  fullEl.textContent = String(fullCount);
+  duoEl.textContent = String(duoCount);
+  totalEl.textContent = String(bookedShows.length);
+}
+
 function updateManagerDesk() {
   const upcoming = getUpcomingWeekEvents();
   renderUpcomingShowsCard(upcoming);
   renderManagerChecklist(upcoming);
+  updateShowRecordCounts();
 }
 
 function updateOpsProgress() {
@@ -2317,15 +2347,45 @@ async function handleCalendarSave() {
   let savedEventId = state.calendar.selectedEventId || "";
 
   if (state.calendar.selectedEventId) {
-    const { error: updateError } = await client
-      .from("events")
-      .update(payload)
-      .eq("id", state.calendar.selectedEventId);
-    if (updateError) {
-      updateSupabaseStatus("Could not update selected event.", true);
-      return;
+    if (monthlyWeek) {
+      const recurringPayloads = buildMonthlyRecurringPayloads(payload, start, end, monthlyWeek, 12);
+      if (!recurringPayloads.length) {
+        updateSupabaseStatus("Could not build monthly schedule from selected week.", true);
+        return;
+      }
+      const sortedRecurring = [...recurringPayloads].sort(
+        (a, b) => new Date(a.start_time) - new Date(b.start_time)
+      );
+      const [firstPayload, ...remainingPayloads] = sortedRecurring;
+      const { error: updateError } = await client
+        .from("events")
+        .update(firstPayload)
+        .eq("id", state.calendar.selectedEventId);
+      if (updateError) {
+        updateSupabaseStatus(`Could not update selected event: ${updateError.message}`, true);
+        return;
+      }
+      if (remainingPayloads.length) {
+        const { error: insertError } = await client
+          .from("events")
+          .insert(remainingPayloads);
+        if (insertError) {
+          updateSupabaseStatus(`Updated selected event, but recurring save failed: ${insertError.message}`, true);
+          return;
+        }
+      }
+      updateSupabaseStatus(`Selected event updated and monthly schedule saved (${sortedRecurring.length} events).`);
+    } else {
+      const { error: updateError } = await client
+        .from("events")
+        .update(payload)
+        .eq("id", state.calendar.selectedEventId);
+      if (updateError) {
+        updateSupabaseStatus("Could not update selected event.", true);
+        return;
+      }
+      updateSupabaseStatus("Selected event updated.");
     }
-    updateSupabaseStatus("Selected event updated.");
   } else {
     if (monthlyWeek) {
       const recurringPayloads = buildMonthlyRecurringPayloads(payload, start, end, monthlyWeek, 12);
