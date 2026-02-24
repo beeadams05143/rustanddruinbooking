@@ -1,8 +1,8 @@
 const depositDefault = 50;
 const additionalSongFee = 50;
 
-const state = {
-  agreement: {
+function createInitialAgreementState() {
+  return {
     clientName: "",
     clientEmail: "",
     clientPhone: "",
@@ -42,7 +42,11 @@ const state = {
     signatureChecked: false,
     signatureDate: "",
     agreementCreatedDate: todayString(),
-  },
+  };
+}
+
+const state = {
+  agreement: createInitialAgreementState(),
   invoice: {
     invoiceNumber: "INV-001",
     clientName: "",
@@ -78,6 +82,7 @@ const state = {
     invoices: [],
     receipts: [],
   },
+  workOrders: [],
   activeTab: "agreement",
 };
 
@@ -266,6 +271,7 @@ function saveDraft() {
       agreement: state.agreement,
       invoice: state.invoice,
       receipt: state.receipt,
+      workOrders: state.workOrders,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch (error) {
@@ -286,6 +292,9 @@ function loadDraft() {
     }
     if (parsed.receipt) {
       state.receipt = { ...state.receipt, ...parsed.receipt };
+    }
+    if (Array.isArray(parsed.workOrders)) {
+      state.workOrders = parsed.workOrders;
     }
   } catch (error) {
     // ignore invalid storage
@@ -2131,12 +2140,12 @@ async function addAgreementToCalendarPending() {
     }
     updateSupabaseStatus("Pending hold added/updated in calendar.");
     setAgreementCalendarStatus("Added. Open Calendar tab to review the pending hold.");
-    return;
+    return true;
   }
   if (result?.reason === "not_signed_in") {
     updateSupabaseStatus("Sign in on Calendar tab first, then tap Add to Calendar (Pending).", true);
     setAgreementCalendarStatus("Sign in on Calendar tab first.", true);
-    return;
+    return false;
   }
   if (result?.reason === "missing_fields") {
     updateSupabaseStatus(
@@ -2144,11 +2153,27 @@ async function addAgreementToCalendarPending() {
       true
     );
     setAgreementCalendarStatus("Missing date/start/end time in Agreement.", true);
-    return;
+    return false;
   }
   const reasonLabel = result?.reason ? ` (${result.reason})` : "";
   updateSupabaseStatus(`Could not add pending hold right now${reasonLabel}.`, true);
   setAgreementCalendarStatus(`Could not add pending hold${reasonLabel}.`, true);
+  return false;
+}
+
+function resetAgreementForm() {
+  state.agreement = createInitialAgreementState();
+  syncAgreementForm();
+  updateAgreementPreview();
+  saveDraft();
+  setAgreementCalendarStatus("Agreement form reset.");
+}
+
+async function submitAgreement() {
+  const added = await addAgreementToCalendarPending();
+  if (!added) return;
+  resetAgreementForm();
+  setAgreementCalendarStatus("Submitted. Pending hold added and form reset.");
 }
 
 function syncAgreementForm() {
@@ -2200,6 +2225,151 @@ function syncReceiptForm() {
     if (!el) return;
     el.value = state.receipt[map[id]];
   });
+}
+
+function setWorkOrderStatus(message, isError = false) {
+  const el = document.getElementById("workOrderStatus");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("warning", isError);
+}
+
+function resetWorkOrderForm() {
+  const date = document.getElementById("workOrderDate");
+  const category = document.getElementById("workOrderCategory");
+  const description = document.getElementById("workOrderDescription");
+  const needed = document.getElementById("workOrderNeeded");
+  const deadline = document.getElementById("workOrderDeadline");
+  const files = document.getElementById("workOrderFiles");
+  const status = document.getElementById("workOrderTaskStatus");
+  const followUp = document.getElementById("workOrderFollowUp");
+  if (date) date.value = "";
+  if (category) category.value = "Bookkeeping";
+  if (description) description.value = "";
+  if (needed) needed.value = "";
+  if (deadline) deadline.value = "";
+  if (files) files.value = "";
+  if (status) status.value = "Open";
+  if (followUp) followUp.value = "";
+}
+
+function renderWorkOrders() {
+  const list = document.getElementById("workOrderList");
+  if (!list) return;
+  list.innerHTML = "";
+  if (!state.workOrders.length) {
+    list.innerHTML = "<p class=\"muted\">No work orders yet.</p>";
+    return;
+  }
+
+  state.workOrders.forEach((order) => {
+    const taskStatus =
+      order.status || (order.completed ? "Completed" : "Open");
+    const card = document.createElement("article");
+    card.className = `work-order-card${taskStatus === "Completed" ? " done" : ""}`;
+
+    const head = document.createElement("div");
+    head.className = "work-order-head";
+
+    const titleWrap = document.createElement("div");
+    const title = document.createElement("h4");
+    title.textContent = order.description || order.title || "Untitled Task";
+    const meta = document.createElement("p");
+    const created = order.date ? formatDate(order.date) : "No date";
+    const deadline = order.deadline ? formatDate(order.deadline) : "No deadline";
+    meta.className = "work-order-meta";
+    meta.textContent = `Date: ${created} • Deadline: ${deadline}`;
+    titleWrap.appendChild(title);
+    titleWrap.appendChild(meta);
+
+    const category = document.createElement("span");
+    const categoryValue = order.category || "Other";
+    category.className = "priority-tag normal";
+    category.textContent = categoryValue;
+
+    head.appendChild(titleWrap);
+    head.appendChild(category);
+    card.appendChild(head);
+
+    const addLabeledNote = (label, value) => {
+      if (!value) return;
+      const note = document.createElement("p");
+      note.className = "work-order-note";
+      const strong = document.createElement("strong");
+      strong.textContent = `${label}: `;
+      note.appendChild(strong);
+      note.appendChild(document.createTextNode(value));
+      card.appendChild(note);
+    };
+    addLabeledNote("Needs", order.needed);
+    addLabeledNote("Files", order.files);
+    addLabeledNote("Follow up", order.followUp);
+
+    const statusTag = document.createElement("span");
+    statusTag.className = `priority-tag ${taskStatus.toLowerCase().replace(/\s+/g, "-")}`;
+    statusTag.textContent = taskStatus;
+    card.appendChild(statusTag);
+
+    const actions = document.createElement("div");
+    actions.className = "work-order-actions";
+
+    const toggle = document.createElement("button");
+    toggle.className = "btn ghost";
+    toggle.setAttribute("type", "button");
+    toggle.setAttribute("data-action", "toggle");
+    toggle.setAttribute("data-id", order.id);
+    toggle.textContent = taskStatus === "Completed" ? "Mark Open" : "Mark Completed";
+
+    const remove = document.createElement("button");
+    remove.className = "btn ghost";
+    remove.setAttribute("type", "button");
+    remove.setAttribute("data-action", "delete");
+    remove.setAttribute("data-id", order.id);
+    remove.textContent = "Delete";
+
+    actions.appendChild(toggle);
+    actions.appendChild(remove);
+    card.appendChild(actions);
+    list.appendChild(card);
+  });
+}
+
+function submitWorkOrder() {
+  const date = document.getElementById("workOrderDate")?.value || "";
+  const category = document.getElementById("workOrderCategory")?.value || "Other";
+  const description = document.getElementById("workOrderDescription")?.value.trim() || "";
+  const needed = document.getElementById("workOrderNeeded")?.value.trim() || "";
+  const deadline = document.getElementById("workOrderDeadline")?.value || "";
+  const files = document.getElementById("workOrderFiles")?.value.trim() || "";
+  const status = document.getElementById("workOrderTaskStatus")?.value || "Open";
+  const followUp = document.getElementById("workOrderFollowUp")?.value.trim() || "";
+
+  if (!description) {
+    setWorkOrderStatus("Task description is required.", true);
+    return;
+  }
+  if (!needed) {
+    setWorkOrderStatus("Please fill out what needs to be done.", true);
+    return;
+  }
+
+  state.workOrders.unshift({
+    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    date,
+    category,
+    description,
+    needed,
+    deadline,
+    files,
+    status,
+    followUp,
+    completed: status === "Completed",
+    createdAt: new Date().toISOString(),
+  });
+  saveDraft();
+  renderWorkOrders();
+  resetWorkOrderForm();
+  setWorkOrderStatus("Work order submitted.");
 }
 
 function setupListeners() {
@@ -2326,6 +2496,37 @@ function setupListeners() {
   const messagePreviewWrap = document.getElementById("messagePreviewWrap");
   const generatePdfBtn = document.getElementById("generatePdf");
   const sharePdfBtn = document.getElementById("sharePdf");
+  let activeTop = "login";
+
+  const updateWorkspaceHead = (topTarget, panelTarget) => {
+    const workspaceTitle = document.getElementById("workspaceTitle");
+    const workspaceCrumb = document.getElementById("workspaceCrumb");
+    if (!workspaceTitle || !workspaceCrumb) return;
+    const panelNames = {
+      login: "Sign In",
+      home: "Dashboard",
+      workorders: "Work Orders",
+      agreement: "Agreement",
+      invoice: "Invoice",
+      receipt: "Receipt",
+      calendar: "Event Calendar",
+      musicians: "Musician Roster",
+      allabout: "App Overview",
+      howto: "How-To Playbook",
+    };
+    const folderNames = {
+      login: "Front Desk",
+      home: "Dashboard",
+      bookkeeping: "Booking Folder",
+      calendar: "Calendar Folder",
+      workorders: "Work Orders",
+      about: "Guide Folder",
+    };
+    const folderLabel = folderNames[topTarget] || "Workspace";
+    const panelLabel = panelNames[panelTarget] || "Overview";
+    workspaceTitle.textContent = folderLabel;
+    workspaceCrumb.textContent = `${folderLabel} / ${panelLabel}`;
+  };
 
   const switchPanel = (target) => {
     if (!target) return;
@@ -2337,6 +2538,7 @@ function setupListeners() {
     document.getElementById("receiptTab").classList.toggle("hidden", target !== "receipt");
     document.getElementById("calendarTab").classList.toggle("hidden", target !== "calendar");
     document.getElementById("musiciansTab").classList.toggle("hidden", target !== "musicians");
+    document.getElementById("workOrdersTab").classList.toggle("hidden", target !== "workorders");
     document.getElementById("allaboutTab").classList.toggle("hidden", target !== "allabout");
     document.getElementById("howtoTab").classList.toggle("hidden", target !== "howto");
     const inBookkeeping =
@@ -2347,6 +2549,7 @@ function setupListeners() {
     document.querySelectorAll(".section-tab[data-panel]").forEach((btn) => {
       btn.classList.toggle("active", btn.getAttribute("data-panel") === target);
     });
+    updateWorkspaceHead(activeTop, target);
     updateMessagePreview();
   };
 
@@ -2356,6 +2559,7 @@ function setupListeners() {
       updateSupabaseStatus("Sign in first to open the rest of Booking Suite.", true);
       topTarget = "login";
     }
+    activeTop = topTarget;
     document.querySelectorAll(".top-tab[data-top]").forEach((btn) => {
       btn.classList.toggle("active", btn.getAttribute("data-top") === topTarget);
     });
@@ -2370,6 +2574,10 @@ function setupListeners() {
 
     if (topTarget === "home") {
       switchPanel("home");
+      return;
+    }
+    if (topTarget === "workorders") {
+      switchPanel("workorders");
       return;
     }
 
@@ -2402,20 +2610,20 @@ function setupListeners() {
     });
   });
 
-  const homeBookkeeping = document.getElementById("homeBookkeeping");
-  if (homeBookkeeping) {
-    homeBookkeeping.addEventListener("click", () => switchTop("bookkeeping"));
-  }
-  const homeCalendar = document.getElementById("homeCalendar");
-  if (homeCalendar) {
-    homeCalendar.addEventListener("click", () => switchTop("calendar"));
-  }
-  const homeAbout = document.getElementById("homeAbout");
-  if (homeAbout) {
-    homeAbout.addEventListener("click", () => switchTop("about"));
+  const homeWorkOrdersBtn = document.getElementById("homeWorkOrders");
+  if (homeWorkOrdersBtn) {
+    homeWorkOrdersBtn.addEventListener("click", () => switchTop("workorders"));
   }
 
   document.getElementById("agreementPdf").addEventListener("click", () => generatePdf("agreement"));
+  const submitAgreementBtn = document.getElementById("submitAgreement");
+  if (submitAgreementBtn) {
+    submitAgreementBtn.addEventListener("click", submitAgreement);
+  }
+  const resetAgreementBtn = document.getElementById("resetAgreement");
+  if (resetAgreementBtn) {
+    resetAgreementBtn.addEventListener("click", resetAgreementForm);
+  }
   const addPendingHoldBtn = document.getElementById("addPendingHold");
   if (addPendingHoldBtn) {
     addPendingHoldBtn.addEventListener("click", addAgreementToCalendarPending);
@@ -2501,6 +2709,39 @@ function setupListeners() {
     });
   }
 
+  const workOrderSubmitBtn = document.getElementById("workOrderSubmit");
+  if (workOrderSubmitBtn) {
+    workOrderSubmitBtn.addEventListener("click", submitWorkOrder);
+  }
+  const workOrderResetBtn = document.getElementById("workOrderReset");
+  if (workOrderResetBtn) {
+    workOrderResetBtn.addEventListener("click", () => {
+      resetWorkOrderForm();
+      setWorkOrderStatus("");
+    });
+  }
+  const workOrderList = document.getElementById("workOrderList");
+  if (workOrderList) {
+    workOrderList.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action][data-id]");
+      if (!button) return;
+      const { action, id } = button.dataset;
+      const idx = state.workOrders.findIndex((item) => item.id === id);
+      if (idx === -1) return;
+      if (action === "toggle") {
+        const current = state.workOrders[idx];
+        const nowDone =
+          current.status === "Completed" || current.completed === true;
+        current.status = nowDone ? "Open" : "Completed";
+        current.completed = !nowDone;
+      } else if (action === "delete") {
+        state.workOrders.splice(idx, 1);
+      }
+      saveDraft();
+      renderWorkOrders();
+    });
+  }
+
   const calendarPrev = document.getElementById("calendarPrev");
   const calendarNext = document.getElementById("calendarNext");
   if (calendarPrev) {
@@ -2575,6 +2816,7 @@ function setupListeners() {
     });
   }
   switchTop(state.calendar.session ? "home" : "login");
+  renderWorkOrders();
 }
 
 async function generatePdf(type) {

@@ -29,30 +29,37 @@
       </header>
 
       <nav class="tabs top-tabs">
-        <button class="tab top-tab active" data-top="login">Login</button>
-        <button class="tab top-tab" data-top="home">Home</button>
-        <button class="tab top-tab" data-top="bookkeeping">Bookkeeping</button>
-        <button class="tab top-tab" data-top="calendar">Calendar</button>
-        <button class="tab top-tab" data-top="about">About</button>
+        <button class="tab top-tab active" data-top="login">Sign In</button>
+        <button class="tab top-tab" data-top="home">Dashboard</button>
+        <button class="tab top-tab" data-top="bookkeeping">Booking Folder</button>
+        <button class="tab top-tab" data-top="calendar">Calendar Folder</button>
+        <button class="tab top-tab" data-top="workorders">Work Orders</button>
+        <button class="tab top-tab" data-top="about">Guide Folder</button>
         <button class="tab cta" id="generatePdf">Generate PDF</button>
         <button class="tab" id="sharePdf" disabled>Share PDF</button>
       </nav>
 
       <nav class="tabs section-tabs hidden" id="bookkeepingTabs">
-        <button class="tab section-tab active" data-panel="agreement">Agreement</button>
-        <button class="tab section-tab" data-panel="invoice">Invoice</button>
-        <button class="tab section-tab" data-panel="receipt">Receipt</button>
+        <button class="tab section-tab active" data-panel="agreement">Step 1: Agreement</button>
+        <button class="tab section-tab" data-panel="invoice">Step 2: Invoice</button>
+        <button class="tab section-tab" data-panel="receipt">Step 3: Receipt</button>
       </nav>
 
       <nav class="tabs section-tabs hidden" id="scheduleTabs">
-        <button class="tab section-tab active" data-panel="calendar">Calendar</button>
-        <button class="tab section-tab" data-panel="musicians">Musicians</button>
+        <button class="tab section-tab active" data-panel="calendar">Event Calendar</button>
+        <button class="tab section-tab" data-panel="musicians">Musician Roster</button>
       </nav>
 
       <nav class="tabs section-tabs hidden" id="aboutTabs">
-        <button class="tab section-tab active" data-panel="allabout">About This App</button>
-        <button class="tab section-tab" data-panel="howto">How To Use It</button>
+        <button class="tab section-tab active" data-panel="allabout">App Overview</button>
+        <button class="tab section-tab" data-panel="howto">How-To Playbook</button>
       </nav>
+
+      <section class="workspace-head">
+        <p class="workspace-kicker">Folder Path</p>
+        <h2 id="workspaceTitle">Front Desk</h2>
+        <p id="workspaceCrumb" class="muted">Front Desk / Sign In</p>
+      </section>
 
       <p id="pdfStatus" class="pdf-status"></p>
       <main class="layout single" id="loginTab">
@@ -77,13 +84,118 @@
         </section>
       </main>
       <main class="layout single hidden" id="homeTab">
-        <section class="panel form-panel home-panel">
-          <h2>Start Here</h2>
-          <p class="muted">Choose where you want to work.</p>
-          <div class="home-grid">
-            <button class="home-folder" id="homeBookkeeping">Bookkeeping</button>
-            <button class="home-folder" id="homeCalendar">Calendar</button>
-            <button class="home-folder" id="homeAbout">About</button>
+        <section class="panel form-panel dashboard-board">
+          <div class="board-head">
+            <div>
+              <p class="board-kicker">Band Manager Desk</p>
+              <h2>Tonight's Office Board</h2>
+              <p class="muted">Everything in one place before wheels-up.</p>
+            </div>
+            <div class="vinyl-art" aria-hidden="true"></div>
+          </div>
+
+          <div class="board-grid">
+            <article class="board-card pin-red">
+              <h3>Upcoming Shows</h3>
+              <p>Keep dates confirmed and holds cleaned up before outreach.</p>
+              <ul class="board-list">
+                <li>Friday: Confirmed private event</li>
+                <li>Saturday: Pending hold follow-up</li>
+                <li>Sunday: Travel + load-in check</li>
+              </ul>
+            </article>
+
+            <article class="board-card pin-gold">
+              <h3>Set + Promo Notes</h3>
+              <p>Track requests and promo commitments tied to deposit credits.</p>
+              <div class="sound-lines" aria-hidden="true"></div>
+            </article>
+
+            <article class="board-card wide pin-blue">
+              <h3>Manager Checklist</h3>
+              <div class="checklist-row">
+                <span>Agreement sent + signed</span>
+                <strong>Required</strong>
+              </div>
+              <div class="checklist-row">
+                <span>Invoice synced to client record</span>
+                <strong>Required</strong>
+              </div>
+              <div class="checklist-row">
+                <span>Receipt and final payment logged</span>
+                <strong>Day-of</strong>
+              </div>
+              <button class="btn board-action" id="homeWorkOrders">Open Work Orders</button>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <main class="layout single hidden" id="workOrdersTab">
+        <section class="panel form-panel">
+          <h2>Band Work Orders</h2>
+          <p class="muted">Submit tasks for prep, logistics, gear, and promo.</p>
+          <div class="form-section">
+            <h3>New Work Order</h3>
+            <div class="form-grid">
+              <label>
+                Date
+                <input id="workOrderDate" type="date" />
+              </label>
+              <label>
+                Task category
+                <select id="workOrderCategory">
+                  <option value="Bookkeeping">Bookkeeping</option>
+                  <option value="Contracts">Contracts</option>
+                  <option value="Invoices">Invoices</option>
+                  <option value="Calendar / Booking">Calendar / Booking</option>
+                  <option value="Social Media">Social Media</option>
+                  <option value="Website Tech / App">Website Tech / App</option>
+                  <option value="Equipment">Equipment</option>
+                  <option value="Marketing Materials">Marketing Materials</option>
+                  <option value="Other">Other</option>
+                </select>
+              </label>
+              <label>
+                Task description
+                <input id="workOrderDescription" placeholder="Book hotel for Albany weekend run" />
+              </label>
+              <label>
+                What needs to be done
+                <textarea id="workOrderNeeded" placeholder="Call venue, confirm room block, send receipts to folder..."></textarea>
+              </label>
+              <label>
+                Deadline
+                <input id="workOrderDeadline" type="date" />
+              </label>
+              <label>
+                Needed files
+                <textarea id="workOrderFiles" placeholder="Contracts, invoices, stage plot PDF, promo artwork..."></textarea>
+              </label>
+              <label>
+                Status
+                <select id="workOrderTaskStatus">
+                  <option value="Open">Open</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Waiting">Waiting</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </label>
+              <label>
+                Follow up
+                <input id="workOrderFollowUp" placeholder="Text venue manager Wednesday morning" />
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button class="btn" id="workOrderSubmit">Submit Task</button>
+              <button class="btn ghost" id="workOrderReset">Clear</button>
+              <p id="workOrderStatus" class="muted"></p>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>Open + Completed Tasks</h3>
+            <div id="workOrderList" class="work-order-list"></div>
           </div>
         </section>
       </main>
@@ -326,8 +438,10 @@
             </p>
           </div>
 
-          <div class="form-footer">
+          <div class="form-footer agreement-actions">
             <p class="inline-help">Client signs on PDF.</p>
+            <button class="btn" id="submitAgreement">Submit Agreement</button>
+            <button class="btn ghost" id="resetAgreement">Reset Form</button>
             <button class="btn ghost" id="addPendingHold">Add to Calendar (Pending)</button>
             <button class="btn ghost" id="agreementCopyMessage">Copy Agreement Message</button>
             <button class="primary" id="agreementPdf">Generate PDF</button>
