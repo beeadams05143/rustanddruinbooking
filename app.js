@@ -76,6 +76,8 @@ const state = {
     selectedEventId: "",
     events: [],
     contracts: [],
+    assignments: [],
+    blackouts: [],
     session: null,
   },
   billing: {
@@ -83,6 +85,7 @@ const state = {
     receipts: [],
   },
   workOrders: [],
+  musicians: [],
   activeTab: "agreement",
 };
 
@@ -272,6 +275,9 @@ function saveDraft() {
       invoice: state.invoice,
       receipt: state.receipt,
       workOrders: state.workOrders,
+      musicians: state.musicians,
+      assignments: state.calendar.assignments,
+      blackouts: state.calendar.blackouts,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch (error) {
@@ -295,6 +301,15 @@ function loadDraft() {
     }
     if (Array.isArray(parsed.workOrders)) {
       state.workOrders = parsed.workOrders;
+    }
+    if (Array.isArray(parsed.musicians)) {
+      state.musicians = parsed.musicians;
+    }
+    if (Array.isArray(parsed.assignments)) {
+      state.calendar.assignments = parsed.assignments;
+    }
+    if (Array.isArray(parsed.blackouts)) {
+      state.calendar.blackouts = parsed.blackouts;
     }
   } catch (error) {
     // ignore invalid storage
@@ -826,6 +841,74 @@ function updateReceiptPreview() {
   updateMessagePreview();
 }
 
+function updateOpsProgress() {
+  const fill = document.getElementById("opsProgressFill");
+  const summary = document.getElementById("opsProgressSummary");
+  const detail = document.getElementById("opsProgressDetail");
+  if (!fill || !summary || !detail) return;
+
+  const workOrdersTotal = state.workOrders.length;
+  const workOrdersDone = state.workOrders.filter((item) => {
+    const status = String(item.status || "").toLowerCase();
+    return status === "completed" || item.completed === true;
+  }).length;
+
+  const contractsTotal = state.calendar.contracts.length;
+  const contractsDone = state.calendar.contracts.filter((item) => {
+    const status = String(item.status || "").toLowerCase();
+    return Boolean(item.file_path) || status.includes("signed");
+  }).length;
+
+  const today = new Date();
+  const activeEventIds = new Set(
+    state.calendar.events
+      .filter((item) => {
+        if (String(item.type || "").toLowerCase() === "blackout") return false;
+        const eventEnd = new Date(item.end_time || item.start_time || 0);
+        return Number.isFinite(eventEnd.getTime()) && eventEnd >= today;
+      })
+      .map((item) => item.id)
+  );
+
+  const relevantAssignments = state.calendar.assignments.filter((item) => {
+    if (!activeEventIds.has(item.event_id)) return false;
+    const status = String(item.status || "").toLowerCase();
+    return status !== "unavailable";
+  });
+
+  const assignmentsTotal = relevantAssignments.length;
+  const assignmentsDone = relevantAssignments.filter((item) => {
+    return String(item.status || "").toLowerCase() === "confirmed";
+  }).length;
+
+  const showEvents = state.calendar.events.filter(
+    (item) => String(item.type || "").toLowerCase() !== "blackout"
+  );
+  const showsTotal = showEvents.length;
+  const showsDone = showEvents.filter(
+    (item) => String(item.type || "").toLowerCase() === "confirmed"
+  ).length;
+
+  const useAssignmentMetric = assignmentsTotal > 0;
+  const totalItems =
+    workOrdersTotal +
+    contractsTotal +
+    (useAssignmentMetric ? assignmentsTotal : showsTotal);
+  const doneItems =
+    workOrdersDone +
+    contractsDone +
+    (useAssignmentMetric ? assignmentsDone : showsDone);
+  const percent = totalItems > 0 ? Math.round((doneItems / totalItems) * 100) : 0;
+
+  fill.style.width = `${percent}%`;
+  summary.textContent = `${percent}% complete across active jobs`;
+  detail.textContent = `Work orders ${workOrdersDone}/${workOrdersTotal} • Contracts signed ${contractsDone}/${contractsTotal} • ${
+    useAssignmentMetric
+      ? `Musician confirmations ${assignmentsDone}/${assignmentsTotal}`
+      : `Shows confirmed ${showsDone}/${showsTotal}`
+  }`;
+}
+
 async function fetchInvoices() {
   const client = state.calendar.client;
   if (!client || !state.calendar.session) {
@@ -1295,6 +1378,9 @@ async function signInWithCredentials(email, password) {
   await ensureHoldEventForAgreement();
   await fetchEventsForMonth();
   await fetchContracts();
+  await fetchMusicians();
+  await fetchMusicianAssignments();
+  await fetchMusicianBlackouts();
   await fetchInvoices();
   await fetchReceipts();
   return true;
@@ -1375,6 +1461,14 @@ async function refreshAuthState() {
   updateSupabaseStatus(state.calendar.session ? "Signed in." : "Signed out.");
   if (state.calendar.session) {
     await loadOverridePin();
+    await fetchMusicians();
+    await fetchMusicianAssignments();
+    await fetchMusicianBlackouts();
+  } else {
+    renderMusicianList();
+    renderMusicianAssignments();
+    renderAssignmentSummaryLists();
+    renderBlackoutList();
   }
   if (switchTopView) {
     switchTopView(state.calendar.session ? "home" : "login");
@@ -1408,6 +1502,7 @@ async function fetchEventsForMonth() {
     state.calendar.events = [];
     renderCalendar();
     updateEventList();
+    updateOpsProgress();
     return;
   }
 
@@ -1431,6 +1526,8 @@ async function fetchEventsForMonth() {
   renderCalendar();
   updateEventList();
   updateContractEventOptions();
+  renderAssignmentSummaryLists();
+  updateOpsProgress();
 }
 
 async function fetchContracts() {
@@ -1438,6 +1535,7 @@ async function fetchContracts() {
   if (!client || !state.calendar.session) {
     state.calendar.contracts = [];
     updateContractList();
+    updateOpsProgress();
     return;
   }
 
@@ -1454,6 +1552,8 @@ async function fetchContracts() {
 
   state.calendar.contracts = data || [];
   updateContractList();
+  renderAssignmentSummaryLists();
+  updateOpsProgress();
 }
 
 function getCalendarMonth() {
@@ -1644,6 +1744,7 @@ function updateEventList() {
     list.innerHTML = "<p class=\"muted\">No events for this date.</p>";
     state.calendar.selectedEventId = "";
     if (selectedLabel) selectedLabel.textContent = "Selected event: None";
+    renderMusicianAssignments();
     return;
   }
 
@@ -1684,6 +1785,7 @@ function updateEventList() {
       populateCalendarFormFromEvent(event);
       updateEventList();
       updateContractList();
+      renderMusicianAssignments();
     });
     actions.appendChild(selectBtn);
     const del = document.createElement("button");
@@ -1722,12 +1824,25 @@ function updateEventList() {
       ? `Selected event: ${current.title || current.type}`
       : "Selected event: None";
   }
+  renderMusicianAssignments();
 }
 
 async function deleteCalendarEvent(id) {
   const client = state.calendar.client;
-  if (!client || !state.calendar.session) return;
-  await client.from("events").delete().eq("id", id);
+  if (client && state.calendar.session) {
+    await client.from("musician_assignments").delete().eq("event_id", id);
+    await client.from("events").delete().eq("id", id);
+  } else {
+    state.calendar.events = state.calendar.events.filter((event) => event.id !== id);
+    state.calendar.assignments = state.calendar.assignments.filter(
+      (assignment) => assignment.event_id !== id
+    );
+    saveDraft();
+  }
+  if (state.calendar.selectedEventId === id) {
+    state.calendar.selectedEventId = "";
+  }
+  await fetchMusicianAssignments();
   await fetchEventsForMonth();
   await fetchContracts();
 }
@@ -1802,6 +1917,7 @@ async function handleCalendarSave() {
     notes,
     override: conflictList.length > 0,
   };
+  let savedEventId = state.calendar.selectedEventId || "";
 
   if (state.calendar.selectedEventId) {
     const { error: updateError } = await client
@@ -1814,13 +1930,20 @@ async function handleCalendarSave() {
     }
     updateSupabaseStatus("Selected event updated.");
   } else {
-    const { error: insertError } = await client.from("events").insert(payload);
+    const { data: insertedEvent, error: insertError } = await client
+      .from("events")
+      .insert(payload)
+      .select()
+      .single();
     if (insertError) {
       updateSupabaseStatus("Could not save event.", true);
       return;
     }
+    savedEventId = insertedEvent?.id || "";
     updateSupabaseStatus("Event saved.");
   }
+
+  await saveAssignmentsForEvent(savedEventId);
 
   clearCalendarForm();
   await fetchEventsForMonth();
@@ -1843,6 +1966,7 @@ function clearCalendarForm() {
   if (selectedLabel) selectedLabel.textContent = "Selected event: None";
   const contractEventId = document.getElementById("contractEventId");
   if (contractEventId) contractEventId.value = "";
+  renderMusicianAssignments();
 }
 
 async function handleContractUpload() {
@@ -2259,6 +2383,7 @@ function renderWorkOrders() {
   list.innerHTML = "";
   if (!state.workOrders.length) {
     list.innerHTML = "<p class=\"muted\">No work orders yet.</p>";
+    updateOpsProgress();
     return;
   }
 
@@ -2332,6 +2457,7 @@ function renderWorkOrders() {
     card.appendChild(actions);
     list.appendChild(card);
   });
+  updateOpsProgress();
 }
 
 function submitWorkOrder() {
@@ -2370,6 +2496,584 @@ function submitWorkOrder() {
   renderWorkOrders();
   resetWorkOrderForm();
   setWorkOrderStatus("Work order submitted.");
+}
+
+function updateMusicianStatus(message, isError = false) {
+  const el = document.getElementById("musicianStatus");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("warning", isError);
+}
+
+function updateRosterBlackoutStatus(message, isError = false) {
+  const el = document.getElementById("rosterBlackoutStatus");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("warning", isError);
+}
+
+function musicianDisplayName(musician) {
+  return musician?.name || "Unknown musician";
+}
+
+function populateMusicianSelects() {
+  const selects = [
+    "rosterBlackoutMusician",
+    "assignmentFilterMusician",
+    "blackoutMusician",
+  ];
+  const sorted = [...state.musicians].sort((a, b) =>
+    String(a.name || "").localeCompare(String(b.name || ""))
+  );
+
+  selects.forEach((id) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    const current = select.value;
+    if (id === "assignmentFilterMusician") {
+      select.innerHTML = "<option value=\"\">All musicians</option>";
+    } else {
+      select.innerHTML = "<option value=\"\">Select musician</option>";
+    }
+    sorted.forEach((musician) => {
+      const option = document.createElement("option");
+      option.value = musician.id;
+      option.textContent = `${musicianDisplayName(musician)}${musician.active === false ? " (Inactive)" : ""}`;
+      select.appendChild(option);
+    });
+    if (current && [...select.options].some((opt) => opt.value === current)) {
+      select.value = current;
+    }
+  });
+}
+
+function renderMusicianList() {
+  const list = document.getElementById("musicianList");
+  if (!list) return;
+  if (!state.musicians.length) {
+    list.innerHTML = "<p class=\"muted\">No musicians on roster yet.</p>";
+    populateMusicianSelects();
+    return;
+  }
+  list.innerHTML = "";
+  const sorted = [...state.musicians].sort((a, b) =>
+    String(a.name || "").localeCompare(String(b.name || ""))
+  );
+  sorted.forEach((musician) => {
+    const card = document.createElement("div");
+    card.className = "event-card";
+    const header = document.createElement("header");
+    const statusLabel = musician.active === false ? "Inactive" : "Active";
+    header.innerHTML = `<span>${musicianDisplayName(musician)}</span><span>${statusLabel}</span>`;
+    const meta = document.createElement("div");
+    meta.className = "event-meta";
+    meta.textContent = musician.role || "No role set";
+    const contact = document.createElement("div");
+    contact.className = "event-meta";
+    const contactParts = [musician.email, musician.phone].filter(Boolean);
+    contact.textContent = contactParts.length ? contactParts.join(" · ") : "No contact info";
+    card.appendChild(header);
+    card.appendChild(meta);
+    card.appendChild(contact);
+    if (musician.notes) {
+      const notes = document.createElement("div");
+      notes.className = "event-meta";
+      notes.textContent = musician.notes;
+      card.appendChild(notes);
+    }
+    const actions = document.createElement("div");
+    actions.className = "event-actions";
+    const toggle = document.createElement("button");
+    toggle.className = "btn ghost";
+    toggle.dataset.action = "toggle-musician";
+    toggle.dataset.id = musician.id;
+    toggle.textContent = musician.active === false ? "Set active" : "Set inactive";
+    const remove = document.createElement("button");
+    remove.className = "btn ghost";
+    remove.dataset.action = "delete-musician";
+    remove.dataset.id = musician.id;
+    remove.textContent = "Delete";
+    actions.appendChild(toggle);
+    actions.appendChild(remove);
+    card.appendChild(actions);
+    list.appendChild(card);
+  });
+  populateMusicianSelects();
+}
+
+async function fetchMusicians() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) {
+    renderMusicianList();
+    renderMusicianAssignments();
+    renderAssignmentSummaryLists();
+    return;
+  }
+  const { data, error } = await client
+    .from("musicians")
+    .select("*")
+    .order("name", { ascending: true });
+  if (error) {
+    updateMusicianStatus("Could not load musicians. Check Supabase tables/policies.", true);
+    renderMusicianList();
+    renderMusicianAssignments();
+    renderAssignmentSummaryLists();
+    return;
+  }
+  state.musicians = data || [];
+  renderMusicianList();
+  renderMusicianAssignments();
+  renderAssignmentSummaryLists();
+}
+
+async function addMusicianFromForm() {
+  const name = document.getElementById("musicianName")?.value.trim() || "";
+  const role = document.getElementById("musicianRole")?.value.trim() || "";
+  const email = document.getElementById("musicianEmail")?.value.trim() || "";
+  const phone = document.getElementById("musicianPhone")?.value.trim() || "";
+  const notes = document.getElementById("musicianNotes")?.value.trim() || "";
+  const active = document.getElementById("musicianActive")?.checked !== false;
+  if (!name) {
+    updateMusicianStatus("Musician name is required.", true);
+    return;
+  }
+  const payload = { name, role, email, phone, notes, active };
+  const client = state.calendar.client;
+  if (client && state.calendar.session) {
+    const { data, error } = await client
+      .from("musicians")
+      .insert(payload)
+      .select("*")
+      .single();
+    if (error) {
+      updateMusicianStatus(`Could not save musician: ${error.message}`, true);
+      return;
+    }
+    state.musicians.push(data);
+  } else {
+    state.musicians.push({
+      id: `local-musician-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
+      ...payload,
+    });
+  }
+  saveDraft();
+  renderMusicianList();
+  renderMusicianAssignments();
+  renderAssignmentSummaryLists();
+  ["musicianName", "musicianRole", "musicianEmail", "musicianPhone", "musicianNotes"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  const activeInput = document.getElementById("musicianActive");
+  if (activeInput) activeInput.checked = true;
+  updateMusicianStatus("Musician added.");
+}
+
+async function toggleMusicianActive(id) {
+  const idx = state.musicians.findIndex((m) => m.id === id);
+  if (idx === -1) return;
+  const musician = state.musicians[idx];
+  const nextValue = musician.active === false ? true : false;
+  const client = state.calendar.client;
+  if (client && state.calendar.session && !String(id).startsWith("local-musician-")) {
+    const { error } = await client
+      .from("musicians")
+      .update({ active: nextValue })
+      .eq("id", id);
+    if (error) {
+      updateMusicianStatus(`Could not update musician: ${error.message}`, true);
+      return;
+    }
+  }
+  musician.active = nextValue;
+  saveDraft();
+  renderMusicianList();
+  renderMusicianAssignments();
+  renderAssignmentSummaryLists();
+}
+
+async function deleteMusician(id) {
+  const client = state.calendar.client;
+  if (client && state.calendar.session && !String(id).startsWith("local-musician-")) {
+    const { error } = await client.from("musicians").delete().eq("id", id);
+    if (error) {
+      updateMusicianStatus(`Could not delete musician: ${error.message}`, true);
+      return;
+    }
+  }
+  state.musicians = state.musicians.filter((m) => m.id !== id);
+  state.calendar.assignments = state.calendar.assignments.filter((a) => a.musician_id !== id);
+  saveDraft();
+  renderMusicianList();
+  renderMusicianAssignments();
+  renderAssignmentSummaryLists();
+  updateMusicianStatus("Musician removed.");
+}
+
+async function seedDefaultMusicians() {
+  const defaults = [
+    { name: "Josh Adams", role: "Guitar / Vocals" },
+    { name: "Beth Adams", role: "Vocals / Percussion" },
+    { name: "Bassist", role: "Bass" },
+    { name: "Drummer", role: "Drums" },
+  ];
+  defaults.forEach((item) => {
+    const exists = state.musicians.some(
+      (m) => String(m.name || "").toLowerCase() === item.name.toLowerCase()
+    );
+    if (!exists) {
+      state.musicians.push({
+        id: `local-musician-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
+        name: item.name,
+        role: item.role,
+        email: "",
+        phone: "",
+        notes: "",
+        active: true,
+      });
+    }
+  });
+  saveDraft();
+  renderMusicianList();
+  renderMusicianAssignments();
+  renderAssignmentSummaryLists();
+  updateMusicianStatus("Default roster seeded.");
+}
+
+async function fetchMusicianAssignments() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) {
+    renderMusicianAssignments();
+    renderAssignmentSummaryLists();
+    return;
+  }
+  const { data, error } = await client
+    .from("musician_assignments")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(2000);
+  if (error) {
+    updateMusicianStatus("Could not load musician assignments.", true);
+    renderMusicianAssignments();
+    renderAssignmentSummaryLists();
+    return;
+  }
+  state.calendar.assignments = data || [];
+  renderMusicianAssignments();
+  renderAssignmentSummaryLists();
+}
+
+function renderMusicianAssignments() {
+  const wrap = document.getElementById("musicianAssignments");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  const selectedEventId = state.calendar.selectedEventId;
+  if (!selectedEventId) {
+    wrap.innerHTML = "<p class=\"muted\">Select an event first to assign musicians.</p>";
+    return;
+  }
+  const activeMusicians = state.musicians.filter((m) => m.active !== false);
+  if (!activeMusicians.length) {
+    wrap.innerHTML = "<p class=\"muted\">Add team members in Musicians + Tech Crew first.</p>";
+    return;
+  }
+  const eventAssignments = state.calendar.assignments.filter(
+    (a) => a.event_id === selectedEventId
+  );
+  activeMusicians.forEach((musician) => {
+    const row = document.createElement("div");
+    row.className = "assignment-row";
+    row.dataset.musicianId = musician.id;
+    const existing = eventAssignments.find((a) => a.musician_id === musician.id);
+    row.innerHTML = `
+      <div>
+        <div class="assignment-name">${musicianDisplayName(musician)}</div>
+        <div class="assignment-role">${musician.role || ""}</div>
+      </div>
+      <div class="assignment-status">
+        <select data-field="status">
+          <option value="Pending">Pending</option>
+          <option value="Confirmed">Confirmed</option>
+          <option value="Unavailable">Unavailable</option>
+        </select>
+      </div>
+      <input data-field="notes" placeholder="Assignment note" />
+    `;
+    const statusSelect = row.querySelector("select[data-field='status']");
+    const notesInput = row.querySelector("input[data-field='notes']");
+    if (statusSelect) statusSelect.value = existing?.status || "Pending";
+    if (notesInput) notesInput.value = existing?.notes || "";
+    wrap.appendChild(row);
+  });
+}
+
+async function saveAssignmentsForEvent(eventId) {
+  const wrap = document.getElementById("musicianAssignments");
+  if (!wrap || !eventId) return;
+  const rows = [...wrap.querySelectorAll(".assignment-row[data-musician-id]")];
+  const payload = rows.map((row) => {
+    const musicianId = row.dataset.musicianId;
+    const status = row.querySelector("select[data-field='status']")?.value || "Pending";
+    const notes = row.querySelector("input[data-field='notes']")?.value.trim() || "";
+    return {
+      id: `local-assignment-${eventId}-${musicianId}`,
+      event_id: eventId,
+      musician_id: musicianId,
+      status,
+      notes,
+    };
+  });
+
+  const client = state.calendar.client;
+  if (client && state.calendar.session) {
+    const { error: deleteError } = await client
+      .from("musician_assignments")
+      .delete()
+      .eq("event_id", eventId);
+    if (deleteError) {
+      updateMusicianStatus(`Could not save assignments: ${deleteError.message}`, true);
+      return;
+    }
+    if (payload.length) {
+      const insertPayload = payload.map((item) => ({
+        event_id: item.event_id,
+        musician_id: item.musician_id,
+        status: item.status,
+        notes: item.notes || null,
+      }));
+      const { error: insertError } = await client
+        .from("musician_assignments")
+        .insert(insertPayload);
+      if (insertError) {
+        updateMusicianStatus(`Could not save assignments: ${insertError.message}`, true);
+        return;
+      }
+    }
+    await fetchMusicianAssignments();
+  } else {
+    state.calendar.assignments = state.calendar.assignments.filter((a) => a.event_id !== eventId);
+    state.calendar.assignments.push(...payload);
+    saveDraft();
+    renderAssignmentSummaryLists();
+  }
+}
+
+function renderAssignmentList() {
+  const list = document.getElementById("assignmentList");
+  if (!list) return;
+  const filterMusician = document.getElementById("assignmentFilterMusician")?.value || "";
+  const showPending = document.getElementById("assignmentStatusPending")?.checked !== false;
+  const showConfirmed = document.getElementById("assignmentStatusConfirmed")?.checked !== false;
+
+  const items = state.calendar.assignments.filter((assignment) => {
+    if (filterMusician && assignment.musician_id !== filterMusician) return false;
+    const status = String(assignment.status || "").toLowerCase();
+    if (!showPending && status === "pending") return false;
+    if (!showConfirmed && status === "confirmed") return false;
+    return true;
+  });
+
+  if (!items.length) {
+    list.innerHTML = "<p class=\"muted\">No assignments match this filter.</p>";
+    return;
+  }
+  list.innerHTML = "";
+  items.forEach((assignment) => {
+    const musician = state.musicians.find((m) => m.id === assignment.musician_id);
+    const event = state.calendar.events.find((e) => e.id === assignment.event_id);
+    const card = document.createElement("div");
+    card.className = "event-card";
+    const header = document.createElement("header");
+    header.innerHTML = `<span>${musicianDisplayName(musician)}</span><span>${assignment.status || "Pending"}</span>`;
+    const meta = document.createElement("div");
+    meta.className = "event-meta";
+    meta.textContent = event
+      ? `${event.title || event.type} · ${formatShortDateTime(event.start_time)}`
+      : `Event ${assignment.event_id || "Unknown"}`;
+    card.appendChild(header);
+    card.appendChild(meta);
+    if (assignment.notes) {
+      const notes = document.createElement("div");
+      notes.className = "event-meta";
+      notes.textContent = assignment.notes;
+      card.appendChild(notes);
+    }
+    list.appendChild(card);
+  });
+}
+
+function renderBookedDatesList() {
+  const list = document.getElementById("bookedDatesList");
+  if (!list) return;
+  const booked = state.calendar.events
+    .filter((event) => String(event.type || "").toLowerCase() !== "blackout")
+    .sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+  if (!booked.length) {
+    list.innerHTML = "<p class=\"muted\">No booked dates yet.</p>";
+    return;
+  }
+  list.innerHTML = "";
+  booked.slice(0, 40).forEach((event) => {
+    const eventAssignments = state.calendar.assignments.filter(
+      (item) => item.event_id === event.id
+    );
+    const confirmedNames = eventAssignments
+      .filter((item) => String(item.status || "").toLowerCase() === "confirmed")
+      .map((item) => musicianDisplayName(state.musicians.find((m) => m.id === item.musician_id)));
+    const card = document.createElement("div");
+    card.className = "event-card";
+    const header = document.createElement("header");
+    header.innerHTML = `<span>${event.title || event.type}</span><span>${event.type || ""}</span>`;
+    const meta = document.createElement("div");
+    meta.className = "event-meta";
+    meta.textContent = formatShortDateTime(event.start_time);
+    const roster = document.createElement("div");
+    roster.className = "event-meta";
+    roster.textContent = confirmedNames.length
+      ? `Confirmed: ${confirmedNames.join(", ")}`
+      : "No confirmed musicians yet.";
+    card.appendChild(header);
+    card.appendChild(meta);
+    card.appendChild(roster);
+    list.appendChild(card);
+  });
+}
+
+function renderAvailableDatesList() {
+  const list = document.getElementById("availableDatesList");
+  if (!list) return;
+  const today = new Date();
+  const busyKeys = new Set(
+    state.calendar.events
+      .filter((event) => String(event.type || "").toLowerCase() !== "blackout")
+      .map((event) => formatDateInput(new Date(event.start_time)))
+  );
+  const available = [];
+  for (let i = 0; i < 60; i += 1) {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+    const key = formatDateInput(date);
+    if (!busyKeys.has(key)) available.push(formatDate(key));
+  }
+  if (!available.length) {
+    list.innerHTML = "<p class=\"muted\">No open days in the next 60 days.</p>";
+    return;
+  }
+  list.innerHTML = `<p class="muted">${available.length} open day(s) in next 60 days.</p>`;
+  const chunk = document.createElement("div");
+  chunk.className = "event-meta";
+  chunk.textContent = available.slice(0, 20).join(" • ");
+  list.appendChild(chunk);
+}
+
+function renderAssignmentSummaryLists() {
+  renderAssignmentList();
+  renderBookedDatesList();
+  renderAvailableDatesList();
+  updateOpsProgress();
+}
+
+function renderBlackoutList() {
+  const list = document.getElementById("blackoutList");
+  if (!list) return;
+  if (!state.calendar.blackouts.length) {
+    list.innerHTML = "<p class=\"muted\">No musician blackouts saved.</p>";
+    return;
+  }
+  list.innerHTML = "";
+  const sorted = [...state.calendar.blackouts].sort(
+    (a, b) => new Date(b.start_time || 0) - new Date(a.start_time || 0)
+  );
+  sorted.slice(0, 100).forEach((entry) => {
+    const musician = state.musicians.find((item) => item.id === entry.musician_id);
+    const card = document.createElement("div");
+    card.className = "event-card";
+    const header = document.createElement("header");
+    header.innerHTML = `<span>${musicianDisplayName(musician)}</span><span>Blackout</span>`;
+    const meta = document.createElement("div");
+    meta.className = "event-meta";
+    meta.textContent = `${formatShortDateTime(entry.start_time)} → ${formatShortDateTime(
+      entry.end_time
+    )}`;
+    card.appendChild(header);
+    card.appendChild(meta);
+    if (entry.notes) {
+      const notes = document.createElement("div");
+      notes.className = "event-meta";
+      notes.textContent = entry.notes;
+      card.appendChild(notes);
+    }
+    list.appendChild(card);
+  });
+}
+
+async function fetchMusicianBlackouts() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) {
+    renderBlackoutList();
+    return;
+  }
+  const { data, error } = await client
+    .from("musician_blackouts")
+    .select("*")
+    .order("start_time", { ascending: false })
+    .limit(500);
+  if (error) {
+    updateRosterBlackoutStatus("Could not load musician blackouts.", true);
+    renderBlackoutList();
+    return;
+  }
+  state.calendar.blackouts = data || [];
+  renderBlackoutList();
+}
+
+async function saveRosterBlackout() {
+  const musicianId = document.getElementById("rosterBlackoutMusician")?.value || "";
+  const startDate = document.getElementById("rosterBlackoutStartDate")?.value || "";
+  const startTimeInput = document.getElementById("rosterBlackoutStartTime")?.value || "";
+  const endDateInput = document.getElementById("rosterBlackoutEndDate")?.value || "";
+  const endTimeInput = document.getElementById("rosterBlackoutEndTime")?.value || "";
+  const notes = document.getElementById("rosterBlackoutNotes")?.value.trim() || "";
+  const allDay = document.getElementById("rosterBlackoutAllDay")?.checked === true;
+
+  if (!musicianId || !startDate) {
+    updateRosterBlackoutStatus("Musician and start date are required.", true);
+    return;
+  }
+
+  const startTime = allDay ? "00:00" : startTimeInput;
+  const endDate = endDateInput || startDate;
+  const endTime = allDay ? "23:59" : endTimeInput;
+  const start = combineDateTime(startDate, startTime);
+  const end = combineDateTime(endDate, endTime);
+  if (!start || !end || end <= start) {
+    updateRosterBlackoutStatus("Valid start/end date and time are required.", true);
+    return;
+  }
+
+  const payload = {
+    musician_id: musicianId,
+    start_time: start.toISOString(),
+    end_time: end.toISOString(),
+    all_day: allDay,
+    notes: notes || null,
+  };
+  const client = state.calendar.client;
+  if (client && state.calendar.session) {
+    const { error } = await client.from("musician_blackouts").insert(payload);
+    if (error) {
+      updateRosterBlackoutStatus(`Could not save blackout: ${error.message}`, true);
+      return;
+    }
+    await fetchMusicianBlackouts();
+  } else {
+    state.calendar.blackouts.unshift({
+      id: `local-blackout-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
+      ...payload,
+    });
+    saveDraft();
+    renderBlackoutList();
+  }
+  updateRosterBlackoutStatus("Blackout saved.");
 }
 
 function setupListeners() {
@@ -2510,7 +3214,7 @@ function setupListeners() {
       invoice: "Invoice",
       receipt: "Receipt",
       calendar: "Event Calendar",
-      musicians: "Musician Roster",
+      musicians: "Musicians + Tech Crew",
       allabout: "App Overview",
       howto: "How-To Playbook",
     };
@@ -2520,6 +3224,7 @@ function setupListeners() {
       bookkeeping: "Booking Folder",
       calendar: "Calendar Folder",
       workorders: "Work Orders",
+      musicians: "Musicians + Tech Crew",
       about: "Guide Folder",
     };
     const folderLabel = folderNames[topTarget] || "Workspace";
@@ -2578,6 +3283,10 @@ function setupListeners() {
     }
     if (topTarget === "workorders") {
       switchPanel("workorders");
+      return;
+    }
+    if (topTarget === "musicians") {
+      switchPanel("musicians");
       return;
     }
 
@@ -2681,13 +3390,19 @@ function setupListeners() {
       updateSupabaseStatus("Signed out.");
       state.calendar.events = [];
       state.calendar.contracts = [];
+      state.calendar.assignments = [];
+      state.calendar.blackouts = [];
       state.billing.invoices = [];
       state.billing.receipts = [];
       renderCalendar();
       updateEventList();
       updateContractList();
+      renderMusicianAssignments();
+      renderAssignmentSummaryLists();
+      renderBlackoutList();
       updateInvoiceList();
       updateReceiptList();
+      updateOpsProgress();
       if (switchTopView) switchTopView("login");
     });
   }
@@ -2740,6 +3455,44 @@ function setupListeners() {
       saveDraft();
       renderWorkOrders();
     });
+  }
+
+  const addMusicianBtn = document.getElementById("addMusician");
+  if (addMusicianBtn) {
+    addMusicianBtn.addEventListener("click", addMusicianFromForm);
+  }
+  const seedMusiciansBtn = document.getElementById("seedMusicians");
+  if (seedMusiciansBtn) {
+    seedMusiciansBtn.addEventListener("click", seedDefaultMusicians);
+  }
+  const musicianList = document.getElementById("musicianList");
+  if (musicianList) {
+    musicianList.addEventListener("click", async (event) => {
+      const button = event.target.closest("button[data-action][data-id]");
+      if (!button) return;
+      const { action, id } = button.dataset;
+      if (action === "toggle-musician") {
+        await toggleMusicianActive(id);
+      } else if (action === "delete-musician") {
+        await deleteMusician(id);
+      }
+    });
+  }
+  const saveRosterBlackoutBtn = document.getElementById("saveRosterBlackout");
+  if (saveRosterBlackoutBtn) {
+    saveRosterBlackoutBtn.addEventListener("click", saveRosterBlackout);
+  }
+  const assignmentFilter = document.getElementById("assignmentFilterMusician");
+  if (assignmentFilter) {
+    assignmentFilter.addEventListener("change", renderAssignmentList);
+  }
+  const assignmentPending = document.getElementById("assignmentStatusPending");
+  if (assignmentPending) {
+    assignmentPending.addEventListener("change", renderAssignmentList);
+  }
+  const assignmentConfirmed = document.getElementById("assignmentStatusConfirmed");
+  if (assignmentConfirmed) {
+    assignmentConfirmed.addEventListener("change", renderAssignmentList);
   }
 
   const calendarPrev = document.getElementById("calendarPrev");
@@ -2978,8 +3731,16 @@ function init() {
   renderCalendar();
   fetchEventsForMonth();
   fetchContracts();
+  fetchMusicianAssignments();
+  fetchMusicianBlackouts();
+  fetchMusicians();
   fetchInvoices();
   fetchReceipts();
+  renderMusicianList();
+  renderMusicianAssignments();
+  renderAssignmentSummaryLists();
+  renderBlackoutList();
+  updateOpsProgress();
 }
 
 init();

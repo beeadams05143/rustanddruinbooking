@@ -34,7 +34,7 @@
         <button class="tab top-tab" data-top="bookkeeping">Booking Folder</button>
         <button class="tab top-tab" data-top="calendar">Calendar Folder</button>
         <button class="tab top-tab" data-top="workorders">Work Orders</button>
-        <button class="tab top-tab" data-top="about">Guide Folder</button>
+        <button class="tab top-tab" data-top="musicians">Musicians + Tech Crew</button>
         <button class="tab cta" id="generatePdf">Generate PDF</button>
         <button class="tab" id="sharePdf" disabled>Share PDF</button>
       </nav>
@@ -47,7 +47,7 @@
 
       <nav class="tabs section-tabs hidden" id="scheduleTabs">
         <button class="tab section-tab active" data-panel="calendar">Event Calendar</button>
-        <button class="tab section-tab" data-panel="musicians">Musician Roster</button>
+        <button class="tab section-tab" data-panel="musicians">Musicians + Tech Crew</button>
       </nav>
 
       <nav class="tabs section-tabs hidden" id="aboutTabs">
@@ -106,9 +106,12 @@
             </article>
 
             <article class="board-card pin-gold">
-              <h3>Set + Promo Notes</h3>
-              <p>Track requests and promo commitments tied to deposit credits.</p>
-              <div class="sound-lines" aria-hidden="true"></div>
+              <h3>Operations Progress</h3>
+              <p id="opsProgressSummary">Track completion across tasks, contracts, and confirmations.</p>
+              <div class="ops-progress-track" aria-hidden="true">
+                <div class="ops-progress-fill" id="opsProgressFill"></div>
+              </div>
+              <p class="work-order-meta" id="opsProgressDetail">0% complete</p>
             </article>
 
             <article class="board-card wide pin-blue">
@@ -995,18 +998,30 @@
 
       <main class="layout single hidden" id="musiciansTab">
         <section class="panel form-panel">
-          <h2>Musicians</h2>
+          <h2>Musicians + Tech Crew</h2>
 
           <div class="form-section">
-            <h3>Roster</h3>
+            <h3>Team Roster</h3>
             <div class="form-grid">
               <label>
-                Musician name
+                Name
                 <input id="musicianName" placeholder="Name" />
               </label>
               <label>
                 Role
-                <input id="musicianRole" placeholder="Instrument / role" />
+                <input id="musicianRole" placeholder="Instrument, audio, lights, stage, manager..." />
+              </label>
+              <label>
+                Email
+                <input id="musicianEmail" type="email" placeholder="name@email.com" />
+              </label>
+              <label>
+                Phone
+                <input id="musicianPhone" placeholder="(802) 555-0101" />
+              </label>
+              <label>
+                Notes
+                <textarea id="musicianNotes" placeholder="Availability, pay notes, special setup"></textarea>
               </label>
               <label class="checkbox inline-note">
                 <input id="musicianActive" type="checkbox" checked />
@@ -1014,7 +1029,7 @@
               </label>
             </div>
             <div class="inline-actions">
-              <button class="btn" id="addMusician">Add musician</button>
+              <button class="btn" id="addMusician">Add team member</button>
               <button class="btn ghost" id="seedMusicians">Seed default roster</button>
               <p id="musicianStatus" class="muted"></p>
             </div>
