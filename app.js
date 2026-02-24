@@ -996,23 +996,58 @@ function renderManagerChecklist(events) {
     }
   });
 
+  const openChecklistTarget = (target) => {
+    if (!switchTopView) return;
+    if (target === "workorders") {
+      switchTopView("workorders");
+      return;
+    }
+    if (target === "contracts") {
+      state.activeTab = "contracts";
+      switchTopView("bookkeeping");
+      return;
+    }
+    if (target === "invoice") {
+      state.activeTab = "invoice";
+      switchTopView("bookkeeping");
+      return;
+    }
+    if (target === "receipt") {
+      state.activeTab = "receipt";
+      switchTopView("bookkeeping");
+      return;
+    }
+    if (target === "calendar") {
+      state.activeTab = "calendar";
+      switchTopView("calendar");
+    }
+  };
+
   const rows = [
-    { text: `Open work orders: ${openWorkOrders.length}`, tag: openWorkOrders.length ? "Action" : "Clear" },
+    {
+      text: `Open work orders: ${openWorkOrders.length}`,
+      tag: openWorkOrders.length ? "Action" : "Open",
+      target: "workorders",
+    },
     {
       text: `Contracts to come back signed (this week): ${missingContracts.length}`,
-      tag: missingContracts.length ? "Required" : "Clear",
+      tag: missingContracts.length ? "Required" : "Open",
+      target: "contracts",
     },
     {
       text: `Band member confirmations needed (this week): ${pendingMusicianConfirmations.length}`,
-      tag: pendingMusicianConfirmations.length ? "Required" : "Clear",
+      tag: pendingMusicianConfirmations.length ? "Required" : "Open",
+      target: "calendar",
     },
     {
       text: `Invoices pending send (created this week): ${invoiceSendNeeded.length}`,
-      tag: invoiceSendNeeded.length ? "Send" : "Clear",
+      tag: invoiceSendNeeded.length ? "Send" : "Open",
+      target: "invoice",
     },
     {
       text: `Receipts pending send (created this week): ${receiptSendNeeded.length}`,
-      tag: receiptSendNeeded.length ? "Send" : "Clear",
+      tag: receiptSendNeeded.length ? "Send" : "Open",
+      target: "receipt",
     },
   ];
 
@@ -1021,8 +1056,11 @@ function renderManagerChecklist(events) {
     el.className = "checklist-row";
     const left = document.createElement("span");
     left.textContent = row.text;
-    const right = document.createElement("strong");
+    const right = document.createElement("button");
+    right.type = "button";
+    right.className = "checklist-link";
     right.textContent = row.tag;
+    right.addEventListener("click", () => openChecklistTarget(row.target));
     el.appendChild(left);
     el.appendChild(right);
     wrap.appendChild(el);
