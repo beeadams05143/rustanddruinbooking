@@ -261,9 +261,12 @@ function hoursBetweenTimes(startTime, endTime) {
 
 const STORAGE_KEY = "rustandruin-booking-draft";
 const CALENDAR_SETTINGS_KEY = "rustandruin-calendar-settings";
-const SUPABASE_URL = "https://ipxjalcgiaqcyubrxqxu.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_-XW9I_e7OR4TUMq0B4SG-Q_el-7vKPJ";
+const SUPABASE_URL =
+  window.RR_SUPABASE_CONFIG?.url || "https://ipxjalcgiaqcyubrxqxu.supabase.co";
+const SUPABASE_ANON_KEY =
+  window.RR_SUPABASE_CONFIG?.anonKey || "sb_publishable_-XW9I_e7OR4TUMq0B4SG-Q_el-7vKPJ";
 const OVERRIDE_PIN_SETTING = "override_pin";
+const CALENDAR_AUTH_SEEN_KEY = "rustandruin-calendar-auth-seen";
 const AUTO_HOLD_NOTE = "Pending contract signature (auto-created from agreement)";
 let holdSyncTimer = null;
 let switchTopView = null;
@@ -841,6 +844,197 @@ function updateReceiptPreview() {
   updateMessagePreview();
 }
 
+function normalizeText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function eventStartDate(event) {
+  const value = event?.start_time || event?.end_time || "";
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+function getUpcomingWeekEvents() {
+  const today = new Date();
+  const windowStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+  const windowEnd = new Date(windowStart);
+  windowEnd.setDate(windowEnd.getDate() + 7);
+
+  return state.calendar.events
+    .filter((event) => String(event.type || "").toLowerCase() !== "blackout")
+    .map((event) => ({ event, start: eventStartDate(event) }))
+    .filter(({ start }) => start && start >= windowStart && start < windowEnd)
+    .sort((a, b) => a.start - b.start)
+    .map(({ event }) => event);
+}
+
+function findMatchingInvoiceForEvent(event) {
+  const eventTitle = normalizeText(event?.title);
+  const eventDate = eventStartDate(event);
+  if (!eventTitle && !eventDate) return null;
+
+  const candidates = state.billing.invoices.filter((invoice) => {
+    const invoiceClient = normalizeText(invoice?.client_name);
+    const textMatch =
+      Boolean(eventTitle && invoiceClient) &&
+      (eventTitle.includes(invoiceClient) || invoiceClient.includes(eventTitle));
+    if (textMatch) return true;
+
+    if (eventDate) {
+      const invoiceDate = new Date(invoice?.issue_date || invoice?.due_date || invoice?.created_at || 0);
+      if (Number.isFinite(invoiceDate.getTime())) {
+        const dayDiff = Math.abs(eventDate.getTime() - invoiceDate.getTime()) / (24 * 60 * 60 * 1000);
+        return dayDiff <= 7;
+      }
+    }
+    return false;
+  });
+
+  return candidates[0] || null;
+}
+
+function findMatchingReceiptForEvent(event, invoice) {
+  const eventDate = eventStartDate(event);
+  const eventTitle = normalizeText(event?.title);
+  const invoiceNumber = String(invoice?.invoice_number || "").trim();
+  return (
+    state.billing.receipts.find((receipt) => {
+      if (invoiceNumber && String(receipt?.related_invoice || "").trim() === invoiceNumber) {
+        return true;
+      }
+      const receiptClient = normalizeText(receipt?.client_name);
+      const textMatch =
+        Boolean(eventTitle && receiptClient) &&
+        (eventTitle.includes(receiptClient) || receiptClient.includes(eventTitle));
+      if (textMatch) return true;
+
+      if (eventDate) {
+        const receiptDate = new Date(receipt?.payment_date || receipt?.created_at || 0);
+        if (Number.isFinite(receiptDate.getTime())) {
+          const dayDiff = Math.abs(eventDate.getTime() - receiptDate.getTime()) / (24 * 60 * 60 * 1000);
+          return dayDiff <= 7;
+        }
+      }
+      return false;
+    }) || null
+  );
+}
+
+function renderUpcomingShowsCard(events) {
+  const summary = document.getElementById("upcomingShowsSummary");
+  const list = document.getElementById("upcomingShowsList");
+  if (!summary || !list) return;
+
+  summary.textContent = events.length
+    ? `${events.length} show${events.length === 1 ? "" : "s"} in the next 7 days.`
+    : "No shows in the next 7 days.";
+
+  list.innerHTML = "";
+  if (!events.length) {
+    list.innerHTML = "<li>No shows in the next 7 days.</li>";
+    return;
+  }
+
+  events.forEach((event) => {
+    const start = eventStartDate(event);
+    const dayLabel = start
+      ? start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+      : "Date TBD";
+    const status = String(event.type || "Show");
+    const item = document.createElement("li");
+    item.textContent = `${dayLabel}: ${event.title || "Untitled show"} (${status})`;
+    list.appendChild(item);
+  });
+}
+
+function renderManagerChecklist(events) {
+  const wrap = document.getElementById("managerChecklistList");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+
+  const openWorkOrders = state.workOrders.filter((item) => {
+    const status = String(item?.status || "").toLowerCase();
+    return !(status === "completed" || item?.completed === true);
+  });
+  const missingContracts = events.filter((event) => {
+    const contract = state.calendar.contracts.find((item) => item.event_id === event.id);
+    if (!contract) return true;
+    const contractStatus = String(contract.status || "").toLowerCase();
+    return !(contract.file_path || contractStatus.includes("signed"));
+  });
+
+  const invoiceSendNeeded = [];
+  const receiptSendNeeded = [];
+  const pendingMusicianConfirmations = [];
+
+  events.forEach((event) => {
+    const eventAssignments = state.calendar.assignments.filter(
+      (item) =>
+        item.event_id === event.id &&
+        String(item.status || "").toLowerCase() !== "unavailable"
+    );
+    if (
+      eventAssignments.length > 0 &&
+      eventAssignments.some((item) => String(item.status || "").toLowerCase() !== "confirmed")
+    ) {
+      pendingMusicianConfirmations.push(event);
+    }
+
+    const matchedInvoice = findMatchingInvoiceForEvent(event);
+    if (matchedInvoice && !matchedInvoice.file_path) {
+      invoiceSendNeeded.push(event);
+    }
+    if (matchedInvoice) {
+      const matchedReceipt = findMatchingReceiptForEvent(event, matchedInvoice);
+      if (matchedReceipt && !matchedReceipt.file_path) {
+        receiptSendNeeded.push(event);
+      }
+    }
+  });
+
+  const rows = [
+    { text: `Open work orders: ${openWorkOrders.length}`, tag: openWorkOrders.length ? "Action" : "Clear" },
+    {
+      text: `Contracts to come back signed (this week): ${missingContracts.length}`,
+      tag: missingContracts.length ? "Required" : "Clear",
+    },
+    {
+      text: `Band member confirmations needed (this week): ${pendingMusicianConfirmations.length}`,
+      tag: pendingMusicianConfirmations.length ? "Required" : "Clear",
+    },
+    {
+      text: `Invoices pending send (created this week): ${invoiceSendNeeded.length}`,
+      tag: invoiceSendNeeded.length ? "Send" : "Clear",
+    },
+    {
+      text: `Receipts pending send (created this week): ${receiptSendNeeded.length}`,
+      tag: receiptSendNeeded.length ? "Send" : "Clear",
+    },
+  ];
+
+  rows.forEach((row) => {
+    const el = document.createElement("div");
+    el.className = "checklist-row";
+    const left = document.createElement("span");
+    left.textContent = row.text;
+    const right = document.createElement("strong");
+    right.textContent = row.tag;
+    el.appendChild(left);
+    el.appendChild(right);
+    wrap.appendChild(el);
+  });
+}
+
+function updateManagerDesk() {
+  const upcoming = getUpcomingWeekEvents();
+  renderUpcomingShowsCard(upcoming);
+  renderManagerChecklist(upcoming);
+}
+
 function updateOpsProgress() {
   const fill = document.getElementById("opsProgressFill");
   const summary = document.getElementById("opsProgressSummary");
@@ -907,6 +1101,7 @@ function updateOpsProgress() {
       ? `Musician confirmations ${assignmentsDone}/${assignmentsTotal}`
       : `Shows confirmed ${showsDone}/${showsTotal}`
   }`;
+  updateManagerDesk();
 }
 
 async function fetchInvoices() {
@@ -1104,13 +1299,19 @@ async function saveInvoiceToSupabaseInternal(silent) {
   if (existing && existing.length) {
     const { error } = await client.from("invoices").update(payload).eq("id", existing[0].id);
     if (error) {
-      if (status && !silent) status.textContent = "Could not update invoice.";
+      console.error("Invoice update failed:", error);
+      if (status && !silent) {
+        status.textContent = formatSupabaseError(error, "Could not update invoice.");
+      }
       return;
     }
   } else {
     const { error } = await client.from("invoices").insert(payload);
     if (error) {
-      if (status && !silent) status.textContent = "Could not save invoice.";
+      console.error("Invoice save failed:", error);
+      if (status && !silent) {
+        status.textContent = formatSupabaseError(error, "Could not save invoice.");
+      }
       return;
     }
   }
@@ -1147,13 +1348,19 @@ async function saveReceiptToSupabaseInternal(silent) {
   if (existing && existing.length) {
     const { error } = await client.from("receipts").update(payload).eq("id", existing[0].id);
     if (error) {
-      if (status && !silent) status.textContent = "Could not update receipt.";
+      console.error("Receipt update failed:", error);
+      if (status && !silent) {
+        status.textContent = formatSupabaseError(error, "Could not update receipt.");
+      }
       return;
     }
   } else {
     const { error } = await client.from("receipts").insert(payload);
     if (error) {
-      if (status && !silent) status.textContent = "Could not save receipt.";
+      console.error("Receipt save failed:", error);
+      if (status && !silent) {
+        status.textContent = formatSupabaseError(error, "Could not save receipt.");
+      }
       return;
     }
   }
@@ -1182,7 +1389,8 @@ async function uploadInvoicePdf() {
     .from("signed-contracts")
     .upload(path, file, { upsert: true });
   if (uploadError) {
-    if (status) status.textContent = "Invoice upload failed.";
+    console.error("Invoice upload failed:", uploadError);
+    if (status) status.textContent = formatSupabaseError(uploadError, "Invoice upload failed.");
     return;
   }
   const { data: existing } = await client
@@ -1192,9 +1400,14 @@ async function uploadInvoicePdf() {
     .order("created_at", { ascending: false })
     .limit(1);
   if (existing && existing.length) {
-    await client.from("invoices").update({ file_path: path }).eq("id", existing[0].id);
+    const { error } = await client.from("invoices").update({ file_path: path }).eq("id", existing[0].id);
+    if (error) {
+      console.error("Invoice file path update failed:", error);
+      if (status) status.textContent = formatSupabaseError(error, "Invoice upload saved, but DB update failed.");
+      return;
+    }
   } else {
-    await client.from("invoices").insert({
+    const { error } = await client.from("invoices").insert({
       invoice_number: invoiceNumber,
       client_name: state.invoice.clientName,
       client_email: state.invoice.clientEmail,
@@ -1210,6 +1423,11 @@ async function uploadInvoicePdf() {
       paid: false,
       file_path: path,
     });
+    if (error) {
+      console.error("Invoice row insert after upload failed:", error);
+      if (status) status.textContent = formatSupabaseError(error, "Invoice upload succeeded, but DB insert failed.");
+      return;
+    }
   }
   if (status) status.textContent = "Invoice PDF uploaded.";
   fileInput.value = "";
@@ -1237,7 +1455,8 @@ async function uploadReceiptPdf() {
     .from("signed-contracts")
     .upload(path, file, { upsert: true });
   if (uploadError) {
-    if (status) status.textContent = "Receipt upload failed.";
+    console.error("Receipt upload failed:", uploadError);
+    if (status) status.textContent = formatSupabaseError(uploadError, "Receipt upload failed.");
     return;
   }
   const { data: existing } = await client
@@ -1247,9 +1466,14 @@ async function uploadReceiptPdf() {
     .order("created_at", { ascending: false })
     .limit(1);
   if (existing && existing.length) {
-    await client.from("receipts").update({ file_path: path }).eq("id", existing[0].id);
+    const { error } = await client.from("receipts").update({ file_path: path }).eq("id", existing[0].id);
+    if (error) {
+      console.error("Receipt file path update failed:", error);
+      if (status) status.textContent = formatSupabaseError(error, "Receipt upload saved, but DB update failed.");
+      return;
+    }
   } else {
-    await client.from("receipts").insert({
+    const { error } = await client.from("receipts").insert({
       receipt_number: receiptNumber,
       client_name: state.receipt.clientName,
       payment_date: state.receipt.paymentDate || null,
@@ -1259,6 +1483,11 @@ async function uploadReceiptPdf() {
       paid: true,
       file_path: path,
     });
+    if (error) {
+      console.error("Receipt row insert after upload failed:", error);
+      if (status) status.textContent = formatSupabaseError(error, "Receipt upload succeeded, but DB insert failed.");
+      return;
+    }
   }
   if (status) status.textContent = "Receipt PDF uploaded.";
   fileInput.value = "";
@@ -1331,6 +1560,33 @@ function updateSupabaseStatus(message, isError = false) {
   });
 }
 
+function syncTopAuthTabLabel() {
+  const topLoginTab = document.querySelector('.top-tab[data-top="login"]');
+  if (!topLoginTab) return;
+  topLoginTab.textContent = state.calendar.session ? "Sign out" : "Sign in";
+}
+
+function updateCalendarAuthVisibility() {
+  const authSection = document.getElementById("calendarAuthSection");
+  if (!authSection) return;
+  const signedInOnce = localStorage.getItem(CALENDAR_AUTH_SEEN_KEY) === "1";
+  authSection.classList.toggle("hidden", Boolean(state.calendar.session) && signedInOnce);
+}
+
+function setCalendarEventFormExpanded(expanded) {
+  const wrap = document.getElementById("calendarEventFormWrap");
+  const toggle = document.getElementById("toggleCalendarForm");
+  if (wrap) wrap.classList.toggle("hidden", !expanded);
+  if (toggle) toggle.textContent = expanded ? "Hide event form" : "Add event";
+}
+
+function updateMusicianAssignmentsVisibility() {
+  const needed = document.getElementById("calendarMusiciansNeeded")?.value || "no";
+  const wrap = document.getElementById("musicianAssignmentsWrap");
+  if (wrap) wrap.classList.toggle("hidden", needed !== "yes");
+  if (needed === "yes") renderMusicianAssignments();
+}
+
 function syncAuthFields(email = "", password = "") {
   const authEmail = document.getElementById("authEmail");
   const authPassword = document.getElementById("authPassword");
@@ -1340,6 +1596,12 @@ function syncAuthFields(email = "", password = "") {
   if (authPassword) authPassword.value = password;
   if (loginEmail) loginEmail.value = email;
   if (loginPassword) loginPassword.value = password;
+}
+
+function formatSupabaseError(error, fallback) {
+  if (!error) return fallback;
+  const details = [error.message, error.details, error.hint].filter(Boolean).join(" | ");
+  return `${fallback}${details ? ` ${details}` : ""}`;
 }
 
 async function signInWithCredentials(email, password) {
@@ -1354,6 +1616,7 @@ async function signInWithCredentials(email, password) {
   }
   const { error } = await client.auth.signInWithPassword({ email, password });
   if (error) {
+    console.error("Sign in failed:", error);
     const lower = (error.message || "").toLowerCase();
     if (lower.includes("email not confirmed")) {
       updateSupabaseStatus(
@@ -1364,15 +1627,19 @@ async function signInWithCredentials(email, password) {
     }
     if (lower.includes("invalid login credentials")) {
       updateSupabaseStatus(
-        "Sign in failed: invalid email/password. Reset password in Supabase Auth, then try again.",
+        `Sign in failed: invalid email/password. ${error.message || ""}`.trim(),
         true
       );
     } else {
-      updateSupabaseStatus(`Sign in failed: ${error.message}`, true);
+      updateSupabaseStatus(
+        `Sign in failed: ${error.message}${error.status ? ` (status ${error.status})` : ""}`,
+        true
+      );
     }
     return false;
   }
   syncAuthFields(email, password);
+  localStorage.setItem(CALENDAR_AUTH_SEEN_KEY, "1");
   await refreshAuthState();
   await loadOverridePin();
   await ensureHoldEventForAgreement();
@@ -1404,6 +1671,30 @@ async function requestPasswordReset(email) {
     return;
   }
   updateSupabaseStatus("Password reset email sent. Open it, reset password, then sign in.");
+}
+
+async function requestMagicLink(email) {
+  const client = state.calendar.client;
+  if (!client) {
+    updateSupabaseStatus("Supabase client not available.", true);
+    return;
+  }
+  if (!email) {
+    updateSupabaseStatus("Enter your email first, then tap Email magic link.", true);
+    return;
+  }
+  const { error } = await client.auth.signInWithOtp({
+    email,
+    options: {
+      shouldCreateUser: false,
+      emailRedirectTo: window.location.href,
+    },
+  });
+  if (error) {
+    updateSupabaseStatus(`Magic link failed: ${error.message}`, true);
+    return;
+  }
+  updateSupabaseStatus("Magic link sent. Open the email link, then return to the app.");
 }
 
 async function openContractForEvent(eventId) {
@@ -1458,7 +1749,16 @@ async function refreshAuthState() {
   if (!client) return;
   const { data } = await client.auth.getSession();
   state.calendar.session = data?.session || null;
+  if (state.calendar.session) {
+    localStorage.setItem(CALENDAR_AUTH_SEEN_KEY, "1");
+  }
+  syncTopAuthTabLabel();
+  updateCalendarAuthVisibility();
   updateSupabaseStatus(state.calendar.session ? "Signed in." : "Signed out.");
+  const loginSignInBtn = document.getElementById("loginSignIn");
+  if (loginSignInBtn) {
+    loginSignInBtn.textContent = state.calendar.session ? "Sign out" : "Sign in";
+  }
   if (state.calendar.session) {
     await loadOverridePin();
     await fetchMusicians();
@@ -1576,7 +1876,7 @@ function renderCalendar() {
   const prevMonthDays = new Date(monthStart.getFullYear(), monthStart.getMonth(), 0).getDate();
 
   const totalCells = 42;
-  const selectedKey = state.calendar.selectedDate || formatDateInput(new Date());
+  const selectedKey = state.calendar.selectedDate || "";
 
   for (let i = 0; i < totalCells; i += 1) {
     const cell = document.createElement("div");
@@ -1640,10 +1940,10 @@ function renderCalendar() {
         const item = document.createElement("button");
         item.className = "calendar-title-item";
         item.textContent = event.title || event.type;
-        item.title = "Open event";
+        item.title = "Edit event";
         item.addEventListener("click", (evt) => {
           evt.stopPropagation();
-          openContractForEvent(event.id);
+          selectEventForEdit(event, cellKey);
         });
         titles.appendChild(item);
       });
@@ -1686,8 +1986,12 @@ function renderCalendar() {
     cell.appendChild(titles);
     cell.addEventListener("click", () => {
       state.calendar.selectedDate = cellKey;
+      state.calendar.selectedEventId = "";
       renderCalendar();
       populateCalendarForm(cellKey);
+      setCalendarEventFormExpanded(true);
+      const titleInput = document.getElementById("calendarEventTitle");
+      if (titleInput) titleInput.focus();
       updateEventList();
     });
 
@@ -1698,18 +2002,28 @@ function renderCalendar() {
 function populateCalendarForm(dateValue) {
   const startDate = document.getElementById("calendarStartDate");
   const endDate = document.getElementById("calendarEndDate");
-  if (startDate && !startDate.value) startDate.value = dateValue;
-  if (endDate && !endDate.value) endDate.value = dateValue;
+  if (startDate) startDate.value = dateValue;
+  if (endDate) endDate.value = dateValue;
+  const musiciansNeeded = document.getElementById("calendarMusiciansNeeded");
+  if (musiciansNeeded) musiciansNeeded.value = "no";
+  updateMusicianAssignmentsVisibility();
+  const selectedLabel = document.getElementById("selectedEventLabel");
+  if (selectedLabel) {
+    selectedLabel.textContent = `Selected date: ${formatDate(dateValue)} | Selected event: None`;
+  }
 }
 
 function populateCalendarFormFromEvent(event) {
   if (!event) return;
+  setCalendarEventFormExpanded(true);
   const type = document.getElementById("calendarType");
   const title = document.getElementById("calendarEventTitle");
   const startDate = document.getElementById("calendarStartDate");
   const startTime = document.getElementById("calendarStartTime");
   const endDate = document.getElementById("calendarEndDate");
   const endTime = document.getElementById("calendarEndTime");
+  const monthlyWeek = document.getElementById("calendarMonthlyWeek");
+  const musiciansNeeded = document.getElementById("calendarMusiciansNeeded");
   const notes = document.getElementById("calendarNotes");
   const contractEventId = document.getElementById("contractEventId");
 
@@ -1721,8 +2035,75 @@ function populateCalendarFormFromEvent(event) {
   if (startTime) startTime.value = formatTimeInput(start);
   if (endDate) endDate.value = formatDateInput(end);
   if (endTime) endTime.value = formatTimeInput(end);
+  if (monthlyWeek) monthlyWeek.value = "";
+  if (musiciansNeeded) {
+    const hasAssignments = state.calendar.assignments.some((item) => item.event_id === event.id);
+    musiciansNeeded.value = hasAssignments ? "yes" : "no";
+  }
+  updateMusicianAssignmentsVisibility();
   if (notes) notes.value = event.notes || "";
   if (contractEventId) contractEventId.value = event.id;
+}
+
+function getMonthlyWeekdayDate(year, monthIndex, weekday, weekValue) {
+  if (weekValue === "last") {
+    const date = new Date(year, monthIndex + 1, 0);
+    while (date.getDay() !== weekday) {
+      date.setDate(date.getDate() - 1);
+    }
+    return date;
+  }
+  const weekNumber = Number(weekValue);
+  if (!Number.isFinite(weekNumber) || weekNumber < 1 || weekNumber > 4) return null;
+  const first = new Date(year, monthIndex, 1);
+  const offset = (weekday - first.getDay() + 7) % 7;
+  const day = 1 + offset + (weekNumber - 1) * 7;
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  if (day > daysInMonth) return null;
+  return new Date(year, monthIndex, day);
+}
+
+function buildMonthlyRecurringPayloads(basePayload, baseStart, baseEnd, weekValue, count = 12) {
+  const payloads = [];
+  const weekday = baseStart.getDay();
+  const durationMs = baseEnd.getTime() - baseStart.getTime();
+  const startHours = baseStart.getHours();
+  const startMinutes = baseStart.getMinutes();
+
+  for (let i = 0; i < count; i += 1) {
+    const monthDate = new Date(baseStart.getFullYear(), baseStart.getMonth() + i, 1);
+    const recurringDate = getMonthlyWeekdayDate(
+      monthDate.getFullYear(),
+      monthDate.getMonth(),
+      weekday,
+      weekValue
+    );
+    if (!recurringDate) continue;
+    recurringDate.setHours(startHours, startMinutes, 0, 0);
+    const recurringEnd = new Date(recurringDate.getTime() + durationMs);
+    payloads.push({
+      ...basePayload,
+      start_time: recurringDate.toISOString(),
+      end_time: recurringEnd.toISOString(),
+    });
+  }
+  return payloads;
+}
+
+function selectEventForEdit(event, selectedDateOverride = "") {
+  if (!event) return;
+  const selectedDate = selectedDateOverride || formatDateInput(new Date(event.start_time));
+  state.calendar.selectedDate = selectedDate;
+  state.calendar.selectedEventId = event.id;
+  const selectedLabel = document.getElementById("selectedEventLabel");
+  if (selectedLabel) {
+    selectedLabel.textContent = `Selected date: ${formatDate(selectedDate)} | Selected event: ${event.title || event.type}`;
+  }
+  populateCalendarFormFromEvent(event);
+  renderCalendar();
+  updateEventList();
+  updateContractList();
+  renderMusicianAssignments();
 }
 
 function updateEventList() {
@@ -1730,7 +2111,14 @@ function updateEventList() {
   const selectedLabel = document.getElementById("selectedEventLabel");
   if (!list) return;
 
-  const selected = state.calendar.selectedDate || formatDateInput(new Date());
+  const selected = state.calendar.selectedDate;
+  if (!selected) {
+    list.innerHTML = "<p class=\"muted\">Select a date on the calendar to view events.</p>";
+    if (selectedLabel) selectedLabel.textContent = "Select a date to view events.";
+    state.calendar.selectedEventId = "";
+    renderMusicianAssignments();
+    return;
+  }
   const selectedDate = parseLocalDate(selected);
   if (!selectedDate) return;
 
@@ -1741,9 +2129,9 @@ function updateEventList() {
   });
 
   if (!events.length) {
-    list.innerHTML = "<p class=\"muted\">No events for this date.</p>";
+    list.innerHTML = "<p class=\"muted\">No events for selected date.</p>";
     state.calendar.selectedEventId = "";
-    if (selectedLabel) selectedLabel.textContent = "Selected event: None";
+    if (selectedLabel) selectedLabel.textContent = `Selected date: ${formatDate(selected)} | Selected event: None`;
     renderMusicianAssignments();
     return;
   }
@@ -1758,7 +2146,7 @@ function updateEventList() {
     const header = document.createElement("header");
     header.innerHTML = `<span>${event.title || event.type}</span><span>${event.type}</span>`;
     header.addEventListener("click", () => {
-      openContractForEvent(event.id);
+      selectEventForEdit(event, selected);
     });
     const meta = document.createElement("div");
     meta.className = "event-meta";
@@ -1766,26 +2154,22 @@ function updateEventList() {
       event.end_time
     )}`;
     meta.addEventListener("click", () => {
-      openContractForEvent(event.id);
+      selectEventForEdit(event, selected);
     });
     const notes = document.createElement("div");
     notes.className = "event-meta";
     notes.textContent = event.notes || "";
+    notes.addEventListener("click", () => {
+      selectEventForEdit(event, selected);
+    });
 
     const actions = document.createElement("div");
     actions.className = "event-actions";
     const selectBtn = document.createElement("button");
     selectBtn.className = "btn ghost";
-    selectBtn.textContent = "Select";
+    selectBtn.textContent = "Edit";
     selectBtn.addEventListener("click", () => {
-      state.calendar.selectedEventId = event.id;
-      if (selectedLabel) {
-        selectedLabel.textContent = `Selected event: ${event.title || event.type}`;
-      }
-      populateCalendarFormFromEvent(event);
-      updateEventList();
-      updateContractList();
-      renderMusicianAssignments();
+      selectEventForEdit(event, selected);
     });
     actions.appendChild(selectBtn);
     const del = document.createElement("button");
@@ -1821,8 +2205,8 @@ function updateEventList() {
   if (selectedLabel) {
     const current = events.find((item) => item.id === state.calendar.selectedEventId);
     selectedLabel.textContent = current
-      ? `Selected event: ${current.title || current.type}`
-      : "Selected event: None";
+      ? `Selected date: ${formatDate(selected)} | Selected event: ${current.title || current.type}`
+      : `Selected date: ${formatDate(selected)} | Selected event: None`;
   }
   renderMusicianAssignments();
 }
@@ -1830,8 +2214,20 @@ function updateEventList() {
 async function deleteCalendarEvent(id) {
   const client = state.calendar.client;
   if (client && state.calendar.session) {
-    await client.from("musician_assignments").delete().eq("event_id", id);
-    await client.from("events").delete().eq("id", id);
+    const { error: assignmentError } = await client
+      .from("musician_assignments")
+      .delete()
+      .eq("event_id", id);
+    if (assignmentError) {
+      updateSupabaseStatus(`Could not delete assignments: ${assignmentError.message}`, true);
+      return;
+    }
+    const { error: eventError } = await client.from("events").delete().eq("id", id);
+    if (eventError) {
+      updateSupabaseStatus(`Could not delete event: ${eventError.message}`, true);
+      return;
+    }
+    updateSupabaseStatus("Event deleted.");
   } else {
     state.calendar.events = state.calendar.events.filter((event) => event.id !== id);
     state.calendar.assignments = state.calendar.assignments.filter(
@@ -1864,6 +2260,7 @@ async function handleCalendarSave() {
   const startTime = document.getElementById("calendarStartTime").value;
   let endDate = document.getElementById("calendarEndDate").value;
   const endTime = document.getElementById("calendarEndTime").value;
+  const monthlyWeek = document.getElementById("calendarMonthlyWeek").value;
   const notes = document.getElementById("calendarNotes").value.trim();
 
   if (!endDate && startDate) endDate = startDate;
@@ -1930,17 +2327,38 @@ async function handleCalendarSave() {
     }
     updateSupabaseStatus("Selected event updated.");
   } else {
-    const { data: insertedEvent, error: insertError } = await client
-      .from("events")
-      .insert(payload)
-      .select()
-      .single();
-    if (insertError) {
-      updateSupabaseStatus("Could not save event.", true);
-      return;
+    if (monthlyWeek) {
+      const recurringPayloads = buildMonthlyRecurringPayloads(payload, start, end, monthlyWeek, 12);
+      if (!recurringPayloads.length) {
+        updateSupabaseStatus("Could not build monthly schedule from selected week.", true);
+        return;
+      }
+      const { data: insertedEvents, error: insertError } = await client
+        .from("events")
+        .insert(recurringPayloads)
+        .select("id,start_time");
+      if (insertError) {
+        updateSupabaseStatus(`Could not save monthly schedule: ${insertError.message}`, true);
+        return;
+      }
+      const sortedInserted = [...(insertedEvents || [])].sort(
+        (a, b) => new Date(a.start_time) - new Date(b.start_time)
+      );
+      savedEventId = sortedInserted?.[0]?.id || "";
+      updateSupabaseStatus(`Monthly schedule saved (${sortedInserted.length} events).`);
+    } else {
+      const { data: insertedEvent, error: insertError } = await client
+        .from("events")
+        .insert(payload)
+        .select()
+        .single();
+      if (insertError) {
+        updateSupabaseStatus("Could not save event.", true);
+        return;
+      }
+      savedEventId = insertedEvent?.id || "";
+      updateSupabaseStatus("Event saved.");
     }
-    savedEventId = insertedEvent?.id || "";
-    updateSupabaseStatus("Event saved.");
   }
 
   await saveAssignmentsForEvent(savedEventId);
@@ -1955,6 +2373,8 @@ function clearCalendarForm() {
     "calendarEventTitle",
     "calendarStartTime",
     "calendarEndTime",
+    "calendarMonthlyWeek",
+    "calendarMusiciansNeeded",
     "calendarNotes",
   ];
   ids.forEach((id) => {
@@ -1963,9 +2383,14 @@ function clearCalendarForm() {
   });
   state.calendar.selectedEventId = "";
   const selectedLabel = document.getElementById("selectedEventLabel");
-  if (selectedLabel) selectedLabel.textContent = "Selected event: None";
+  if (selectedLabel) {
+    selectedLabel.textContent = state.calendar.selectedDate
+      ? `Selected date: ${formatDate(state.calendar.selectedDate)} | Selected event: None`
+      : "Select a date to view events.";
+  }
   const contractEventId = document.getElementById("contractEventId");
   if (contractEventId) contractEventId.value = "";
+  updateMusicianAssignmentsVisibility();
   renderMusicianAssignments();
 }
 
@@ -2767,29 +3192,59 @@ function renderMusicianAssignments() {
   const wrap = document.getElementById("musicianAssignments");
   if (!wrap) return;
   wrap.innerHTML = "";
-  const selectedEventId = state.calendar.selectedEventId;
-  if (!selectedEventId) {
-    wrap.innerHTML = "<p class=\"muted\">Select an event first to assign musicians.</p>";
+  const musiciansNeeded = document.getElementById("calendarMusiciansNeeded")?.value || "no";
+  if (musiciansNeeded !== "yes") {
+    wrap.innerHTML = "<p class=\"muted\">Musicians not required for this event.</p>";
     return;
+  }
+  let selectedEventId = state.calendar.selectedEventId;
+  if (!selectedEventId && state.calendar.selectedDate) {
+    const selectedDate = parseLocalDate(state.calendar.selectedDate);
+    if (selectedDate) {
+      const dayEvents = state.calendar.events.filter((event) => {
+        const start = new Date(event.start_time);
+        const end = new Date(event.end_time);
+        return selectedDate >= startOfDay(start) && selectedDate <= startOfDay(end);
+      });
+      if (dayEvents.length === 1) {
+        selectedEventId = dayEvents[0].id;
+        state.calendar.selectedEventId = selectedEventId;
+        const selectedLabel = document.getElementById("selectedEventLabel");
+        if (selectedLabel) {
+          selectedLabel.textContent = `Selected date: ${formatDate(state.calendar.selectedDate)} | Selected event: ${dayEvents[0].title || dayEvents[0].type}`;
+        }
+      }
+    }
   }
   const activeMusicians = state.musicians.filter((m) => m.active !== false);
   if (!activeMusicians.length) {
     wrap.innerHTML = "<p class=\"muted\">Add team members in Musicians + Tech Crew first.</p>";
     return;
   }
-  const eventAssignments = state.calendar.assignments.filter(
-    (a) => a.event_id === selectedEventId
-  );
+  if (!selectedEventId) {
+    const hint = document.createElement("p");
+    hint.className = "muted";
+    hint.textContent = "No event selected yet. Check the musicians needed, then click Save event to attach them.";
+    wrap.appendChild(hint);
+  }
+  const eventAssignments = selectedEventId
+    ? state.calendar.assignments.filter((a) => a.event_id === selectedEventId)
+    : [];
   activeMusicians.forEach((musician) => {
     const row = document.createElement("div");
     row.className = "assignment-row";
     row.dataset.musicianId = musician.id;
     const existing = eventAssignments.find((a) => a.musician_id === musician.id);
+    const isAssigned = Boolean(existing);
     row.innerHTML = `
       <div>
         <div class="assignment-name">${musicianDisplayName(musician)}</div>
         <div class="assignment-role">${musician.role || ""}</div>
       </div>
+      <label class="checkbox assignment-check">
+        <input data-field="assigned" type="checkbox" />
+        Assigned
+      </label>
       <div class="assignment-status">
         <select data-field="status">
           <option value="Pending">Pending</option>
@@ -2799,19 +3254,46 @@ function renderMusicianAssignments() {
       </div>
       <input data-field="notes" placeholder="Assignment note" />
     `;
+    const assignedToggle = row.querySelector("input[data-field='assigned']");
     const statusSelect = row.querySelector("select[data-field='status']");
     const notesInput = row.querySelector("input[data-field='notes']");
+    if (assignedToggle) assignedToggle.checked = isAssigned;
     if (statusSelect) statusSelect.value = existing?.status || "Pending";
     if (notesInput) notesInput.value = existing?.notes || "";
+    const syncEnabled = () => {
+      const enabled = assignedToggle ? assignedToggle.checked : false;
+      if (statusSelect) statusSelect.disabled = !enabled;
+      if (notesInput) notesInput.disabled = !enabled;
+    };
+    if (assignedToggle) {
+      assignedToggle.addEventListener("change", syncEnabled);
+    }
+    syncEnabled();
     wrap.appendChild(row);
   });
 }
 
 async function saveAssignmentsForEvent(eventId) {
+  if (!eventId) return;
+  const client = state.calendar.client;
+  const musiciansNeeded = document.getElementById("calendarMusiciansNeeded")?.value || "no";
+  if (musiciansNeeded !== "yes") {
+    if (client && state.calendar.session) {
+      await client.from("musician_assignments").delete().eq("event_id", eventId);
+      await fetchMusicianAssignments();
+    } else {
+      state.calendar.assignments = state.calendar.assignments.filter((a) => a.event_id !== eventId);
+      saveDraft();
+      renderAssignmentSummaryLists();
+    }
+    return;
+  }
   const wrap = document.getElementById("musicianAssignments");
-  if (!wrap || !eventId) return;
+  if (!wrap) return;
   const rows = [...wrap.querySelectorAll(".assignment-row[data-musician-id]")];
   const payload = rows.map((row) => {
+    const assigned = row.querySelector("input[data-field='assigned']")?.checked === true;
+    if (!assigned) return null;
     const musicianId = row.dataset.musicianId;
     const status = row.querySelector("select[data-field='status']")?.value || "Pending";
     const notes = row.querySelector("input[data-field='notes']")?.value.trim() || "";
@@ -2822,9 +3304,8 @@ async function saveAssignmentsForEvent(eventId) {
       status,
       notes,
     };
-  });
+  }).filter(Boolean);
 
-  const client = state.calendar.client;
   if (client && state.calendar.session) {
     const { error: deleteError } = await client
       .from("musician_assignments")
@@ -3201,10 +3682,37 @@ function setupListeners() {
   const generatePdfBtn = document.getElementById("generatePdf");
   const sharePdfBtn = document.getElementById("sharePdf");
   let activeTop = "login";
+  const navHistory = [];
+  let suppressHistory = false;
+
+  const updateBackButton = () => {
+    const backBtn = document.getElementById("workspaceBack");
+    if (!backBtn) return;
+    const canGoBack = navHistory.length > 1;
+    backBtn.classList.toggle("hidden", !canGoBack);
+    backBtn.disabled = !canGoBack;
+  };
+
+  const rememberRoute = (topTarget, panelTarget) => {
+    if (suppressHistory) return;
+    const next = { top: topTarget, panel: panelTarget };
+    const last = navHistory[navHistory.length - 1];
+    if (last && last.top === next.top && last.panel === next.panel) {
+      updateBackButton();
+      return;
+    }
+    navHistory.push(next);
+    if (navHistory.length > 80) navHistory.shift();
+    updateBackButton();
+  };
 
   const updateWorkspaceHead = (topTarget, panelTarget) => {
+    const workspaceHead = document.querySelector(".workspace-head");
     const workspaceTitle = document.getElementById("workspaceTitle");
     const workspaceCrumb = document.getElementById("workspaceCrumb");
+    if (workspaceHead) {
+      workspaceHead.classList.toggle("hidden", topTarget === "home");
+    }
     if (!workspaceTitle || !workspaceCrumb) return;
     const panelNames = {
       login: "Sign In",
@@ -3214,6 +3722,7 @@ function setupListeners() {
       invoice: "Invoice",
       receipt: "Receipt",
       calendar: "Event Calendar",
+      contracts: "Signed Contracts",
       musicians: "Musicians + Tech Crew",
       allabout: "App Overview",
       howto: "How-To Playbook",
@@ -3242,6 +3751,7 @@ function setupListeners() {
     document.getElementById("invoiceTab").classList.toggle("hidden", target !== "invoice");
     document.getElementById("receiptTab").classList.toggle("hidden", target !== "receipt");
     document.getElementById("calendarTab").classList.toggle("hidden", target !== "calendar");
+    document.getElementById("contractsTab").classList.toggle("hidden", target !== "contracts");
     document.getElementById("musiciansTab").classList.toggle("hidden", target !== "musicians");
     document.getElementById("workOrdersTab").classList.toggle("hidden", target !== "workorders");
     document.getElementById("allaboutTab").classList.toggle("hidden", target !== "allabout");
@@ -3255,6 +3765,7 @@ function setupListeners() {
       btn.classList.toggle("active", btn.getAttribute("data-panel") === target);
     });
     updateWorkspaceHead(activeTop, target);
+    rememberRoute(activeTop, target);
     updateMessagePreview();
   };
 
@@ -3291,12 +3802,16 @@ function setupListeners() {
     }
 
     if (topTarget === "bookkeeping") {
-      const valid = state.activeTab === "agreement" || state.activeTab === "invoice" || state.activeTab === "receipt";
+      const valid =
+        state.activeTab === "agreement" ||
+        state.activeTab === "invoice" ||
+        state.activeTab === "receipt" ||
+        state.activeTab === "contracts";
       switchPanel(valid ? state.activeTab : "agreement");
       return;
     }
     if (topTarget === "calendar") {
-      const valid = state.activeTab === "calendar" || state.activeTab === "musicians";
+      const valid = state.activeTab === "calendar";
       switchPanel(valid ? state.activeTab : "calendar");
       return;
     }
@@ -3304,6 +3819,26 @@ function setupListeners() {
     switchPanel(valid ? state.activeTab : "allabout");
   };
   switchTopView = switchTop;
+
+  const workspaceBackBtn = document.getElementById("workspaceBack");
+  if (workspaceBackBtn) {
+    workspaceBackBtn.addEventListener("click", () => {
+      if (navHistory.length <= 1) return;
+      navHistory.pop();
+      const previous = navHistory[navHistory.length - 1];
+      if (!previous) {
+        updateBackButton();
+        return;
+      }
+      suppressHistory = true;
+      switchTop(previous.top);
+      if (state.activeTab !== previous.panel) {
+        switchPanel(previous.panel);
+      }
+      suppressHistory = false;
+      updateBackButton();
+    });
+  }
 
   document.querySelectorAll(".section-tab[data-panel]").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -3367,7 +3902,7 @@ function setupListeners() {
   if (signInBtn) {
     signInBtn.addEventListener("click", async () => {
       const email = document.getElementById("authEmail").value.trim();
-      const password = document.getElementById("authPassword").value.trim();
+      const password = document.getElementById("authPassword").value;
       await signInWithCredentials(email, password);
     });
   }
@@ -3381,37 +3916,48 @@ function setupListeners() {
   }
 
   const signOutBtn = document.getElementById("signOut");
+  const signOutCurrentUser = async () => {
+    const client = state.calendar.client;
+    if (!client) return;
+    await client.auth.signOut();
+    state.calendar.session = null;
+    syncTopAuthTabLabel();
+    updateCalendarAuthVisibility();
+    const loginSignInBtn = document.getElementById("loginSignIn");
+    if (loginSignInBtn) {
+      loginSignInBtn.textContent = "Sign in";
+    }
+    updateSupabaseStatus("Signed out.");
+    state.calendar.events = [];
+    state.calendar.contracts = [];
+    state.calendar.assignments = [];
+    state.calendar.blackouts = [];
+    state.billing.invoices = [];
+    state.billing.receipts = [];
+    renderCalendar();
+    updateEventList();
+    updateContractList();
+    renderMusicianAssignments();
+    renderAssignmentSummaryLists();
+    renderBlackoutList();
+    updateInvoiceList();
+    updateReceiptList();
+    updateOpsProgress();
+    if (switchTopView) switchTopView("login");
+  };
   if (signOutBtn) {
-    signOutBtn.addEventListener("click", async () => {
-      const client = state.calendar.client;
-      if (!client) return;
-      await client.auth.signOut();
-      state.calendar.session = null;
-      updateSupabaseStatus("Signed out.");
-      state.calendar.events = [];
-      state.calendar.contracts = [];
-      state.calendar.assignments = [];
-      state.calendar.blackouts = [];
-      state.billing.invoices = [];
-      state.billing.receipts = [];
-      renderCalendar();
-      updateEventList();
-      updateContractList();
-      renderMusicianAssignments();
-      renderAssignmentSummaryLists();
-      renderBlackoutList();
-      updateInvoiceList();
-      updateReceiptList();
-      updateOpsProgress();
-      if (switchTopView) switchTopView("login");
-    });
+    signOutBtn.addEventListener("click", signOutCurrentUser);
   }
 
   const loginSignInBtn = document.getElementById("loginSignIn");
   if (loginSignInBtn) {
     loginSignInBtn.addEventListener("click", async () => {
+      if (state.calendar.session) {
+        await signOutCurrentUser();
+        return;
+      }
       const email = document.getElementById("loginEmail").value.trim();
-      const password = document.getElementById("loginPassword").value.trim();
+      const password = document.getElementById("loginPassword").value;
       await signInWithCredentials(email, password);
     });
   }
@@ -3421,6 +3967,14 @@ function setupListeners() {
     loginResetBtn.addEventListener("click", async () => {
       const email = document.getElementById("loginEmail").value.trim();
       await requestPasswordReset(email);
+    });
+  }
+
+  const loginMagicLinkBtn = document.getElementById("loginMagicLink");
+  if (loginMagicLinkBtn) {
+    loginMagicLinkBtn.addEventListener("click", async () => {
+      const email = document.getElementById("loginEmail").value.trim();
+      await requestMagicLink(email);
     });
   }
 
@@ -3514,6 +4068,14 @@ function setupListeners() {
   if (calendarSave) calendarSave.addEventListener("click", handleCalendarSave);
   const calendarClear = document.getElementById("calendarClear");
   if (calendarClear) calendarClear.addEventListener("click", clearCalendarForm);
+  const toggleCalendarForm = document.getElementById("toggleCalendarForm");
+  if (toggleCalendarForm) {
+    toggleCalendarForm.addEventListener("click", () => {
+      const wrap = document.getElementById("calendarEventFormWrap");
+      const expanded = Boolean(wrap?.classList.contains("hidden"));
+      setCalendarEventFormExpanded(expanded);
+    });
+  }
 
   const calendarStartDate = document.getElementById("calendarStartDate");
   if (calendarStartDate) {
@@ -3523,6 +4085,13 @@ function setupListeners() {
         renderCalendar();
         updateEventList();
       }
+    });
+  }
+
+  const calendarMusiciansNeeded = document.getElementById("calendarMusiciansNeeded");
+  if (calendarMusiciansNeeded) {
+    calendarMusiciansNeeded.addEventListener("change", () => {
+      updateMusicianAssignmentsVisibility();
     });
   }
 
@@ -3717,8 +4286,10 @@ function init() {
   if (overridePinInput) {
     overridePinInput.value = state.calendar.overridePin ? "••••" : "";
   }
-  state.calendar.selectedDate = formatDateInput(new Date());
+  state.calendar.selectedDate = "";
+  setCalendarEventFormExpanded(false);
   initSupabaseClient();
+  updateCalendarAuthVisibility();
   refreshAuthState();
   updateHolidayFromDate();
   updatePerformanceHoursFromTimes();

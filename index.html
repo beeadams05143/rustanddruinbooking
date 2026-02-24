@@ -21,11 +21,6 @@
             Build, sign, and export client-ready paperwork in minutes.
           </p>
         </div>
-        <div class="band-card">
-          <p class="band-title">Rust and Ruin</p>
-          <p>That 70s Retro Band</p>
-          <p>Chester, VT</p>
-        </div>
       </header>
 
       <nav class="tabs top-tabs">
@@ -43,11 +38,11 @@
         <button class="tab section-tab active" data-panel="agreement">Step 1: Agreement</button>
         <button class="tab section-tab" data-panel="invoice">Step 2: Invoice</button>
         <button class="tab section-tab" data-panel="receipt">Step 3: Receipt</button>
+        <button class="tab section-tab" data-panel="contracts">Signed Contracts</button>
       </nav>
 
       <nav class="tabs section-tabs hidden" id="scheduleTabs">
         <button class="tab section-tab active" data-panel="calendar">Event Calendar</button>
-        <button class="tab section-tab" data-panel="musicians">Musicians + Tech Crew</button>
       </nav>
 
       <nav class="tabs section-tabs hidden" id="aboutTabs">
@@ -56,6 +51,7 @@
       </nav>
 
       <section class="workspace-head">
+        <button class="btn ghost hidden" id="workspaceBack" type="button">Back</button>
         <p class="workspace-kicker">Folder Path</p>
         <h2 id="workspaceTitle">Front Desk</h2>
         <p id="workspaceCrumb" class="muted">Front Desk / Sign In</p>
@@ -79,6 +75,7 @@
           <div class="inline-actions login-actions">
             <button class="btn" id="loginSignIn">Sign in</button>
             <button class="btn ghost" id="loginResetPassword">Reset password</button>
+            <button class="btn ghost" id="loginMagicLink">Email magic link</button>
             <p id="loginStatus" class="muted"></p>
           </div>
         </section>
@@ -87,8 +84,8 @@
         <section class="panel form-panel dashboard-board">
           <div class="board-head">
             <div>
-              <p class="board-kicker">Band Manager Desk</p>
-              <h2>Tonight's Office Board</h2>
+              <p class="board-kicker">Dashboard</p>
+              <h2>Band Managers Desk</h2>
               <p class="muted">Everything in one place before wheels-up.</p>
             </div>
             <div class="vinyl-art" aria-hidden="true"></div>
@@ -97,11 +94,9 @@
           <div class="board-grid">
             <article class="board-card pin-red">
               <h3>Upcoming Shows</h3>
-              <p>Keep dates confirmed and holds cleaned up before outreach.</p>
-              <ul class="board-list">
-                <li>Friday: Confirmed private event</li>
-                <li>Saturday: Pending hold follow-up</li>
-                <li>Sunday: Travel + load-in check</li>
+              <p id="upcomingShowsSummary">Shows scheduled for the next 7 days.</p>
+              <ul class="board-list" id="upcomingShowsList">
+                <li>No shows in the next 7 days.</li>
               </ul>
             </article>
 
@@ -116,17 +111,11 @@
 
             <article class="board-card wide pin-blue">
               <h3>Manager Checklist</h3>
-              <div class="checklist-row">
-                <span>Agreement sent + signed</span>
-                <strong>Required</strong>
-              </div>
-              <div class="checklist-row">
-                <span>Invoice synced to client record</span>
-                <strong>Required</strong>
-              </div>
-              <div class="checklist-row">
-                <span>Receipt and final payment logged</span>
-                <strong>Day-of</strong>
+              <div id="managerChecklistList">
+                <div class="checklist-row">
+                  <span>No checklist items yet.</span>
+                  <strong>Clear</strong>
+                </div>
               </div>
               <button class="btn board-action" id="homeWorkOrders">Open Work Orders</button>
             </article>
@@ -813,7 +802,7 @@
         <section class="panel form-panel">
           <h2>Band Calendar</h2>
 
-          <div class="form-section">
+          <div class="form-section" id="calendarAuthSection">
             <h3>Sign In</h3>
             <div class="form-grid">
               <label>
@@ -864,6 +853,10 @@
 
           <div class="form-section">
             <h3>Add or Update Event</h3>
+            <div class="inline-actions">
+              <button class="btn ghost" id="toggleCalendarForm">Add event</button>
+            </div>
+            <div id="calendarEventFormWrap" class="hidden">
             <div class="form-grid">
               <label>
                 Event type
@@ -894,59 +887,36 @@
                 <input id="calendarEndTime" type="time" />
               </label>
               <label>
+                Schedule every month
+                <select id="calendarMonthlyWeek">
+                  <option value="">Do not repeat</option>
+                  <option value="1">1st week</option>
+                  <option value="2">2nd week</option>
+                  <option value="3">3rd week</option>
+                  <option value="4">4th week</option>
+                  <option value="last">Last week</option>
+                </select>
+              </label>
+              <label>
                 Notes
                 <textarea id="calendarNotes" placeholder="Any details or notes"></textarea>
               </label>
             </div>
             <div class="form-subsection">
-              <h4>Musician assignments</h4>
-              <div id="musicianAssignments" class="assignment-list"></div>
-              <p class="muted">Mark who&apos;s playing and the assignment status.</p>
-            </div>
-            <div class="form-subsection">
-              <h4>Musician blackout (unavailable)</h4>
+              <h4>Musicians needed?</h4>
               <div class="form-grid">
                 <label>
-                  Musician
-                  <select id="blackoutMusician"></select>
-                </label>
-                <label>
-                  Start date
-                  <input id="blackoutStartDate" type="date" />
-                </label>
-                <label>
-                  Start time
-                  <input id="blackoutStartTime" type="time" />
-                </label>
-                <label>
-                  End date
-                  <input id="blackoutEndDate" type="date" />
-                </label>
-                <label>
-                  End time
-                  <input id="blackoutEndTime" type="time" />
-                </label>
-                <label>
-                  Notes
-                  <textarea id="blackoutNotes" placeholder="Reason or note"></textarea>
+                  Musicians needed
+                  <select id="calendarMusiciansNeeded">
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
                 </label>
               </div>
-              <div class="checkbox-group">
-                <label class="checkbox">
-                  <input id="blackoutAllDay" type="checkbox" />
-                  All-day blackout
-                </label>
+              <div id="musicianAssignmentsWrap" class="hidden">
+                <div id="musicianAssignments" class="assignment-list"></div>
+                <p class="muted">Mark who&apos;s playing and the assignment status.</p>
               </div>
-              <div class="inline-actions">
-                <button class="btn ghost" id="saveBlackout">Save blackout</button>
-                <p id="blackoutStatus" class="muted"></p>
-              </div>
-            </div>
-            <div class="checkbox-group">
-              <label class="checkbox">
-                <input id="calendarAllDay" type="checkbox" />
-                All-day blackout
-              </label>
             </div>
             <div class="inline-actions">
               <button class="btn" id="calendarSave">Save event</button>
@@ -957,20 +927,27 @@
                 <input id="overridePinInput" type="password" placeholder="Enter PIN to override" />
               </label>
             </div>
+            </div>
           </div>
 
           <div class="form-section">
             <h3>Events on selected day</h3>
-            <p class="muted" id="selectedEventLabel">Selected event: None</p>
+            <p class="muted" id="selectedEventLabel">Select a date to view events.</p>
             <p class="muted">
               How to link a contract: Click a date, then click <strong>Select</strong> on the event.
               In the Signed Contracts list, click <strong>Link to selected event</strong>.
             </p>
             <div id="eventList" class="event-list"></div>
           </div>
+        </section>
+      </main>
 
+      <main class="layout single hidden" id="contractsTab">
+        <section class="panel form-panel">
+          <h2>Signed Contracts</h2>
+          <p class="muted">Upload, open, print, and link signed contracts when needed.</p>
           <div class="form-section">
-            <h3>Signed Contracts</h3>
+            <h3>Contract Upload</h3>
             <div class="form-grid">
               <label>
                 Contract name
@@ -1230,6 +1207,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
