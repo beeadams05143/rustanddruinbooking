@@ -85,6 +85,10 @@ const state = {
     receipts: [],
   },
   workOrders: [],
+  workOrderView: {
+    focusId: "",
+    showCreate: true,
+  },
   musicians: [],
   activeTab: "agreement",
 };
@@ -998,8 +1002,18 @@ function renderManagerChecklist(events) {
 
   const openChecklistTarget = (target) => {
     if (!switchTopView) return;
-    if (target === "workorders") {
+    if (target?.type === "workorder") {
+      state.workOrderView.focusId = target.id || "";
+      state.workOrderView.showCreate = false;
       switchTopView("workorders");
+      renderWorkOrders();
+      return;
+    }
+    if (target === "workorders") {
+      state.workOrderView.focusId = "";
+      state.workOrderView.showCreate = true;
+      switchTopView("workorders");
+      renderWorkOrders();
       return;
     }
     if (target === "contracts") {
@@ -1023,12 +1037,23 @@ function renderManagerChecklist(events) {
     }
   };
 
-  const rows = [
-    {
-      text: `Open work orders: ${openWorkOrders.length}`,
-      tag: openWorkOrders.length ? "Action" : "Open",
+  const rows = [];
+  if (openWorkOrders.length) {
+    openWorkOrders.slice(0, 5).forEach((item) => {
+      rows.push({
+        text: item.description || item.title || "Untitled task",
+        tag: "Open task",
+        target: { type: "workorder", id: item.id },
+      });
+    });
+  } else {
+    rows.push({
+      text: "Open work orders: 0",
+      tag: "Open",
       target: "workorders",
-    },
+    });
+  }
+  rows.push(
     {
       text: `Contracts to come back signed (this week): ${missingContracts.length}`,
       tag: missingContracts.length ? "Required" : "Open",
@@ -1049,7 +1074,7 @@ function renderManagerChecklist(events) {
       tag: receiptSendNeeded.length ? "Send" : "Open",
       target: "receipt",
     },
-  ];
+  );
 
   rows.forEach((row) => {
     const el = document.createElement("div");
@@ -1067,32 +1092,57 @@ function renderManagerChecklist(events) {
   });
 }
 
-function updateShowRecordCounts() {
+async function updateShowRecordCounts() {
   const fullEl = document.getElementById("showCountFull");
   const duoEl = document.getElementById("showCountDuo");
   const totalEl = document.getElementById("showCountTotal");
   if (!fullEl || !duoEl || !totalEl) return;
 
   const currentYear = new Date().getFullYear();
-  const bookedShows = state.calendar.events.filter((event) => {
+  let bookedShows = state.calendar.events.filter((event) => {
     const kind = String(event?.type || "").toLowerCase();
     if (kind !== "confirmed") return false;
     const start = new Date(event?.start_time || 0);
     return Number.isFinite(start.getTime()) && start.getFullYear() === currentYear;
   });
 
-  const fullCount = bookedShows.filter((event) => {
-    const text = `${event?.title || ""} ${event?.notes || ""}`.toLowerCase();
-    return text.includes("full band") || text.includes("full");
-  }).length;
+  const client = state.calendar.client;
+  if (client && state.calendar.session) {
+    const yearStart = new Date(currentYear, 0, 1).toISOString();
+    const nextYearStart = new Date(currentYear + 1, 0, 1).toISOString();
+    const { data, error } = await client
+      .from("events")
+      .select("id,title,notes,type,start_time")
+      .gte("start_time", yearStart)
+      .lt("start_time", nextYearStart);
+    if (!error && Array.isArray(data)) {
+      bookedShows = data.filter((event) => {
+        const kind = String(event?.type || "").toLowerCase();
+        return kind === "confirmed";
+      });
+    }
+  }
 
-  const duoCount = bookedShows.filter((event) => {
-    const text = `${event?.title || ""} ${event?.notes || ""}`.toLowerCase();
-    return text.includes("duo");
-  }).length;
+  const counts = bookedShows.reduce(
+    (acc, event) => {
+      const text = `${event?.title || ""} ${event?.notes || ""}`.toLowerCase();
+      const hasAssignments = state.calendar.assignments.some(
+        (item) => item.event_id === event.id
+      );
+      if (text.includes("full band") || text.includes("full")) {
+        acc.full += 1;
+      } else if (text.includes("duo") || !hasAssignments) {
+        acc.duo += 1;
+      } else {
+        acc.full += 1;
+      }
+      return acc;
+    },
+    { full: 0, duo: 0 }
+  );
 
-  fullEl.textContent = String(fullCount);
-  duoEl.textContent = String(duoCount);
+  fullEl.textContent = String(counts.full);
+  duoEl.textContent = String(counts.duo);
   totalEl.textContent = String(bookedShows.length);
 }
 
@@ -2332,6 +2382,11 @@ async function handleCalendarSave() {
   const notes = document.getElementById("calendarNotes").value.trim();
 
   if (!endDate && startDate) endDate = startDate;
+  if (monthlyWeek && startDate) {
+    endDate = startDate;
+    const endDateInput = document.getElementById("calendarEndDate");
+    if (endDateInput) endDateInput.value = startDate;
+  }
 
   const start = combineDateTime(startDate, startTime);
   const end = combineDateTime(endDate, endTime);
@@ -2341,10 +2396,21 @@ async function handleCalendarSave() {
     return;
   }
 
+  let effectiveEnd = end;
+  if (monthlyWeek) {
+    // For monthly repeats, anchor duration to times only so mobile date-pickers
+    // cannot accidentally create month-long spans across every day.
+    let durationMs = Math.round(hoursBetweenTimes(startTime, endTime) * 60 * 60 * 1000);
+    if (!Number.isFinite(durationMs) || durationMs <= 0) {
+      durationMs = 60 * 60 * 1000;
+    }
+    effectiveEnd = new Date(start.getTime() + durationMs);
+  }
+
   const { data: conflicts, error } = await client
     .from("events")
     .select("*")
-    .lt("start_time", end.toISOString())
+    .lt("start_time", effectiveEnd.toISOString())
     .gt("end_time", start.toISOString());
 
   if (error) {
@@ -2378,7 +2444,7 @@ async function handleCalendarSave() {
     type,
     title,
     start_time: start.toISOString(),
-    end_time: end.toISOString(),
+    end_time: effectiveEnd.toISOString(),
     notes,
     override: conflictList.length > 0,
   };
@@ -2386,7 +2452,13 @@ async function handleCalendarSave() {
 
   if (state.calendar.selectedEventId) {
     if (monthlyWeek) {
-      const recurringPayloads = buildMonthlyRecurringPayloads(payload, start, end, monthlyWeek, 12);
+      const recurringPayloads = buildMonthlyRecurringPayloads(
+        payload,
+        start,
+        effectiveEnd,
+        monthlyWeek,
+        12
+      );
       if (!recurringPayloads.length) {
         updateSupabaseStatus("Could not build monthly schedule from selected week.", true);
         return;
@@ -2426,7 +2498,13 @@ async function handleCalendarSave() {
     }
   } else {
     if (monthlyWeek) {
-      const recurringPayloads = buildMonthlyRecurringPayloads(payload, start, end, monthlyWeek, 12);
+      const recurringPayloads = buildMonthlyRecurringPayloads(
+        payload,
+        start,
+        effectiveEnd,
+        monthlyWeek,
+        12
+      );
       if (!recurringPayloads.length) {
         updateSupabaseStatus("Could not build monthly schedule from selected week.", true);
         return;
@@ -2903,6 +2981,15 @@ function resetWorkOrderForm() {
 function renderWorkOrders() {
   const list = document.getElementById("workOrderList");
   if (!list) return;
+  const createSection = document.getElementById("workOrderNewSection");
+  const showAllBtn = document.getElementById("workOrderShowAll");
+  const hasFocus = Boolean(state.workOrderView?.focusId);
+  if (createSection) {
+    createSection.classList.toggle("hidden", state.workOrderView?.showCreate === false);
+  }
+  if (showAllBtn) {
+    showAllBtn.classList.toggle("hidden", !hasFocus && state.workOrderView?.showCreate !== false);
+  }
   list.innerHTML = "";
   if (!state.workOrders.length) {
     list.innerHTML = "<p class=\"muted\">No work orders yet.</p>";
@@ -2910,7 +2997,17 @@ function renderWorkOrders() {
     return;
   }
 
-  state.workOrders.forEach((order) => {
+  const rows = hasFocus
+    ? state.workOrders.filter((item) => item.id === state.workOrderView.focusId)
+    : state.workOrders;
+
+  if (hasFocus && !rows.length) {
+    list.innerHTML = "<p class=\"muted\">That task is no longer available.</p>";
+    updateOpsProgress();
+    return;
+  }
+
+  rows.forEach((order) => {
     const taskStatus =
       order.status || (order.completed ? "Completed" : "Open");
     const card = document.createElement("article");
@@ -3015,6 +3112,8 @@ function submitWorkOrder() {
     completed: status === "Completed",
     createdAt: new Date().toISOString(),
   });
+  state.workOrderView.focusId = "";
+  state.workOrderView.showCreate = true;
   saveDraft();
   renderWorkOrders();
   resetWorkOrderForm();
@@ -3954,7 +4053,12 @@ function setupListeners() {
 
   const homeWorkOrdersBtn = document.getElementById("homeWorkOrders");
   if (homeWorkOrdersBtn) {
-    homeWorkOrdersBtn.addEventListener("click", () => switchTop("workorders"));
+    homeWorkOrdersBtn.addEventListener("click", () => {
+      state.workOrderView.focusId = "";
+      state.workOrderView.showCreate = true;
+      switchTop("workorders");
+      renderWorkOrders();
+    });
   }
 
   document.getElementById("agreementPdf").addEventListener("click", () => generatePdf("agreement"));
@@ -4103,8 +4207,20 @@ function setupListeners() {
         current.completed = !nowDone;
       } else if (action === "delete") {
         state.workOrders.splice(idx, 1);
+        if (state.workOrderView.focusId === id) {
+          state.workOrderView.focusId = "";
+          state.workOrderView.showCreate = true;
+        }
       }
       saveDraft();
+      renderWorkOrders();
+    });
+  }
+  const workOrderShowAllBtn = document.getElementById("workOrderShowAll");
+  if (workOrderShowAllBtn) {
+    workOrderShowAllBtn.addEventListener("click", () => {
+      state.workOrderView.focusId = "";
+      state.workOrderView.showCreate = true;
       renderWorkOrders();
     });
   }

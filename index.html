@@ -135,7 +135,7 @@
         <section class="panel form-panel">
           <h2>Band Work Orders</h2>
           <p class="muted">Submit tasks for prep, logistics, gear, and promo.</p>
-          <div class="form-section">
+          <div class="form-section" id="workOrderNewSection">
             <h3>New Work Order</h3>
             <div class="form-grid">
               <label>
@@ -195,6 +195,7 @@
 
           <div class="form-section">
             <h3>Open + Completed Tasks</h3>
+            <button class="btn ghost hidden" id="workOrderShowAll" type="button">Show all tasks</button>
             <div id="workOrderList" class="work-order-list"></div>
           </div>
         </section>
