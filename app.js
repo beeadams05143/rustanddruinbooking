@@ -89,6 +89,9 @@ const state = {
     focusId: "",
     showCreate: true,
   },
+  musicianEditor: {
+    id: "",
+  },
   musicians: [],
   activeTab: "agreement",
 };
@@ -3210,17 +3213,64 @@ function renderMusicianList() {
     toggle.dataset.action = "toggle-musician";
     toggle.dataset.id = musician.id;
     toggle.textContent = musician.active === false ? "Set active" : "Set inactive";
+    const edit = document.createElement("button");
+    edit.className = "btn ghost";
+    edit.dataset.action = "edit-musician";
+    edit.dataset.id = musician.id;
+    edit.textContent = "Edit";
     const remove = document.createElement("button");
     remove.className = "btn ghost";
     remove.dataset.action = "delete-musician";
     remove.dataset.id = musician.id;
     remove.textContent = "Delete";
+    actions.appendChild(edit);
     actions.appendChild(toggle);
     actions.appendChild(remove);
     card.appendChild(actions);
     list.appendChild(card);
   });
   populateMusicianSelects();
+}
+
+function clearMusicianForm() {
+  ["musicianName", "musicianRole", "musicianEmail", "musicianPhone", "musicianNotes"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  const activeInput = document.getElementById("musicianActive");
+  if (activeInput) activeInput.checked = true;
+}
+
+function setMusicianEditorState(id = "") {
+  state.musicianEditor.id = id || "";
+  const addBtn = document.getElementById("addMusician");
+  const cancelBtn = document.getElementById("cancelMusicianEdit");
+  const seedBtn = document.getElementById("seedMusicians");
+  const isEditing = Boolean(state.musicianEditor.id);
+  if (addBtn) addBtn.textContent = isEditing ? "Save changes" : "Add team member";
+  if (cancelBtn) cancelBtn.classList.toggle("hidden", !isEditing);
+  if (seedBtn) seedBtn.classList.toggle("hidden", isEditing);
+}
+
+function editMusicianFromList(id) {
+  const musician = state.musicians.find((item) => item.id === id);
+  if (!musician) return;
+  state.musicianEditor.id = id;
+  const map = {
+    musicianName: musician.name || "",
+    musicianRole: musician.role || "",
+    musicianEmail: musician.email || "",
+    musicianPhone: musician.phone || "",
+    musicianNotes: musician.notes || "",
+  };
+  Object.entries(map).forEach(([fieldId, value]) => {
+    const el = document.getElementById(fieldId);
+    if (el) el.value = value;
+  });
+  const activeInput = document.getElementById("musicianActive");
+  if (activeInput) activeInput.checked = musician.active !== false;
+  setMusicianEditorState(id);
+  updateMusicianStatus(`Editing ${musicianDisplayName(musician)}.`);
 }
 
 async function fetchMusicians() {
@@ -3260,7 +3310,41 @@ async function addMusicianFromForm() {
     return;
   }
   const payload = { name, role, email, phone, notes, active };
+  const editId = state.musicianEditor.id || "";
   const client = state.calendar.client;
+  if (editId) {
+    const idx = state.musicians.findIndex((item) => item.id === editId);
+    if (idx === -1) {
+      setMusicianEditorState("");
+      clearMusicianForm();
+      updateMusicianStatus("Selected musician was not found.", true);
+      return;
+    }
+    if (client && state.calendar.session && !String(editId).startsWith("local-musician-")) {
+      const { data, error } = await client
+        .from("musicians")
+        .update(payload)
+        .eq("id", editId)
+        .select("*")
+        .single();
+      if (error) {
+        updateMusicianStatus(`Could not update musician: ${error.message}`, true);
+        return;
+      }
+      state.musicians[idx] = data;
+    } else {
+      state.musicians[idx] = { ...state.musicians[idx], ...payload };
+    }
+    saveDraft();
+    renderMusicianList();
+    renderMusicianAssignments();
+    renderAssignmentSummaryLists();
+    clearMusicianForm();
+    setMusicianEditorState("");
+    updateMusicianStatus("Musician updated.");
+    return;
+  }
+
   if (client && state.calendar.session) {
     const { data, error } = await client
       .from("musicians")
@@ -3282,12 +3366,8 @@ async function addMusicianFromForm() {
   renderMusicianList();
   renderMusicianAssignments();
   renderAssignmentSummaryLists();
-  ["musicianName", "musicianRole", "musicianEmail", "musicianPhone", "musicianNotes"].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.value = "";
-  });
-  const activeInput = document.getElementById("musicianActive");
-  if (activeInput) activeInput.checked = true;
+  clearMusicianForm();
+  setMusicianEditorState("");
   updateMusicianStatus("Musician added.");
 }
 
@@ -3325,6 +3405,10 @@ async function deleteMusician(id) {
   }
   state.musicians = state.musicians.filter((m) => m.id !== id);
   state.calendar.assignments = state.calendar.assignments.filter((a) => a.musician_id !== id);
+  if (state.musicianEditor.id === id) {
+    clearMusicianForm();
+    setMusicianEditorState("");
+  }
   saveDraft();
   renderMusicianList();
   renderMusicianAssignments();
@@ -4229,6 +4313,14 @@ function setupListeners() {
   if (addMusicianBtn) {
     addMusicianBtn.addEventListener("click", addMusicianFromForm);
   }
+  const cancelMusicianEditBtn = document.getElementById("cancelMusicianEdit");
+  if (cancelMusicianEditBtn) {
+    cancelMusicianEditBtn.addEventListener("click", () => {
+      clearMusicianForm();
+      setMusicianEditorState("");
+      updateMusicianStatus("Edit canceled.");
+    });
+  }
   const seedMusiciansBtn = document.getElementById("seedMusicians");
   if (seedMusiciansBtn) {
     seedMusiciansBtn.addEventListener("click", seedDefaultMusicians);
@@ -4239,7 +4331,9 @@ function setupListeners() {
       const button = event.target.closest("button[data-action][data-id]");
       if (!button) return;
       const { action, id } = button.dataset;
-      if (action === "toggle-musician") {
+      if (action === "edit-musician") {
+        editMusicianFromList(id);
+      } else if (action === "toggle-musician") {
         await toggleMusicianActive(id);
       } else if (action === "delete-musician") {
         await deleteMusician(id);
@@ -4352,6 +4446,7 @@ function setupListeners() {
     });
   }
   switchTop(state.calendar.session ? "home" : "login");
+  setMusicianEditorState("");
   renderWorkOrders();
 }
 
