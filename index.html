@@ -28,8 +28,11 @@
         <button class="tab top-tab" data-top="home">Dashboard</button>
         <button class="tab top-tab" data-top="bookkeeping">Booking Folder</button>
         <button class="tab top-tab" data-top="calendar">Calendar Folder</button>
+        <button class="tab top-tab" data-top="contracts">Contracts</button>
         <button class="tab top-tab" data-top="workorders">Work Orders</button>
+        <button class="tab top-tab" data-top="shows">Shows</button>
         <button class="tab top-tab" data-top="musicians">Musicians + Tech Crew</button>
+        <button class="tab top-tab" data-top="about">About</button>
         <button class="tab cta" id="generatePdf">Generate PDF</button>
         <button class="tab" id="sharePdf" disabled>Share PDF</button>
       </nav>
@@ -39,6 +42,7 @@
         <button class="tab section-tab" data-panel="invoice">Step 2: Invoice</button>
         <button class="tab section-tab" data-panel="receipt">Step 3: Receipt</button>
         <button class="tab section-tab" data-panel="contracts">Signed Contracts</button>
+        <button class="tab section-tab" data-panel="contractscreated">Contracts Created</button>
       </nav>
 
       <nav class="tabs section-tabs hidden" id="scheduleTabs">
@@ -870,9 +874,8 @@
               <label>
                 Event type
                 <select id="calendarType">
-                  <option value="Hold">Hold</option>
+                  <option value="Contract Needed">Contract Needed</option>
                   <option value="Confirmed">Confirmed</option>
-                  <option value="Blackout">Blackout</option>
                 </select>
               </label>
               <label>
@@ -954,7 +957,7 @@
       <main class="layout single hidden" id="contractsTab">
         <section class="panel form-panel">
           <h2>Signed Contracts</h2>
-          <p class="muted">Upload, open, print, and link signed contracts when needed.</p>
+          <p class="muted">Upload, link, and manage signed + draft contract records.</p>
           <div class="form-section">
             <h3>Contract Upload</h3>
             <div class="form-grid">
@@ -977,8 +980,50 @@
               <button class="btn" id="uploadContract">Upload signed contract</button>
               <p id="contractStatus" class="muted"></p>
             </div>
+          </div>
+
+          <div class="form-section">
+            <h3>Signed Contracts</h3>
             <div id="contractList" class="event-list"></div>
           </div>
+
+          <div class="form-section">
+            <h3>Draft Contracts</h3>
+            <div id="contractDraftList" class="event-list"></div>
+          </div>
+        </section>
+      </main>
+
+      <main class="layout single hidden" id="contractsCreatedTab">
+        <section class="panel form-panel">
+          <h2>Contracts Created</h2>
+          <p class="muted">Saved original agreement PDFs for quick resend when clients lose a copy.</p>
+          <div class="form-section">
+            <h3>Created Agreement Archive</h3>
+            <p id="createdContractStatus" class="muted">
+              Generate an Agreement PDF from Step 1 and it will be saved here automatically.
+            </p>
+            <div id="createdContractList" class="event-list"></div>
+          </div>
+        </section>
+      </main>
+
+      <main class="layout single hidden" id="contractsHubTab">
+        <section class="panel form-panel">
+          <h2>Contracts</h2>
+          <p class="muted">Manage pending and signed contracts in one place.</p>
+          <p id="contractsHubStatus" class="muted"></p>
+
+          <div class="form-section">
+            <h3>Drafts / Contracts Pending Signature</h3>
+            <div id="contractsHubPendingList" class="event-list"></div>
+          </div>
+
+          <div class="form-section">
+            <h3>Signed Contracts</h3>
+            <div id="contractsHubSignedList" class="event-list"></div>
+          </div>
+
         </section>
       </main>
 
@@ -1085,14 +1130,22 @@
             <div id="assignmentList" class="event-list"></div>
           </div>
 
+        </section>
+      </main>
+
+      <main class="layout single hidden" id="showsTab">
+        <section class="panel form-panel">
+          <h2>Shows</h2>
+          <p class="muted">Booked dates, players, and open weekend booking windows.</p>
+
           <div class="form-section">
-            <h3>Booked Dates (Who&apos;s Playing)</h3>
-            <div id="bookedDatesList" class="event-list"></div>
+            <h3>Available Dates to Book (Weekend Dates by Month)</h3>
+            <div id="availableDatesList" class="event-list"></div>
           </div>
 
           <div class="form-section">
-            <h3>Available Dates to Book (Next 60 Days)</h3>
-            <div id="availableDatesList" class="event-list"></div>
+            <h3>Booked Dates (Who&apos;s Playing)</h3>
+            <div id="bookedDatesList" class="event-list"></div>
           </div>
         </section>
       </main>
@@ -1126,6 +1179,19 @@
               </ul>
             </article>
           </div>
+          <div class="form-section">
+            <h3>How To Use This App (Quick Reference)</h3>
+            <ul class="howto-list">
+              <li><strong>Dashboard:</strong> Check manager checklist, show counts, and progress.</li>
+              <li><strong>Booking Folder:</strong> Create Agreement, Invoice, and Receipt documents and generate PDFs.</li>
+              <li><strong>Calendar Folder:</strong> Add events, mark Contract Needed vs Confirmed, and manage assignments.</li>
+              <li><strong>Contracts Folder:</strong> Keep editable drafts in pending, upload signed PDFs with the checkbox, and open signed files anytime.</li>
+              <li><strong>Work Orders:</strong> Track tasks and mark jobs completed.</li>
+              <li><strong>Shows:</strong> Review booked shows and open weekend dates by month.</li>
+              <li><strong>Musicians + Tech Crew:</strong> Maintain roster, blackouts, and availability.</li>
+              <li><strong>About:</strong> Use App Overview and How-To Playbook for deeper walkthroughs.</li>
+            </ul>
+          </div>
         </section>
       </main>
 
@@ -1153,7 +1219,7 @@
               <ol class="howto-list">
                 <li>Sign in on the Calendar tab first.</li>
                 <li>In Agreement, click <strong>Add to Calendar (Pending)</strong>.</li>
-                <li>A <strong>Hold</strong> event is created with pending contract status.</li>
+                <li>A <strong>Contract Needed</strong> event is created with pending contract status.</li>
                 <li>Calendar date marker: <strong>📎</strong> means contract still needed.</li>
               </ol>
             </article>

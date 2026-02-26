@@ -951,11 +951,17 @@ function renderUpcomingShowsCard(events) {
     const dayLabel = start
       ? start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
       : "Date TBD";
-    const status = String(event.type || "Show");
+    const status = eventTypeLabel(event.type || "Show");
     const item = document.createElement("li");
     item.textContent = `${dayLabel}: ${event.title || "Untitled show"} (${status})`;
     list.appendChild(item);
   });
+}
+
+function eventTypeLabel(typeValue) {
+  const text = String(typeValue || "").trim();
+  if (text.toLowerCase() === "hold") return "Contract Needed";
+  return text || "Event";
 }
 
 function renderManagerChecklist(events) {
@@ -1168,8 +1174,13 @@ function updateOpsProgress() {
     return status === "completed" || item.completed === true;
   }).length;
 
-  const contractsTotal = state.calendar.contracts.length;
-  const contractsDone = state.calendar.contracts.filter((item) => {
+  const trackableContracts = state.calendar.contracts.filter((item) => {
+    const status = String(item.status || "").toLowerCase();
+    const path = String(item.file_path || "");
+    return !(status.includes("created") || path.startsWith("created-contracts/"));
+  });
+  const contractsTotal = trackableContracts.length;
+  const contractsDone = trackableContracts.filter((item) => {
     const status = String(item.status || "").toLowerCase();
     return Boolean(item.file_path) || status.includes("signed");
   }).length;
@@ -1661,6 +1672,71 @@ async function autoSaveReceiptPdf(blob, fileName) {
   await fetchReceipts();
 }
 
+function setCreatedContractStatus(message, isError = false) {
+  const el = document.getElementById("createdContractStatus");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("warning", isError);
+}
+
+async function autoSaveCreatedAgreementPdf(blob, fileName) {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session || !blob) return;
+
+  const safeFileName = fileName.replace(/\s+/g, "-");
+  const path = `created-contracts/${Date.now()}-${safeFileName}`.replace(/[^a-zA-Z0-9-_/.]/g, "");
+  const { error: uploadError } = await client
+    .storage
+    .from("signed-contracts")
+    .upload(path, blob, { upsert: true, contentType: "application/pdf" });
+  if (uploadError) {
+    setCreatedContractStatus("Could not save created contract PDF.", true);
+    return;
+  }
+
+  const contractName = `${state.agreement.clientName || "Client"} Agreement ${
+    state.agreement.performanceDate || ""
+  }`.trim();
+  const { data: existing } = await client
+    .from("contracts")
+    .select("id")
+    .eq("name", contractName)
+    .ilike("status", "created")
+    .order("uploaded_at", { ascending: false })
+    .limit(1);
+
+  if (existing && existing.length) {
+    const { error: updateError } = await client
+      .from("contracts")
+      .update({
+        file_path: path,
+        status: "Created",
+        event_id: null,
+      })
+      .eq("id", existing[0].id);
+    if (updateError) {
+      setCreatedContractStatus("Saved PDF, but could not update created contract row.", true);
+      return;
+    }
+  } else {
+    const { error: insertError } = await client
+      .from("contracts")
+      .insert({
+        name: contractName,
+        file_path: path,
+        event_id: null,
+        status: "Created",
+      });
+    if (insertError) {
+      setCreatedContractStatus("Saved PDF, but could not store created contract metadata.", true);
+      return;
+    }
+  }
+
+  setCreatedContractStatus("Created contract saved.");
+  await fetchContracts();
+}
+
 function initSupabaseClient() {
   if (!window.supabase || !window.supabase.createClient) {
     state.calendar.client = null;
@@ -1956,6 +2032,8 @@ async function fetchContracts() {
   if (!client || !state.calendar.session) {
     state.calendar.contracts = [];
     updateContractList();
+    updateCreatedContractList();
+    renderContractsHub();
     updateOpsProgress();
     return;
   }
@@ -1973,6 +2051,8 @@ async function fetchContracts() {
 
   state.calendar.contracts = data || [];
   updateContractList();
+  updateCreatedContractList();
+  renderContractsHub();
   renderAssignmentSummaryLists();
   updateOpsProgress();
 }
@@ -2150,7 +2230,12 @@ function populateCalendarFormFromEvent(event) {
 
   const start = new Date(event.start_time);
   const end = new Date(event.end_time);
-  if (type) type.value = event.type || "Hold";
+  if (type) {
+    const normalizedType = String(event.type || "").toLowerCase() === "hold"
+      ? "Contract Needed"
+      : (event.type || "Contract Needed");
+    type.value = normalizedType;
+  }
   if (title) title.value = event.title || "";
   if (startDate) startDate.value = formatDateInput(start);
   if (startTime) startTime.value = formatTimeInput(start);
@@ -2164,6 +2249,43 @@ function populateCalendarFormFromEvent(event) {
   updateMusicianAssignmentsVisibility();
   if (notes) notes.value = event.notes || "";
   if (contractEventId) contractEventId.value = event.id;
+}
+
+async function upsertPendingContractForEvent(eventId, eventTitle = "") {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session || !eventId) return;
+  const { data: existingContract, error: selectError } = await client
+    .from("contracts")
+    .select("*")
+    .eq("event_id", eventId)
+    .limit(1);
+  if (selectError) return;
+  const contractName = `${eventTitle || "Event"} Agreement`.trim();
+  if (!existingContract || !existingContract.length) {
+    await client.from("contracts").insert({
+      name: contractName,
+      file_path: null,
+      event_id: eventId,
+      status: "Pending signature",
+    });
+    return;
+  }
+  if (!existingContract[0].file_path) {
+    await client
+      .from("contracts")
+      .update({ name: contractName, status: "Pending signature" })
+      .eq("id", existingContract[0].id);
+  }
+}
+
+async function clearPendingDraftContractForEvent(eventId) {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session || !eventId) return;
+  await client
+    .from("contracts")
+    .delete()
+    .eq("event_id", eventId)
+    .is("file_path", null);
 }
 
 function getMonthlyWeekdayDate(year, monthIndex, weekday, weekValue) {
@@ -2222,9 +2344,10 @@ function selectEventForEdit(event, selectedDateOverride = "") {
   }
   populateCalendarFormFromEvent(event);
   renderCalendar();
-  updateEventList();
-  updateContractList();
-  renderMusicianAssignments();
+    updateEventList();
+    updateContractList();
+    renderContractsHub();
+    renderMusicianAssignments();
 }
 
 function updateEventList() {
@@ -2265,7 +2388,7 @@ function updateEventList() {
       card.classList.add("selected");
     }
     const header = document.createElement("header");
-    header.innerHTML = `<span>${event.title || event.type}</span><span>${event.type}</span>`;
+    header.innerHTML = `<span>${event.title || eventTypeLabel(event.type)}</span><span>${eventTypeLabel(event.type)}</span>`;
     header.addEventListener("click", () => {
       selectEventForEdit(event, selected);
     });
@@ -2343,6 +2466,33 @@ async function deleteCalendarEvent(id) {
       updateSupabaseStatus(`Could not delete assignments: ${assignmentError.message}`, true);
       return;
     }
+
+    // Clear contract links first so FK constraints do not block event deletion.
+    const { error: clearDraftContractsError } = await client
+      .from("contracts")
+      .delete()
+      .eq("event_id", id)
+      .is("file_path", null);
+    if (clearDraftContractsError) {
+      updateSupabaseStatus(
+        `Could not clear pending contracts for this event: ${clearDraftContractsError.message}`,
+        true
+      );
+      return;
+    }
+    const { error: unlinkSignedContractsError } = await client
+      .from("contracts")
+      .update({ event_id: null })
+      .eq("event_id", id)
+      .not("file_path", "is", null);
+    if (unlinkSignedContractsError) {
+      updateSupabaseStatus(
+        `Could not unlink signed contracts from this event: ${unlinkSignedContractsError.message}`,
+        true
+      );
+      return;
+    }
+
     const { error: eventError } = await client.from("events").delete().eq("id", id);
     if (eventError) {
       updateSupabaseStatus(`Could not delete event: ${eventError.message}`, true);
@@ -2541,9 +2691,16 @@ async function handleCalendarSave() {
   }
 
   await saveAssignmentsForEvent(savedEventId);
+  const needsContract = ["contract needed", "hold"].includes(String(type || "").toLowerCase());
+  if (needsContract) {
+    await upsertPendingContractForEvent(savedEventId, title || type);
+  } else if (savedEventId) {
+    await clearPendingDraftContractForEvent(savedEventId);
+  }
 
   clearCalendarForm();
   await fetchEventsForMonth();
+  await fetchContracts();
   updateContractEventOptions();
 }
 
@@ -2666,21 +2823,97 @@ async function handleContractUpload() {
 
 function updateContractList() {
   const list = document.getElementById("contractList");
+  const draftList = document.getElementById("contractDraftList");
   if (!list) return;
-  if (!state.calendar.contracts.length) {
+  const signedContracts = state.calendar.contracts.filter((contract) => {
+    if (!contract?.file_path) return false;
+    const status = String(contract.status || "").toLowerCase();
+    const path = String(contract.file_path || "");
+    return status.includes("signed") || path.startsWith("contracts/");
+  });
+  if (!signedContracts.length) {
     list.innerHTML = "<p class=\"muted\">No signed contracts yet.</p>";
-    return;
+  } else {
+    list.innerHTML = "";
+    signedContracts.forEach((contract) => {
+      const card = document.createElement("div");
+      card.className = "event-card";
+      const header = document.createElement("header");
+      header.innerHTML = `<span>${contract.name}</span><span>${formatShortDateTime(
+        contract.uploaded_at
+      )}</span>`;
+      if (!contract.event_id && state.calendar.selectedEventId) {
+        const linkBtn = document.createElement("button");
+        linkBtn.className = "btn ghost";
+        linkBtn.textContent = "Link to selected event";
+        linkBtn.addEventListener("click", async () => {
+          const client = state.calendar.client;
+          if (!client || !state.calendar.session) return;
+          const { error } = await client
+            .from("contracts")
+            .update({ event_id: state.calendar.selectedEventId })
+            .eq("id", contract.id);
+          if (error) {
+            updateSupabaseStatus("Could not link contract to event.", true);
+            return;
+          }
+          await fetchContracts();
+          await fetchEventsForMonth();
+          updateSupabaseStatus("Contract linked to event.");
+        });
+        card.appendChild(linkBtn);
+      }
+      const link = document.createElement("button");
+      link.className = "btn ghost";
+      link.textContent = "Download";
+      link.addEventListener("click", async (event) => {
+        event.preventDefault();
+        const client = state.calendar.client;
+        if (!client) return;
+        const { data, error } = await client
+          .storage
+          .from("signed-contracts")
+          .createSignedUrl(contract.file_path, 60);
+        if (!error && data?.signedUrl) {
+          window.open(data.signedUrl, "_blank");
+        }
+      });
+      card.appendChild(header);
+      card.appendChild(link);
+      list.appendChild(card);
+    });
   }
 
-  list.innerHTML = "";
-  state.calendar.contracts.forEach((contract) => {
+  if (!draftList) return;
+  const draftContracts = state.calendar.contracts
+    .filter((contract) => {
+      if (contract?.file_path) return false;
+      const status = String(contract.status || "").toLowerCase();
+      return !status.includes("created");
+    })
+    .sort((a, b) => new Date(b.uploaded_at || b.created_at || 0) - new Date(a.uploaded_at || a.created_at || 0));
+
+  if (!draftContracts.length) {
+    draftList.innerHTML = "<p class=\"muted\">No draft contracts waiting.</p>";
+    return;
+  }
+  draftList.innerHTML = "";
+  draftContracts.forEach((contract) => {
     const card = document.createElement("div");
     card.className = "event-card";
     const header = document.createElement("header");
-    header.innerHTML = `<span>${contract.name}</span><span>${formatShortDateTime(
-      contract.uploaded_at
-    )}</span>`;
+    header.innerHTML = `<span>${contract.name || "Draft contract"}</span><span>${contract.status || "Pending signature"}</span>`;
+    const meta = document.createElement("div");
+    meta.className = "event-meta";
+    const linkedEvent = state.calendar.events.find((event) => event.id === contract.event_id);
+    meta.textContent = linkedEvent
+      ? `${linkedEvent.title || eventTypeLabel(linkedEvent.type)} · ${formatShortDateTime(linkedEvent.start_time)}`
+      : "No event linked yet";
+    card.appendChild(header);
+    card.appendChild(meta);
     if (!contract.event_id && state.calendar.selectedEventId) {
+      const actions = document.createElement("div");
+      actions.className = "event-actions";
       const linkBtn = document.createElement("button");
       linkBtn.className = "btn ghost";
       linkBtn.textContent = "Link to selected event";
@@ -2696,18 +2929,46 @@ function updateContractList() {
           return;
         }
         await fetchContracts();
-        await fetchEventsForMonth();
-        updateSupabaseStatus("Contract linked to event.");
+        updateSupabaseStatus("Draft contract linked to event.");
       });
-      card.appendChild(linkBtn);
+      actions.appendChild(linkBtn);
+      card.appendChild(actions);
     }
-    const link = document.createElement("button");
-    link.className = "btn ghost";
-    link.textContent = "Download";
-    link.addEventListener("click", async (event) => {
-      event.preventDefault();
+    draftList.appendChild(card);
+  });
+}
+
+function updateCreatedContractList() {
+  const list = document.getElementById("createdContractList");
+  if (!list) return;
+  const createdContracts = state.calendar.contracts
+    .filter((contract) => {
+      if (!contract?.file_path) return false;
+      const status = String(contract.status || "").toLowerCase();
+      const path = String(contract.file_path || "");
+      return status.includes("created") || path.startsWith("created-contracts/");
+    })
+    .sort((a, b) => new Date(b.uploaded_at || 0) - new Date(a.uploaded_at || 0));
+  if (!createdContracts.length) {
+    list.innerHTML = "<p class=\"muted\">No created contracts saved yet.</p>";
+    return;
+  }
+  list.innerHTML = "";
+  createdContracts.forEach((contract) => {
+    const card = document.createElement("div");
+    card.className = "event-card";
+    const header = document.createElement("header");
+    header.innerHTML = `<span>${contract.name || "Created contract"}</span><span>${formatShortDateTime(
+      contract.uploaded_at
+    )}</span>`;
+    const actions = document.createElement("div");
+    actions.className = "event-actions";
+    const openBtn = document.createElement("button");
+    openBtn.className = "btn ghost";
+    openBtn.textContent = "Open PDF";
+    openBtn.addEventListener("click", async () => {
       const client = state.calendar.client;
-      if (!client) return;
+      if (!client || !state.calendar.session) return;
       const { data, error } = await client
         .storage
         .from("signed-contracts")
@@ -2716,10 +2977,238 @@ function updateContractList() {
         window.open(data.signedUrl, "_blank");
       }
     });
+    actions.appendChild(openBtn);
     card.appendChild(header);
-    card.appendChild(link);
+    card.appendChild(actions);
     list.appendChild(card);
   });
+}
+
+function setContractsHubStatus(message, isError = false) {
+  const el = document.getElementById("contractsHubStatus");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("warning", isError);
+}
+
+function contractTimestampLabel(contract) {
+  return formatShortDateTime(contract.uploaded_at || contract.created_at || "");
+}
+
+async function openContractPdfPath(filePath) {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session || !filePath) return;
+  const { data, error } = await client
+    .storage
+    .from("signed-contracts")
+    .createSignedUrl(filePath, 60);
+  if (!error && data?.signedUrl) {
+    window.open(data.signedUrl, "_blank");
+  }
+}
+
+async function uploadSignedFromPendingContract(contract, file, signedChecked = false) {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) {
+    setContractsHubStatus("Sign in to upload signed contracts.", true);
+    return;
+  }
+  if (!contract?.id || !file) {
+    setContractsHubStatus("Choose a PDF first.", true);
+    return;
+  }
+  if (!signedChecked) {
+    setContractsHubStatus("Check 'Signed contract uploaded' before uploading.", true);
+    return;
+  }
+  const safeName = String(file.name || "signed-contract.pdf").replace(/\s+/g, "-");
+  const path = `contracts/${Date.now()}-${safeName}`.replace(/[^a-zA-Z0-9-_/.]/g, "");
+  const { error: uploadError } = await client
+    .storage
+    .from("signed-contracts")
+    .upload(path, file, { upsert: true });
+  if (uploadError) {
+    setContractsHubStatus("Upload failed.", true);
+    return;
+  }
+  // Keep original draft pending row for future reuse, and create/update a signed record.
+  const signedName = contract.name || "Contract";
+  let existingSignedQuery = client
+    .from("contracts")
+    .select("id")
+    .eq("name", signedName)
+    .not("file_path", "is", null)
+    .order("uploaded_at", { ascending: false })
+    .limit(1);
+  if (contract.event_id) {
+    existingSignedQuery = existingSignedQuery.eq("event_id", contract.event_id);
+  } else {
+    existingSignedQuery = existingSignedQuery.is("event_id", null);
+  }
+  const { data: existingSigned, error: existingSignedError } = await existingSignedQuery;
+  if (existingSignedError) {
+    setContractsHubStatus("File uploaded, but signed lookup failed.", true);
+    return;
+  }
+
+  let signedSaveError = null;
+  if (existingSigned && existingSigned.length) {
+    const { error } = await client
+      .from("contracts")
+      .update({
+        file_path: path,
+        status: "Signed",
+        uploaded_at: new Date().toISOString(),
+      })
+      .eq("id", existingSigned[0].id);
+    signedSaveError = error;
+  } else {
+    const { error } = await client
+      .from("contracts")
+      .insert({
+        name: signedName,
+        file_path: path,
+        event_id: contract.event_id || null,
+        status: "Signed",
+      });
+    signedSaveError = error;
+  }
+  if (signedSaveError) {
+    setContractsHubStatus("File uploaded, but signed contract save failed.", true);
+    return;
+  }
+  if (contract.event_id) {
+    await client.from("events").update({ type: "Confirmed" }).eq("id", contract.event_id);
+  }
+  await fetchContracts();
+  await fetchEventsForMonth();
+  setContractsHubStatus("Signed contract uploaded. Draft kept for reuse.");
+}
+
+function editDraftContract(contract) {
+  const linkedEvent = state.calendar.events.find((event) => event.id === contract.event_id);
+  if (linkedEvent) {
+    const start = new Date(linkedEvent.start_time);
+    const end = new Date(linkedEvent.end_time || linkedEvent.start_time);
+    state.agreement.clientName = linkedEvent.title || "";
+    state.agreement.performanceDate = formatDateInput(start);
+    state.agreement.performanceTime = formatTimeInput(start);
+    state.agreement.performanceEndTime = formatTimeInput(end);
+  } else if (contract?.name) {
+    state.agreement.clientName = String(contract.name).replace(/\s+Agreement$/i, "").trim();
+  }
+  syncAgreementForm();
+  updateAgreementPreview();
+  saveDraft();
+  if (switchTopView) {
+    state.activeTab = "agreement";
+    switchTopView("bookkeeping");
+  }
+  setContractsHubStatus("Draft loaded in Agreement. Update details and generate a new contract.");
+}
+
+function renderContractsHub() {
+  const pendingList = document.getElementById("contractsHubPendingList");
+  const signedList = document.getElementById("contractsHubSignedList");
+  if (!pendingList || !signedList) return;
+
+  const pendingContracts = state.calendar.contracts
+    .filter((contract) => {
+      if (contract?.file_path) return false;
+      const status = String(contract.status || "").toLowerCase();
+      return !status.includes("created");
+    })
+    .sort((a, b) => new Date(b.uploaded_at || b.created_at || 0) - new Date(a.uploaded_at || a.created_at || 0));
+
+  const signedContracts = state.calendar.contracts
+    .filter((contract) => {
+      if (!contract?.file_path) return false;
+      const status = String(contract.status || "").toLowerCase();
+      const path = String(contract.file_path || "");
+      if (status.includes("created") || path.startsWith("created-contracts/")) return false;
+      return true;
+    })
+    .sort((a, b) => new Date(b.uploaded_at || b.created_at || 0) - new Date(a.uploaded_at || a.created_at || 0));
+
+  if (!pendingContracts.length) {
+    pendingList.innerHTML = "<p class=\"muted\">No pending contracts.</p>";
+  } else {
+    pendingList.innerHTML = "";
+    pendingContracts.forEach((contract) => {
+      const card = document.createElement("div");
+      card.className = "event-card";
+      const linkedEvent = state.calendar.events.find((event) => event.id === contract.event_id);
+      const header = document.createElement("header");
+      header.innerHTML = `<span>${contract.name || "Pending contract"}</span><span>${contract.status || "Pending signature"}</span>`;
+      const meta = document.createElement("div");
+      meta.className = "event-meta";
+      meta.textContent = linkedEvent
+        ? `${linkedEvent.title || eventTypeLabel(linkedEvent.type)} · ${formatShortDateTime(linkedEvent.start_time)}`
+        : "No event linked";
+
+      const actions = document.createElement("div");
+      actions.className = "event-actions";
+      const signedWrap = document.createElement("label");
+      signedWrap.className = "checkbox";
+      const signedCheck = document.createElement("input");
+      signedCheck.type = "checkbox";
+      signedCheck.checked = false;
+      signedWrap.appendChild(signedCheck);
+      signedWrap.appendChild(document.createTextNode("Signed contract uploaded"));
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = "application/pdf";
+      fileInput.className = "hidden";
+      const uploadBtn = document.createElement("button");
+      uploadBtn.className = "btn ghost";
+      uploadBtn.textContent = "Upload signed PDF";
+      uploadBtn.addEventListener("click", () => fileInput.click());
+      const editBtn = document.createElement("button");
+      editBtn.className = "btn ghost";
+      editBtn.textContent = "Edit Draft";
+      editBtn.addEventListener("click", () => {
+        editDraftContract(contract);
+      });
+      fileInput.addEventListener("change", async () => {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        await uploadSignedFromPendingContract(contract, file, signedCheck.checked === true);
+      });
+      actions.appendChild(signedWrap);
+      actions.appendChild(uploadBtn);
+      actions.appendChild(editBtn);
+
+      card.appendChild(header);
+      card.appendChild(meta);
+      card.appendChild(fileInput);
+      card.appendChild(actions);
+      pendingList.appendChild(card);
+    });
+  }
+
+  if (!signedContracts.length) {
+    signedList.innerHTML = "<p class=\"muted\">No signed contracts yet.</p>";
+  } else {
+    signedList.innerHTML = "";
+    signedContracts.forEach((contract) => {
+      const card = document.createElement("div");
+      card.className = "event-card";
+      const header = document.createElement("header");
+      header.innerHTML = `<span>${contract.name || "Contract"}</span><span>Signed · ${contractTimestampLabel(contract)}</span>`;
+      const actions = document.createElement("div");
+      actions.className = "event-actions";
+      const openBtn = document.createElement("button");
+      openBtn.className = "btn ghost";
+      openBtn.textContent = "Open PDF";
+      openBtn.addEventListener("click", async () => {
+        await openContractPdfPath(contract.file_path);
+      });
+      actions.appendChild(openBtn);
+      card.appendChild(header);
+      card.appendChild(actions);
+      signedList.appendChild(card);
+    });
+  }
 }
 
 function updateContractEventOptions() {
@@ -2729,7 +3218,7 @@ function updateContractEventOptions() {
   state.calendar.events.forEach((event) => {
     const option = document.createElement("option");
     option.value = event.id;
-    option.textContent = `${event.title || event.type} (${formatShortDateTime(
+    option.textContent = `${event.title || eventTypeLabel(event.type)} (${formatShortDateTime(
       event.start_time
     )})`;
     select.appendChild(option);
@@ -2745,7 +3234,7 @@ async function ensureHoldEventForAgreement() {
   const date = state.agreement.performanceDate;
   const startTime = state.agreement.performanceTime;
   const endTime = state.agreement.performanceEndTime;
-  const title = state.agreement.clientName || "Hold";
+  const title = state.agreement.clientName || "Contract Needed";
 
   const start = combineDateTime(date, startTime);
   const end = combineDateTime(date, endTime);
@@ -2759,7 +3248,7 @@ async function ensureHoldEventForAgreement() {
   const { data: existing } = await client
     .from("events")
     .select("*")
-    .eq("type", "Hold")
+    .in("type", ["Hold", "Contract Needed"])
     .gte("start_time", dayStart.toISOString())
     .lte("start_time", dayEnd.toISOString())
     .limit(50);
@@ -2775,7 +3264,7 @@ async function ensureHoldEventForAgreement() {
     const { data, error } = await client
       .from("events")
       .insert({
-        type: "Hold",
+        type: "Contract Needed",
         title,
         start_time: start.toISOString(),
         end_time: end.toISOString(),
@@ -2790,7 +3279,7 @@ async function ensureHoldEventForAgreement() {
     const { error } = await client
       .from("events")
       .update({
-        type: "Hold",
+        type: "Contract Needed",
         title,
         start_time: start.toISOString(),
         end_time: end.toISOString(),
@@ -2856,7 +3345,7 @@ function focusCalendarOnDate(dateStr) {
 }
 
 async function addAgreementToCalendarPending() {
-  setAgreementCalendarStatus("Adding pending hold to calendar...");
+  setAgreementCalendarStatus("Adding contract-needed event to calendar...");
   const result = await ensureHoldEventForAgreement();
   if (result?.ok) {
     const dateValue = state.agreement.performanceDate;
@@ -2866,8 +3355,8 @@ async function addAgreementToCalendarPending() {
       renderCalendar();
       updateEventList();
     }
-    updateSupabaseStatus("Pending hold added/updated in calendar.");
-    setAgreementCalendarStatus("Added. Open Calendar tab to review the pending hold.");
+    updateSupabaseStatus("Contract-needed event added/updated in calendar.");
+    setAgreementCalendarStatus("Added. Open Calendar tab to review the pending contract event.");
     return true;
   }
   if (result?.reason === "not_signed_in") {
@@ -2884,8 +3373,8 @@ async function addAgreementToCalendarPending() {
     return false;
   }
   const reasonLabel = result?.reason ? ` (${result.reason})` : "";
-  updateSupabaseStatus(`Could not add pending hold right now${reasonLabel}.`, true);
-  setAgreementCalendarStatus(`Could not add pending hold${reasonLabel}.`, true);
+  updateSupabaseStatus(`Could not add contract-needed event right now${reasonLabel}.`, true);
+  setAgreementCalendarStatus(`Could not add contract-needed event${reasonLabel}.`, true);
   return false;
 }
 
@@ -3650,7 +4139,7 @@ function renderAssignmentList() {
     const meta = document.createElement("div");
     meta.className = "event-meta";
     meta.textContent = event
-      ? `${event.title || event.type} · ${formatShortDateTime(event.start_time)}`
+      ? `${event.title || eventTypeLabel(event.type)} · ${formatShortDateTime(event.start_time)}`
       : `Event ${assignment.event_id || "Unknown"}`;
     card.appendChild(header);
     card.appendChild(meta);
@@ -3685,7 +4174,7 @@ function renderBookedDatesList() {
     const card = document.createElement("div");
     card.className = "event-card";
     const header = document.createElement("header");
-    header.innerHTML = `<span>${event.title || event.type}</span><span>${event.type || ""}</span>`;
+    header.innerHTML = `<span>${event.title || eventTypeLabel(event.type)}</span><span>${eventTypeLabel(event.type)}</span>`;
     const meta = document.createElement("div");
     meta.className = "event-meta";
     meta.textContent = formatShortDateTime(event.start_time);
@@ -3701,30 +4190,93 @@ function renderBookedDatesList() {
   });
 }
 
-function renderAvailableDatesList() {
+async function renderAvailableDatesList() {
   const list = document.getElementById("availableDatesList");
   if (!list) return;
-  const today = new Date();
-  const busyKeys = new Set(
-    state.calendar.events
-      .filter((event) => String(event.type || "").toLowerCase() !== "blackout")
-      .map((event) => formatDateInput(new Date(event.start_time)))
-  );
-  const available = [];
-  for (let i = 0; i < 60; i += 1) {
-    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
-    const key = formatDateInput(date);
-    if (!busyKeys.has(key)) available.push(formatDate(key));
+  const today = startOfDay(new Date());
+  const horizonMonths = 6;
+  const endDate = new Date(today.getFullYear(), today.getMonth() + horizonMonths, 0);
+  let eventsForAvailability = [...state.calendar.events];
+
+  const client = state.calendar.client;
+  if (client && state.calendar.session) {
+    const rangeStartIso = today.toISOString();
+    const rangeEndIso = new Date(
+      endDate.getFullYear(),
+      endDate.getMonth(),
+      endDate.getDate(),
+      23,
+      59,
+      59
+    ).toISOString();
+    const { data, error } = await client
+      .from("events")
+      .select("id,type,start_time,end_time")
+      .lt("start_time", rangeEndIso)
+      .gte("end_time", rangeStartIso);
+    if (!error && Array.isArray(data)) {
+      eventsForAvailability = data;
+    }
   }
-  if (!available.length) {
-    list.innerHTML = "<p class=\"muted\">No open days in the next 60 days.</p>";
+
+  const busyKeys = new Set(
+    eventsForAvailability
+      .filter((event) => String(event.type || "").toLowerCase() !== "blackout")
+      .flatMap((event) => {
+        const start = startOfDay(new Date(event.start_time));
+        const end = startOfDay(new Date(event.end_time || event.start_time));
+        if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return [];
+        const keys = [];
+        for (
+          let cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+          cursor <= end;
+          cursor.setDate(cursor.getDate() + 1)
+        ) {
+          keys.push(formatDateInput(cursor));
+        }
+        return keys;
+      })
+  );
+  const monthBuckets = new Map();
+
+  for (
+    let date = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    date <= endDate;
+    date.setDate(date.getDate() + 1)
+  ) {
+    const day = date.getDay();
+    const isWeekend = day === 0 || day === 6;
+    if (!isWeekend) continue;
+    const key = formatDateInput(date);
+    if (busyKeys.has(key)) continue;
+    const monthLabel = date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const existing = monthBuckets.get(monthLabel) || [];
+    existing.push(formatDate(key));
+    monthBuckets.set(monthLabel, existing);
+  }
+
+  const availableCount = [...monthBuckets.values()].reduce((sum, dates) => sum + dates.length, 0);
+  if (!availableCount) {
+    list.innerHTML = "<p class=\"muted\">No open weekend days in the next 6 months.</p>";
     return;
   }
-  list.innerHTML = `<p class="muted">${available.length} open day(s) in next 60 days.</p>`;
-  const chunk = document.createElement("div");
-  chunk.className = "event-meta";
-  chunk.textContent = available.slice(0, 20).join(" • ");
-  list.appendChild(chunk);
+  list.innerHTML = `<p class="muted">${availableCount} open weekend day(s) in next ${horizonMonths} months.</p>`;
+  monthBuckets.forEach((dates, monthLabel) => {
+    const card = document.createElement("div");
+    card.className = "event-card";
+    const header = document.createElement("header");
+    header.innerHTML = `<span>${monthLabel}</span><span>${dates.length} open</span>`;
+    const dateList = document.createElement("ul");
+    dateList.className = "board-list";
+    dates.forEach((label) => {
+      const item = document.createElement("li");
+      item.textContent = label;
+      dateList.appendChild(item);
+    });
+    card.appendChild(header);
+    card.appendChild(dateList);
+    list.appendChild(card);
+  });
 }
 
 function renderAssignmentSummaryLists() {
@@ -3999,11 +4551,14 @@ function setupListeners() {
       login: "Sign In",
       home: "Dashboard",
       workorders: "Work Orders",
+      contractshub: "Contracts",
+      shows: "Shows",
       agreement: "Agreement",
       invoice: "Invoice",
       receipt: "Receipt",
       calendar: "Event Calendar",
       contracts: "Signed Contracts",
+      contractscreated: "Contracts Created",
       musicians: "Musicians + Tech Crew",
       allabout: "App Overview",
       howto: "How-To Playbook",
@@ -4013,7 +4568,9 @@ function setupListeners() {
       home: "Dashboard",
       bookkeeping: "Booking Folder",
       calendar: "Calendar Folder",
+      contracts: "Contracts",
       workorders: "Work Orders",
+      shows: "Shows",
       musicians: "Musicians + Tech Crew",
       about: "Guide Folder",
     };
@@ -4033,7 +4590,10 @@ function setupListeners() {
     document.getElementById("receiptTab").classList.toggle("hidden", target !== "receipt");
     document.getElementById("calendarTab").classList.toggle("hidden", target !== "calendar");
     document.getElementById("contractsTab").classList.toggle("hidden", target !== "contracts");
+    document.getElementById("contractsCreatedTab").classList.toggle("hidden", target !== "contractscreated");
+    document.getElementById("contractsHubTab").classList.toggle("hidden", target !== "contractshub");
     document.getElementById("musiciansTab").classList.toggle("hidden", target !== "musicians");
+    document.getElementById("showsTab").classList.toggle("hidden", target !== "shows");
     document.getElementById("workOrdersTab").classList.toggle("hidden", target !== "workorders");
     document.getElementById("allaboutTab").classList.toggle("hidden", target !== "allabout");
     document.getElementById("howtoTab").classList.toggle("hidden", target !== "howto");
@@ -4077,6 +4637,14 @@ function setupListeners() {
       switchPanel("workorders");
       return;
     }
+    if (topTarget === "contracts") {
+      switchPanel("contractshub");
+      return;
+    }
+    if (topTarget === "shows") {
+      switchPanel("shows");
+      return;
+    }
     if (topTarget === "musicians") {
       switchPanel("musicians");
       return;
@@ -4087,7 +4655,8 @@ function setupListeners() {
         state.activeTab === "agreement" ||
         state.activeTab === "invoice" ||
         state.activeTab === "receipt" ||
-        state.activeTab === "contracts";
+        state.activeTab === "contracts" ||
+        state.activeTab === "contractscreated";
       switchPanel(valid ? state.activeTab : "agreement");
       return;
     }
@@ -4223,6 +4792,7 @@ function setupListeners() {
     renderCalendar();
     updateEventList();
     updateContractList();
+    updateCreatedContractList();
     renderMusicianAssignments();
     renderAssignmentSummaryLists();
     renderBlackoutList();
@@ -4448,6 +5018,8 @@ function setupListeners() {
   switchTop(state.calendar.session ? "home" : "login");
   setMusicianEditorState("");
   renderWorkOrders();
+  updateCreatedContractList();
+  renderContractsHub();
 }
 
 async function generatePdf(type) {
@@ -4527,6 +5099,9 @@ async function generatePdf(type) {
 
   if (type === "agreement") {
     await ensureHoldEventForAgreement();
+    if (lastPdfBlob) {
+      await autoSaveCreatedAgreementPdf(lastPdfBlob, fileName);
+    }
   } else if (type === "invoice") {
     await saveInvoiceToSupabaseInternal(true);
     if (lastPdfBlob) {
