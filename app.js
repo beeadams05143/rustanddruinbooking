@@ -79,6 +79,9 @@ const state = {
     assignments: [],
     blackouts: [],
     session: null,
+    syncChannel: null,
+    syncTimer: null,
+    syncRefreshTimer: null,
   },
   billing: {
     invoices: [],
@@ -277,6 +280,7 @@ const CALENDAR_AUTH_SEEN_KEY = "rustandruin-calendar-auth-seen";
 const AUTO_HOLD_NOTE = "Pending contract signature (auto-created from agreement)";
 let holdSyncTimer = null;
 let switchTopView = null;
+const SYNC_POLL_INTERVAL_MS = 15000;
 
 function saveDraft() {
   try {
@@ -1958,19 +1962,104 @@ async function refreshAuthState() {
     loginSignInBtn.textContent = state.calendar.session ? "Sign out" : "Sign in";
   }
   if (state.calendar.session) {
+    startSupabaseSync();
     await loadOverridePin();
+    await fetchEventsForMonth();
+    await fetchContracts();
     await fetchMusicians();
     await fetchMusicianAssignments();
     await fetchMusicianBlackouts();
+    await fetchInvoices();
+    await fetchReceipts();
   } else {
+    stopSupabaseSync();
+    state.calendar.events = [];
+    state.calendar.contracts = [];
+    state.calendar.assignments = [];
+    state.calendar.blackouts = [];
+    state.billing.invoices = [];
+    state.billing.receipts = [];
     renderMusicianList();
+    renderCalendar();
+    updateEventList();
+    updateContractList();
+    updateCreatedContractList();
+    renderContractsHub();
     renderMusicianAssignments();
     renderAssignmentSummaryLists();
     renderBlackoutList();
+    updateInvoiceList();
+    updateReceiptList();
+    updateOpsProgress();
   }
   if (switchTopView) {
     switchTopView(state.calendar.session ? "home" : "login");
   }
+}
+
+function stopSupabaseSync() {
+  const client = state.calendar.client;
+  if (state.calendar.syncRefreshTimer) {
+    clearTimeout(state.calendar.syncRefreshTimer);
+    state.calendar.syncRefreshTimer = null;
+  }
+  if (state.calendar.syncTimer) {
+    clearInterval(state.calendar.syncTimer);
+    state.calendar.syncTimer = null;
+  }
+  if (client && state.calendar.syncChannel) {
+    client.removeChannel(state.calendar.syncChannel);
+  }
+  state.calendar.syncChannel = null;
+}
+
+function queueSupabaseSyncRefresh() {
+  if (state.calendar.syncRefreshTimer) return;
+  state.calendar.syncRefreshTimer = setTimeout(async () => {
+    state.calendar.syncRefreshTimer = null;
+    if (!state.calendar.session) return;
+    await Promise.all([
+      fetchEventsForMonth(),
+      fetchContracts(),
+      fetchMusicianAssignments(),
+      fetchMusicianBlackouts(),
+      fetchMusicians(),
+      fetchInvoices(),
+      fetchReceipts(),
+    ]);
+  }, 400);
+}
+
+function startSupabaseSync() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) return;
+  stopSupabaseSync();
+
+  const channel = client.channel(`rr-sync-${state.calendar.session.user?.id || "shared"}`);
+  [
+    "events",
+    "contracts",
+    "musician_assignments",
+    "musician_blackouts",
+    "musicians",
+    "invoices",
+    "receipts",
+  ].forEach((table) => {
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table },
+      () => {
+        queueSupabaseSyncRefresh();
+      }
+    );
+  });
+  channel.subscribe();
+  state.calendar.syncChannel = channel;
+  state.calendar.syncTimer = setInterval(() => {
+    if (!document.hidden && state.calendar.session) {
+      queueSupabaseSyncRefresh();
+    }
+  }, SYNC_POLL_INTERVAL_MS);
 }
 
 async function loadOverridePin() {
@@ -5004,6 +5093,7 @@ function setupListeners() {
     const client = state.calendar.client;
     if (!client) return;
     await client.auth.signOut();
+    stopSupabaseSync();
     state.calendar.session = null;
     syncTopAuthTabLabel();
     updateCalendarAuthVisibility();
@@ -5220,6 +5310,12 @@ function setupListeners() {
       }
     });
   }
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && state.calendar.session) {
+      queueSupabaseSyncRefresh();
+    }
+  });
 
   const uploadContract = document.getElementById("uploadContract");
   if (uploadContract) uploadContract.addEventListener("click", handleContractUpload);
