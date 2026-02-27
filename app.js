@@ -1761,6 +1761,48 @@ function updateSupabaseStatus(message, isError = false) {
   });
 }
 
+function setCalendarStatus(message, isError = false) {
+  const status = document.getElementById("calendarStatus");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("warning", isError);
+}
+
+async function openSupabaseStoragePath(path, statusHandler = updateSupabaseStatus) {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session || !path) {
+    if (statusHandler) statusHandler("Could not open PDF.", true);
+    return false;
+  }
+
+  let popup = null;
+  try {
+    popup = window.open("about:blank", "_blank", "noopener,noreferrer");
+  } catch (error) {
+    popup = null;
+  }
+
+  const { data, error } = await client
+    .storage
+    .from("signed-contracts")
+    .createSignedUrl(path, 300);
+
+  if (error || !data?.signedUrl) {
+    if (popup && !popup.closed) popup.close();
+    if (statusHandler) {
+      statusHandler(`Could not open PDF: ${error?.message || "Unknown error"}`, true);
+    }
+    return false;
+  }
+
+  if (popup && !popup.closed) {
+    popup.location.href = data.signedUrl;
+  } else {
+    window.location.assign(data.signedUrl);
+  }
+  return true;
+}
+
 function syncTopAuthTabLabel() {
   const topLoginTab = document.querySelector('.top-tab[data-top="login"]');
   if (!topLoginTab) return;
@@ -1931,17 +1973,10 @@ async function openContractForEvent(eventId) {
   }
   if (!contract.file_path) {
     updateSupabaseStatus("Draft contract saved. Upload a signed PDF to open it.", true);
+    setCalendarStatus("Draft contract saved. Upload a signed PDF to open it.", true);
     return;
   }
-  const { data, error } = await client
-    .storage
-    .from("signed-contracts")
-    .createSignedUrl(contract.file_path, 60);
-  if (error || !data?.signedUrl) {
-    updateSupabaseStatus(`Could not open contract: ${error?.message || "Unknown error"}`, true);
-    return;
-  }
-  window.open(data.signedUrl, "_blank");
+  await openSupabaseStoragePath(contract.file_path, setCalendarStatus);
 }
 
 async function refreshAuthState() {
@@ -2570,6 +2605,10 @@ function updateEventList() {
       if (!file) return;
       const result = await uploadSignedContractForEvent(event.id, file, `${event.title || event.type} Agreement`);
       updateSupabaseStatus(result.message, !result.ok);
+      setCalendarStatus(
+        result.ok ? "Signed contract uploaded and saved." : result.message,
+        !result.ok
+      );
       if (result.ok) {
         selectEventForEdit(
           state.calendar.events.find((item) => item.id === event.id) || event,
@@ -3040,15 +3079,7 @@ function updateContractList() {
       link.textContent = "Download";
       link.addEventListener("click", async (event) => {
         event.preventDefault();
-        const client = state.calendar.client;
-        if (!client) return;
-        const { data, error } = await client
-          .storage
-          .from("signed-contracts")
-          .createSignedUrl(contract.file_path, 60);
-        if (!error && data?.signedUrl) {
-          window.open(data.signedUrl, "_blank");
-        }
+        await openSupabaseStoragePath(contract.file_path, updateSupabaseStatus);
       });
       actions.appendChild(link);
       actions.appendChild(
@@ -3150,15 +3181,7 @@ function updateCreatedContractList() {
     openBtn.className = "btn ghost";
     openBtn.textContent = "Open PDF";
     openBtn.addEventListener("click", async () => {
-      const client = state.calendar.client;
-      if (!client || !state.calendar.session) return;
-      const { data, error } = await client
-        .storage
-        .from("signed-contracts")
-        .createSignedUrl(contract.file_path, 60);
-      if (!error && data?.signedUrl) {
-        window.open(data.signedUrl, "_blank");
-      }
+      await openSupabaseStoragePath(contract.file_path, setCreatedContractStatus);
     });
     actions.appendChild(openBtn);
     actions.appendChild(
@@ -3184,15 +3207,7 @@ function contractTimestampLabel(contract) {
 }
 
 async function openContractPdfPath(filePath) {
-  const client = state.calendar.client;
-  if (!client || !state.calendar.session || !filePath) return;
-  const { data, error } = await client
-    .storage
-    .from("signed-contracts")
-    .createSignedUrl(filePath, 60);
-  if (!error && data?.signedUrl) {
-    window.open(data.signedUrl, "_blank");
-  }
+  await openSupabaseStoragePath(filePath, setContractsHubStatus);
 }
 
 async function deleteContractRecord(contractId, statusHandler = null) {
