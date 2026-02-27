@@ -604,9 +604,10 @@ function getAgreementTotals() {
     ? computedHours * 50 * bandMembers
     : 0;
   const travelHours = toNumber(state.agreement.travelHours);
+  const roundTripTravelHours = travelHours * 2;
   const travelBandMembers = Math.max(0, toNumber(state.agreement.travelPerformerCount));
   const travelFee = state.agreement.travelOutside
-    ? travelHours * 25 * travelBandMembers
+    ? roundTripTravelHours * 25 * travelBandMembers
     : 0;
   const lodgingFee = state.agreement.lodgingEnabled
     ? toNumber(state.agreement.lodgingRate)
