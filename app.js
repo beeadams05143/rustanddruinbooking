@@ -585,6 +585,7 @@ function getAgreementTotals() {
   const baseBandMembers = state.agreement.bandConfig === "Full Band" ? 4 : 2;
   const extraMembers = toNumber(state.agreement.additionalMusicians);
   const bandMembers = baseBandMembers + (extraMembers > 0 ? extraMembers : 0);
+  const baseHourlyRatePerMember = 50;
   const manualPerformanceHours = toNumber(state.agreement.hours);
   const computedHours =
     manualPerformanceHours > 0
@@ -593,15 +594,16 @@ function getAgreementTotals() {
           state.agreement.performanceTime,
           state.agreement.performanceEndTime
         );
-  const performanceFeeAuto = computedHours * 50 * bandMembers;
+  const performanceFeeAuto = computedHours * baseHourlyRatePerMember * bandMembers;
   const performanceFeeEffective = performanceFeeAuto;
   const nonPerformanceHours = toNumber(state.agreement.nonPerformanceHours);
   const onsiteFee = state.agreement.chargeNonPerformance
-    ? nonPerformanceHours * 50 * bandMembers
+    ? nonPerformanceHours * baseHourlyRatePerMember * bandMembers
     : 0;
   const backlineFee = state.agreement.backlineSound ? 50 : 0;
+  const holidayHours = computedHours + (state.agreement.chargeNonPerformance ? nonPerformanceHours : 0);
   const holidayFee = state.agreement.holidayWeekend
-    ? computedHours * 50 * bandMembers
+    ? holidayHours * baseHourlyRatePerMember * bandMembers
     : 0;
   const travelHours = toNumber(state.agreement.travelHours);
   const roundTripTravelHours = travelHours * 2;
