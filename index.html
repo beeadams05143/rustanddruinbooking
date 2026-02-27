@@ -314,11 +314,8 @@
                   <input id="travelHours" placeholder="0.5" />
                 </label>
                 <label>
-                  Travel band size
-                  <select id="travelBand">
-                    <option>Full Band</option>
-                    <option>Duo</option>
-                  </select>
+                  Number of performers for travel time
+                  <input id="travelPerformerCount" type="number" min="1" step="1" placeholder="4" />
                 </label>
               </div>
               <label class="checkbox">
@@ -517,7 +514,8 @@
               <p>
                 Outdoor events require ground cover and shelter (tent/porch/tarp). Sound and light
                 equipment needs will be noted in add-ons. Travel time from 56 Kevadus Circle:
-                <span data-fill="travelHours"></span> hours outside the 2-hour radius. Travel fee:
+                <span data-fill="travelHours"></span> hours outside the 2-hour radius, billed for
+                <span data-fill="travelBandMembers"></span> performers. Travel fee:
                 <span data-fill="travelFee"></span>.
               </p>
             </div>

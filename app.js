@@ -27,7 +27,7 @@ function createInitialAgreementState() {
     backlineSound: false,
     travelOutside: false,
     travelHours: "",
-    travelBand: "Full Band",
+    travelPerformerCount: "4",
     lodgingEnabled: false,
     lodgingRate: "250",
     addonTent: false,
@@ -122,7 +122,7 @@ const agreementFields = [
   "chargeNonPerformance",
   "travelOutside",
   "travelHours",
-  "travelBand",
+  "travelPerformerCount",
   "lodgingEnabled",
   "lodgingRate",
   "addonTent",
@@ -604,8 +604,7 @@ function getAgreementTotals() {
     ? computedHours * 50 * bandMembers
     : 0;
   const travelHours = toNumber(state.agreement.travelHours);
-  const travelBaseMembers = state.agreement.travelBand === "Full Band" ? 4 : 2;
-  const travelBandMembers = travelBaseMembers + (extraMembers > 0 ? extraMembers : 0);
+  const travelBandMembers = Math.max(0, toNumber(state.agreement.travelPerformerCount));
   const travelFee = state.agreement.travelOutside
     ? travelHours * 25 * travelBandMembers
     : 0;
@@ -744,6 +743,7 @@ function updateAgreementPreview() {
   setText("[data-fill='feesSubtotal']", toMoney(totals.feeSubtotal));
   setText("[data-fill='totalWithDeposit']", toMoney(totals.totalWithDeposit));
   setText("[data-fill='travelHours']", state.agreement.travelHours || "__");
+  setText("[data-fill='travelBandMembers']", String(totals.travelBandMembers || 0));
   setText(
     "[data-fill='travelFee']",
     state.agreement.travelOutside ? toMoney(totals.travelFee) : "$0.00"
