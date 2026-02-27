@@ -615,16 +615,9 @@ function getAgreementTotals() {
     ? toNumber(state.agreement.lodgingRate)
     : 0;
   const travelLodgingTotal = travelFee + lodgingFee;
-  const feeSubtotal = performanceFeeEffective + backlineFee + addOnTotal + adjustedDeposit;
-  const totalWithDeposit =
-    performanceFeeEffective +
-    addOnTotal +
-    adjustedDeposit +
-    travelFee +
-    lodgingFee +
-    onsiteFee +
-    holidayFee +
-    backlineFee;
+  const eventSubtotal = performanceFeeEffective + onsiteFee + backlineFee + holidayFee;
+  const feeSubtotal = eventSubtotal + addOnTotal + adjustedDeposit;
+  const totalWithDeposit = eventSubtotal + addOnTotal + adjustedDeposit + travelFee + lodgingFee;
 
   return {
     depositAmount: adjustedDeposit,
@@ -635,7 +628,7 @@ function getAgreementTotals() {
     addOnTotal,
     feeSubtotal,
     totalWithDeposit,
-    performanceFee: performanceFeeEffective,
+    performanceFee: eventSubtotal,
     performanceFeeAuto,
     travelFee,
     travelHours,
@@ -647,7 +640,7 @@ function getAgreementTotals() {
     travelLodgingTotal,
     holidayFee,
     performanceHoursTotal: computedHours,
-    eventSubtotal: performanceFeeEffective + onsiteFee + backlineFee + holidayFee,
+    eventSubtotal,
     backlineFee,
     performanceFeeAuto,
     performanceFeeEffective,
@@ -661,7 +654,7 @@ function updateFeesAndDepositsFields(totals) {
     if (depositInput) depositInput.value = state.agreement.depositAmount;
   }
 
-  const feeValue = formatNumberInput(totals.performanceFeeEffective);
+  const feeValue = formatNumberInput(totals.eventSubtotal);
   state.agreement.feeTotal = feeValue;
   const feeInput = document.getElementById("feeTotal");
   if (feeInput) feeInput.value = feeValue;
@@ -728,8 +721,8 @@ function updateAgreementPreview() {
     promoBlock.classList.toggle("hidden", totals.depositCredits <= 0);
   }
 
-  setText("[data-fill='performanceFee']", toMoney(totals.performanceFeeEffective));
-  setText("[data-fill='performanceFeeAuto']", toMoney(totals.performanceFeeAuto));
+  setText("[data-fill='performanceFee']", toMoney(totals.performanceFee));
+  setText("[data-fill='performanceFeeAuto']", toMoney(totals.performanceFee));
   setText(
     "[data-fill='depositAmount']",
     !totals.depositEnabled

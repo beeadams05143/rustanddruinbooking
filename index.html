@@ -380,8 +380,8 @@
             <h3>Fees &amp; Deposits</h3>
             <div class="form-grid">
               <label>
-                Performance fee
-                <input id="feeTotal" placeholder="1200" />
+                Performance fee (from event subtotal)
+                <input id="feeTotal" placeholder="1200" readonly />
               </label>
               <label>
                 Backline / sound tech fee
@@ -476,14 +476,10 @@
                 <span data-fill="performanceTime"></span> to
                 <span data-fill="performanceEndTime"></span>. Performance hours (on stage):
                 <span data-fill="performanceHoursDisplay"></span> hours · Non-performance hours on site:
-                <span data-fill="nonPerformanceHoursDisplay"></span> hours · Non-performance time surcharge:
-                <span data-fill="onsiteFee"></span> · Holiday rate surcharge:
-                <span data-fill="holidayFee"></span> · Performance fee:
+                <span data-fill="nonPerformanceHoursDisplay"></span> hours · Performance fee:
                 <span data-fill="performanceFeeAuto"></span>. Add-ons total:
                 <span data-fill="addonTotal"></span>. Travel: <span data-fill="travelFee"></span>.
-                Lodging: <span data-fill="lodgingFee"></span>. Backline/sound tech:
-                <span data-fill="backlineFee"></span>. Non-performance time fee:
-                <span data-fill="onsiteFee"></span>. Payment must be made prior to performance. Pay in
+                Lodging: <span data-fill="lodgingFee"></span>. Payment must be made prior to performance. Pay in
                 cash, check to Rust and Ruin, Venmo @rustandruinvt, or PayPal @rustandruin. Deposit:
                 <span data-fill="depositAmount"></span>. Contract is void if not returned within 10 days.
                 <span id="promoCreditsInline" class="hidden">
@@ -559,13 +555,10 @@
                   <span data-fill="performanceHoursDisplay"></span> hours
                 </p>
                 <p>Performance fee: <span data-fill="performanceFeeAuto"></span></p>
-                <p>Holiday rate surcharge: <span data-fill="holidayFee"></span></p>
                 <p>Add-ons total: <span data-fill="addonTotal"></span></p>
                 <p>Deposit credits: <span data-fill="depositCredits"></span></p>
                 <p>Lodging fee: <span data-fill="lodgingFee"></span></p>
                 <p>Travel fee: <span data-fill="travelFee"></span></p>
-                <p>Non-performance time fee: <span data-fill="onsiteFee"></span></p>
-                <p>Backline / sound tech: <span data-fill="backlineFee"></span></p>
                 <p>Total due w/deposit: <span data-fill="totalWithDeposit"></span></p>
               </div>
             </div>
