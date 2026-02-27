@@ -1775,31 +1775,19 @@ async function openSupabaseStoragePath(path, statusHandler = updateSupabaseStatu
     return false;
   }
 
-  let popup = null;
-  try {
-    popup = window.open("about:blank", "_blank", "noopener,noreferrer");
-  } catch (error) {
-    popup = null;
-  }
-
   const { data, error } = await client
     .storage
     .from("signed-contracts")
     .createSignedUrl(path, 300);
 
   if (error || !data?.signedUrl) {
-    if (popup && !popup.closed) popup.close();
     if (statusHandler) {
       statusHandler(`Could not open PDF: ${error?.message || "Unknown error"}`, true);
     }
     return false;
   }
 
-  if (popup && !popup.closed) {
-    popup.location.href = data.signedUrl;
-  } else {
-    window.location.assign(data.signedUrl);
-  }
+  window.location.assign(data.signedUrl);
   return true;
 }
 
