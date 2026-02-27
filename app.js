@@ -278,7 +278,6 @@ const SUPABASE_ANON_KEY =
 const OVERRIDE_PIN_SETTING = "override_pin";
 const CALENDAR_AUTH_SEEN_KEY = "rustandruin-calendar-auth-seen";
 const AUTO_HOLD_NOTE = "Pending contract signature (auto-created from agreement)";
-let holdSyncTimer = null;
 let switchTopView = null;
 const SYNC_POLL_INTERVAL_MS = 15000;
 
@@ -1844,7 +1843,6 @@ async function signInWithCredentials(email, password) {
   localStorage.setItem(CALENDAR_AUTH_SEEN_KEY, "1");
   await refreshAuthState();
   await loadOverridePin();
-  await ensureHoldEventForAgreement();
   await fetchEventsForMonth();
   await fetchContracts();
   await fetchMusicians();
@@ -3635,15 +3633,6 @@ async function ensureHoldEventForAgreement() {
   return { ok: true, reason: "synced", eventId };
 }
 
-function scheduleAgreementHoldSync() {
-  if (holdSyncTimer) {
-    clearTimeout(holdSyncTimer);
-  }
-  holdSyncTimer = setTimeout(() => {
-    ensureHoldEventForAgreement();
-  }, 700);
-}
-
 function setAgreementCalendarStatus(message, isError = false) {
   const status = document.getElementById("agreementCalendarStatus");
   if (!status) return;
@@ -4749,14 +4738,6 @@ function setupListeners() {
           if (depositInput) depositInput.value = state.agreement.depositAmount;
         }
       }
-      if (
-        field === "clientName" ||
-        field === "performanceDate" ||
-        field === "performanceTime" ||
-        field === "performanceEndTime"
-      ) {
-        scheduleAgreementHoldSync();
-      }
       updateAgreementPreview();
       saveDraft();
     };
@@ -5507,7 +5488,6 @@ function init() {
   updateReceiptPreview();
   updateMessagePreview();
   setupListeners();
-  scheduleAgreementHoldSync();
   renderCalendar();
   fetchEventsForMonth();
   fetchContracts();
