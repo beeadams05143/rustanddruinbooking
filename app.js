@@ -79,6 +79,7 @@ const state = {
     assignments: [],
     blackouts: [],
     session: null,
+    authSubscription: null,
     syncChannel: null,
     syncTimer: null,
     syncRefreshTimer: null,
@@ -1748,8 +1749,66 @@ function initSupabaseClient() {
   }
   state.calendar.client = window.supabase.createClient(
     SUPABASE_URL,
-    SUPABASE_ANON_KEY
+    SUPABASE_ANON_KEY,
+    {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+    }
   );
+
+  if (typeof state.calendar.authSubscription?.unsubscribe === "function") {
+    state.calendar.authSubscription.unsubscribe();
+  }
+
+  const { data } = state.calendar.client.auth.onAuthStateChange((event, session) => {
+    state.calendar.session = session || null;
+    syncTopAuthTabLabel();
+    updateCalendarAuthVisibility();
+
+    const loginSignInBtn = document.getElementById("loginSignIn");
+    if (loginSignInBtn) {
+      loginSignInBtn.textContent = state.calendar.session ? "Sign out" : "Sign in";
+    }
+
+    if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+      localStorage.setItem(CALENDAR_AUTH_SEEN_KEY, "1");
+      updateSupabaseStatus("Signed in.");
+      if (switchTopView) switchTopView("home");
+      queueSupabaseSyncRefresh();
+    } else if (event === "SIGNED_OUT") {
+      updateSupabaseStatus("Signed out.");
+      if (switchTopView) switchTopView("login");
+    } else if (event === "PASSWORD_RECOVERY") {
+      updateSupabaseStatus("Password recovery ready. Set your new password in the Supabase screen, then return here.");
+    }
+  });
+
+  state.calendar.authSubscription = data?.subscription || null;
+}
+
+function getAuthRedirectUrl() {
+  return window.location.origin + window.location.pathname;
+}
+
+function hasSupabaseAuthParams() {
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const queryParams = new URLSearchParams(window.location.search);
+  return (
+    hashParams.has("access_token") ||
+    hashParams.has("refresh_token") ||
+    hashParams.has("type") ||
+    queryParams.has("code") ||
+    queryParams.has("token") ||
+    queryParams.has("type")
+  );
+}
+
+function clearSupabaseAuthParams() {
+  const cleanUrl = getAuthRedirectUrl();
+  window.history.replaceState({}, document.title, cleanUrl);
 }
 
 function updateSupabaseStatus(message, isError = false) {
@@ -1894,7 +1953,7 @@ async function requestPasswordReset(email) {
     return;
   }
   const { error } = await client.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.href,
+    redirectTo: getAuthRedirectUrl(),
   });
   if (error) {
     updateSupabaseStatus(`Password reset failed: ${error.message}`, true);
@@ -1917,7 +1976,7 @@ async function requestMagicLink(email) {
     email,
     options: {
       shouldCreateUser: false,
-      emailRedirectTo: window.location.href,
+      emailRedirectTo: getAuthRedirectUrl(),
     },
   });
   if (error) {
@@ -2015,6 +2074,55 @@ async function refreshAuthState() {
   }
   if (switchTopView) {
     switchTopView(state.calendar.session ? "home" : "login");
+  }
+}
+
+async function restoreSupabaseSessionFromUrl() {
+  const client = state.calendar.client;
+  if (!client || !hasSupabaseAuthParams()) return false;
+
+  updateSupabaseStatus("Finishing sign-in...");
+
+  try {
+    const queryParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const existingSession = await client.auth.getSession();
+
+    if (existingSession.data?.session) {
+      state.calendar.session = existingSession.data.session;
+      clearSupabaseAuthParams();
+      return true;
+    }
+
+    if (queryParams.has("code") && typeof client.auth.exchangeCodeForSession === "function") {
+      const { error } = await client.auth.exchangeCodeForSession(window.location.href);
+      if (error) {
+        updateSupabaseStatus(`Could not finish sign-in: ${error.message}`, true);
+        return false;
+      }
+    }
+
+    if (hashParams.has("error_description") || queryParams.has("error_description")) {
+      const errorMessage =
+        hashParams.get("error_description") || queryParams.get("error_description");
+      updateSupabaseStatus(
+        `Could not finish sign-in: ${decodeURIComponent(errorMessage || "Unknown error")}`,
+        true
+      );
+      clearSupabaseAuthParams();
+      return false;
+    }
+
+    await refreshAuthState();
+    if (state.calendar.session) {
+      updateSupabaseStatus("Signed in.");
+    }
+    clearSupabaseAuthParams();
+    return Boolean(state.calendar.session);
+  } catch (error) {
+    updateSupabaseStatus(formatSupabaseError(error, "Could not finish sign-in."), true);
+    clearSupabaseAuthParams();
+    return false;
   }
 }
 
@@ -5463,7 +5571,7 @@ async function copyMessage() {
   }
 }
 
-function init() {
+async function init() {
   loadDraft();
   loadCalendarSettings();
   if (!state.agreement.agreementCreatedDate) {
@@ -5483,7 +5591,8 @@ function init() {
   setCalendarEventFormExpanded(false);
   initSupabaseClient();
   updateCalendarAuthVisibility();
-  refreshAuthState();
+  await restoreSupabaseSessionFromUrl();
+  await refreshAuthState();
   updateHolidayFromDate();
   updatePerformanceHoursFromTimes();
   updateAgreementPreview();
@@ -5506,4 +5615,7 @@ function init() {
   updateOpsProgress();
 }
 
-init();
+init().catch((error) => {
+  console.error("App initialization failed:", error);
+  updateSupabaseStatus("The app could not finish loading.", true);
+});
