@@ -1930,6 +1930,7 @@ async function signInWithCredentials(email, password) {
   }
   syncAuthFields(email, password);
   localStorage.setItem(CALENDAR_AUTH_SEEN_KEY, "1");
+  updateSupabaseStatus("Signed in.");
   await refreshAuthState();
   await loadOverridePin();
   await fetchEventsForMonth();
@@ -5589,17 +5590,24 @@ async function init() {
   }
   state.calendar.selectedDate = "";
   setCalendarEventFormExpanded(false);
+  setupListeners();
   initSupabaseClient();
   updateCalendarAuthVisibility();
-  await restoreSupabaseSessionFromUrl();
-  await refreshAuthState();
+
+  try {
+    await restoreSupabaseSessionFromUrl();
+    await refreshAuthState();
+  } catch (error) {
+    console.error("Supabase auth initialization failed:", error);
+    updateSupabaseStatus("Sign-in is available, but the saved session could not be restored.", true);
+  }
+
   updateHolidayFromDate();
   updatePerformanceHoursFromTimes();
   updateAgreementPreview();
   updateInvoicePreview();
   updateReceiptPreview();
   updateMessagePreview();
-  setupListeners();
   renderCalendar();
   fetchEventsForMonth();
   fetchContracts();
