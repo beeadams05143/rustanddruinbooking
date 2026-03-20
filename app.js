@@ -270,6 +270,44 @@ function formatDate(dateValue) {
   });
 }
 
+function formatMonthYearLabel(value) {
+  if (!value) return "__";
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) return String(value);
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatShowDateTimeWithWeekday(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return String(value);
+  return date.toLocaleString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatAvailableDateLabel(dateValue) {
+  if (!dateValue) return "__";
+  const [year, month, day] = dateValue.split("-").map(Number);
+  if (!year || !month || !day) return dateValue;
+  const date = new Date(year, month - 1, day);
+  const baseLabel = date.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  const holidayName = getHolidayWeekendLabel(date);
+  return holidayName ? `${baseLabel} (${holidayName})` : baseLabel;
+}
+
 function hoursBetweenTimes(startTime, endTime) {
   if (!startTime || !endTime) return 0;
   const parsedStart = parseTimeValue(startTime);
@@ -686,7 +724,7 @@ function getClosestWeekend(date) {
   };
 }
 
-function isHolidayWeekend(date) {
+function getHolidayWeekendLabel(date) {
   const year = date.getFullYear();
 
   const memorialDay = getLastWeekdayOfMonth(year, 4, 1); // last Monday in May
@@ -721,18 +759,21 @@ function isHolidayWeekend(date) {
   const newYearsStart = new Date(year, 11, 31);
   const newYearsEnd = new Date(year + 1, 0, 1);
 
-  return (
-    isBetween(date, memorialWeekendStart, memorialWeekendEnd) ||
-    isBetween(date, laborWeekendStart, laborWeekendEnd) ||
-    isBetween(date, presidentsWeekendStart, presidentsWeekendEnd) ||
-    isBetween(date, columbusWeekendStart, columbusWeekendEnd) ||
-    isBetween(date, thanksgivingWeekendStart, thanksgivingWeekendEnd) ||
-    isBetween(date, julyFourthStart, julyFourthEnd) ||
-    isBetween(date, halloweenWeekend.start, halloweenWeekend.end) ||
-    isBetween(date, valentinesWeekend.start, valentinesWeekend.end) ||
-    isBetween(date, christmasWeekStart, christmasWeekEnd) ||
-    isBetween(date, newYearsStart, newYearsEnd)
-  );
+  if (isBetween(date, memorialWeekendStart, memorialWeekendEnd)) return "Memorial Day Weekend";
+  if (isBetween(date, laborWeekendStart, laborWeekendEnd)) return "Labor Day Weekend";
+  if (isBetween(date, presidentsWeekendStart, presidentsWeekendEnd)) return "Presidents Day Weekend";
+  if (isBetween(date, columbusWeekendStart, columbusWeekendEnd)) return "Columbus Day Weekend";
+  if (isBetween(date, thanksgivingWeekendStart, thanksgivingWeekendEnd)) return "Thanksgiving Weekend";
+  if (isBetween(date, julyFourthStart, julyFourthEnd)) return "Independence Day Weekend";
+  if (isBetween(date, halloweenWeekend.start, halloweenWeekend.end)) return "Halloween Weekend";
+  if (isBetween(date, valentinesWeekend.start, valentinesWeekend.end)) return "Valentine's Weekend";
+  if (isBetween(date, christmasWeekStart, christmasWeekEnd)) return "Christmas Week";
+  if (isBetween(date, newYearsStart, newYearsEnd)) return "New Year's";
+  return "";
+}
+
+function isHolidayWeekend(date) {
+  return Boolean(getHolidayWeekendLabel(date));
 }
 
 function updateHolidayFromDate() {
@@ -741,14 +782,20 @@ function updateHolidayFromDate() {
 
   const [year, month, day] = dateValue.split("-").map(Number);
   const selectedDate = new Date(year, month - 1, day);
-  const isHoliday = isHolidayWeekend(selectedDate);
+  const holidayLabel = getHolidayWeekendLabel(selectedDate);
+  const isHoliday = Boolean(holidayLabel);
 
   state.agreement.holidayWeekend = isHoliday;
   const holidayCheckbox = document.getElementById("holidayWeekend");
   if (holidayCheckbox) holidayCheckbox.checked = isHoliday;
 
   const warning = document.getElementById("holidayWarning");
-  if (warning) warning.classList.toggle("hidden", !isHoliday);
+  if (warning) {
+    warning.textContent = holidayLabel
+      ? `THIS DATE FALLS ON ${holidayLabel.toUpperCase()}`
+      : "THIS IS A HOLIDAY WEEKEND";
+    warning.classList.toggle("hidden", !isHoliday);
+  }
 }
 
 function setText(selector, value) {
@@ -1023,6 +1070,17 @@ function updateAgreementPreview() {
 
   const warning = document.getElementById("holidayWarning");
   if (warning) {
+    const performanceDate = document.getElementById("performanceDate")?.value || "";
+    let holidayLabel = "";
+    if (performanceDate) {
+      const [year, month, day] = performanceDate.split("-").map(Number);
+      if (year && month && day) {
+        holidayLabel = getHolidayWeekendLabel(new Date(year, month - 1, day));
+      }
+    }
+    warning.textContent = holidayLabel
+      ? `THIS DATE FALLS ON ${holidayLabel.toUpperCase()}`
+      : "THIS IS A HOLIDAY WEEKEND";
     warning.classList.toggle("hidden", !state.agreement.holidayWeekend);
   }
 
@@ -1220,6 +1278,28 @@ function getConflictTrackedEventsForDate(dateStr, events = []) {
     const dayKey = eventDayKeyFromValue(event?.start_time || event?.end_time || "");
     return dayKey === targetDate && isConflictTrackedShowType(event?.type);
   });
+}
+
+async function getShowsRangeEvents(rangeStart, rangeEnd) {
+  let events = mergeSeededCalendarEvents(state.calendar.events, rangeStart, rangeEnd).filter((event) => {
+    const start = new Date(event.start_time);
+    return Number.isFinite(start.getTime()) && start >= rangeStart && start <= rangeEnd;
+  });
+
+  const client = state.calendar.client;
+  if (client && state.calendar.session) {
+    const { data, error } = await client
+      .from("events")
+      .select("*")
+      .lt("start_time", rangeEnd.toISOString())
+      .gte("end_time", rangeStart.toISOString())
+      .order("start_time", { ascending: true });
+    if (!error && Array.isArray(data)) {
+      events = mergeSeededCalendarEvents(data, rangeStart, rangeEnd);
+    }
+  }
+
+  return events;
 }
 
 function eventStartDate(event) {
@@ -4998,10 +5078,12 @@ function renderAssignmentList() {
   });
 }
 
-function renderBookedDatesList() {
+async function renderBookedDatesList() {
   const list = document.getElementById("bookedDatesList");
   if (!list) return;
-  const booked = state.calendar.events
+  const today = startOfDay(new Date());
+  const endDate = new Date(today.getFullYear(), today.getMonth() + 12, 0, 23, 59, 59, 999);
+  const booked = (await getShowsRangeEvents(today, endDate))
     .filter((event) => String(event.type || "").toLowerCase() !== "blackout")
     .sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
   if (!booked.length) {
@@ -5009,29 +5091,48 @@ function renderBookedDatesList() {
     return;
   }
   list.innerHTML = "";
-  booked.slice(0, 40).forEach((event) => {
-    const eventAssignments = state.calendar.assignments.filter(
-      (item) => item.event_id === event.id
-    );
-    const confirmedNames = eventAssignments
-      .filter((item) => String(item.status || "").toLowerCase() === "confirmed")
-      .map((item) => musicianDisplayName(state.musicians.find((m) => m.id === item.musician_id)));
-    const card = document.createElement("div");
-    card.className = "event-card";
-    const header = document.createElement("header");
-    header.innerHTML = `<span>${event.title || eventTypeLabel(event.type)}</span><span>${eventTypeLabel(event.type)}</span>`;
-    const meta = document.createElement("div");
-    meta.className = "event-meta";
-    meta.textContent = formatShortDateTime(event.start_time);
-    const roster = document.createElement("div");
-    roster.className = "event-meta";
-    roster.textContent = confirmedNames.length
-      ? `Confirmed: ${confirmedNames.join(", ")}`
-      : "No confirmed musicians yet.";
-    card.appendChild(header);
-    card.appendChild(meta);
-    card.appendChild(roster);
-    list.appendChild(card);
+  const monthBuckets = new Map();
+  booked.forEach((event) => {
+    const startTime = new Date(event.start_time);
+    const monthLabel = formatMonthYearLabel(startTime);
+    const existing = monthBuckets.get(monthLabel) || [];
+    existing.push(event);
+    monthBuckets.set(monthLabel, existing);
+  });
+  monthBuckets.forEach((events, monthLabel) => {
+    const monthCard = document.createElement("div");
+    monthCard.className = "event-card";
+    const monthHeader = document.createElement("header");
+    monthHeader.innerHTML = `<span>${monthLabel}</span><span>${events.length} booked</span>`;
+    monthCard.appendChild(monthHeader);
+    const monthList = document.createElement("div");
+    monthList.className = "event-list";
+    events.forEach((event) => {
+      const eventAssignments = state.calendar.assignments.filter(
+        (item) => item.event_id === event.id
+      );
+      const confirmedNames = eventAssignments
+        .filter((item) => String(item.status || "").toLowerCase() === "confirmed")
+        .map((item) => musicianDisplayName(state.musicians.find((m) => m.id === item.musician_id)));
+      const card = document.createElement("div");
+      card.className = "event-card";
+      const header = document.createElement("header");
+      header.innerHTML = `<span>${event.title || eventTypeLabel(event.type)}</span><span>${eventTypeLabel(event.type)}</span>`;
+      const meta = document.createElement("div");
+      meta.className = "event-meta";
+      meta.textContent = formatShowDateTimeWithWeekday(event.start_time);
+      const roster = document.createElement("div");
+      roster.className = "event-meta";
+      roster.textContent = confirmedNames.length
+        ? `Confirmed: ${confirmedNames.join(", ")}`
+        : "No confirmed musicians yet.";
+      card.appendChild(header);
+      card.appendChild(meta);
+      card.appendChild(roster);
+      monthList.appendChild(card);
+    });
+    monthCard.appendChild(monthList);
+    list.appendChild(monthCard);
   });
 }
 
@@ -5039,30 +5140,18 @@ async function renderAvailableDatesList() {
   const list = document.getElementById("availableDatesList");
   if (!list) return;
   const today = startOfDay(new Date());
-  const horizonMonths = 6;
-  const endDate = new Date(today.getFullYear(), today.getMonth() + horizonMonths, 0);
-  let eventsForAvailability = [...state.calendar.events];
-
-  const client = state.calendar.client;
-  if (client && state.calendar.session) {
-    const rangeStartIso = today.toISOString();
-    const rangeEndIso = new Date(
-      endDate.getFullYear(),
-      endDate.getMonth(),
-      endDate.getDate(),
-      23,
-      59,
-      59
-    ).toISOString();
-    const { data, error } = await client
-      .from("events")
-      .select("id,type,start_time,end_time")
-      .lt("start_time", rangeEndIso)
-      .gte("end_time", rangeStartIso);
-    if (!error && Array.isArray(data)) {
-      eventsForAvailability = data;
-    }
-  }
+  const displayStart = new Date(today.getFullYear(), 4, 1);
+  const endDate = new Date(today.getFullYear(), 11, 31);
+  const rangeEnd = new Date(
+    endDate.getFullYear(),
+    endDate.getMonth(),
+    endDate.getDate(),
+    23,
+    59,
+    59,
+    999
+  );
+  const eventsForAvailability = await getShowsRangeEvents(displayStart, rangeEnd);
 
   const busyKeys = new Set(
     eventsForAvailability
@@ -5085,27 +5174,40 @@ async function renderAvailableDatesList() {
   const monthBuckets = new Map();
 
   for (
-    let date = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    let date = new Date(displayStart.getFullYear(), displayStart.getMonth(), displayStart.getDate());
     date <= endDate;
     date.setDate(date.getDate() + 1)
   ) {
     const day = date.getDay();
-    const isWeekend = day === 0 || day === 6;
-    if (!isWeekend) continue;
+    const isFridayOrSaturday = day === 5 || day === 6;
+    const holidayWindowDay = isHolidayWeekend(date) && (day === 0 || day === 1);
+    if (!isFridayOrSaturday && !holidayWindowDay) continue;
     const key = formatDateInput(date);
     if (busyKeys.has(key)) continue;
-    const monthLabel = date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const monthLabel = formatMonthYearLabel(date);
     const existing = monthBuckets.get(monthLabel) || [];
-    existing.push(formatDate(key));
+    existing.push(formatAvailableDateLabel(key));
     monthBuckets.set(monthLabel, existing);
   }
 
   const availableCount = [...monthBuckets.values()].reduce((sum, dates) => sum + dates.length, 0);
   if (!availableCount) {
-    list.innerHTML = "<p class=\"muted\">No open weekend days in the next 6 months.</p>";
+    list.innerHTML = `<p class="muted">No open weekend days from ${displayStart.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    })} through ${endDate.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    })}.</p>`;
     return;
   }
-  list.innerHTML = `<p class="muted">${availableCount} open weekend day(s) in next ${horizonMonths} months.</p>`;
+  list.innerHTML = `<p class="muted">${availableCount} open weekend day(s) from ${displayStart.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  })} through ${endDate.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  })}.</p>`;
   monthBuckets.forEach((dates, monthLabel) => {
     const card = document.createElement("div");
     card.className = "event-card";
@@ -5126,8 +5228,8 @@ async function renderAvailableDatesList() {
 
 function renderAssignmentSummaryLists() {
   renderAssignmentList();
-  renderBookedDatesList();
-  renderAvailableDatesList();
+  void renderBookedDatesList();
+  void renderAvailableDatesList();
   updateOpsProgress();
 }
 
