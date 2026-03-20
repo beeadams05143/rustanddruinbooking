@@ -724,6 +724,25 @@ function getClosestWeekend(date) {
   };
 }
 
+function getEasterDate(year) {
+  // Gregorian computus
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month - 1, day);
+}
+
 function getHolidayWeekendLabel(date) {
   const year = date.getFullYear();
 
@@ -752,6 +771,8 @@ function getHolidayWeekendLabel(date) {
   const halloweenWeekend = getClosestWeekend(halloween);
   const valentines = new Date(year, 1, 14);
   const valentinesWeekend = getClosestWeekend(valentines);
+  const stPatricksDay = new Date(year, 2, 17);
+  const easter = getEasterDate(year);
 
   const christmasWeekStart = new Date(year, 11, 21);
   const christmasWeekEnd = new Date(year, 11, 27);
@@ -767,6 +788,8 @@ function getHolidayWeekendLabel(date) {
   if (isBetween(date, julyFourthStart, julyFourthEnd)) return "Independence Day Weekend";
   if (isBetween(date, halloweenWeekend.start, halloweenWeekend.end)) return "Halloween Weekend";
   if (isBetween(date, valentinesWeekend.start, valentinesWeekend.end)) return "Valentine's Weekend";
+  if (isBetween(date, stPatricksDay, stPatricksDay)) return "St. Patrick's Day";
+  if (isBetween(date, easter, easter)) return "Easter";
   if (isBetween(date, christmasWeekStart, christmasWeekEnd)) return "Christmas Week";
   if (isBetween(date, newYearsStart, newYearsEnd)) return "New Year's";
   return "";
@@ -2768,9 +2791,14 @@ function renderCalendar() {
 
     const cellDate = new Date(cellYear, cellMonth, dayNumber);
     const cellKey = formatDateInput(cellDate);
+    const holidayLabel = getHolidayWeekendLabel(cellDate);
 
     if (muted) cell.classList.add("muted");
     if (cellKey === selectedKey) cell.classList.add("selected");
+    if (holidayLabel) {
+      cell.classList.add("holiday");
+      cell.title = holidayLabel;
+    }
 
     const titles = document.createElement("div");
     titles.className = "calendar-titles";
@@ -2835,6 +2863,14 @@ function renderCalendar() {
     number.className = "calendar-day-number";
     number.textContent = dayNumber;
     dayTop.appendChild(number);
+
+    if (holidayLabel) {
+      const holidayMarker = document.createElement("span");
+      holidayMarker.className = "calendar-holiday-marker";
+      holidayMarker.textContent = holidayLabel.replace(" Weekend", "");
+      holidayMarker.title = holidayLabel;
+      dayTop.appendChild(holidayMarker);
+    }
 
     if (hasSignedContract || hasDraftContract) {
       const marker = document.createElement("span");
@@ -5513,8 +5549,8 @@ function setupListeners() {
     const folderNames = {
       login: "Front Desk",
       home: "Dashboard",
-      bookkeeping: "Booking Folder",
-      calendar: "Calendar Folder",
+      bookkeeping: "Booking",
+      calendar: "Calendar",
       contracts: "Contracts",
       workorders: "Work Orders",
       shows: "Shows",
