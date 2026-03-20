@@ -105,6 +105,10 @@ const state = {
   musicianEditor: {
     id: "",
   },
+  musicianShowCabinet: {
+    musicianId: "",
+  },
+  musicianShowBookings: [],
   musicians: [],
   activeTab: "agreement",
 };
@@ -333,6 +337,12 @@ const CALENDAR_AUTH_SEEN_KEY = "rustandruin-calendar-auth-seen";
 const AUTO_HOLD_NOTE = "Pending contract signature (auto-created from agreement)";
 let switchTopView = null;
 const SYNC_POLL_INTERVAL_MS = 15000;
+const DEFAULT_MUSICIAN_ROSTER = [
+  { name: "Josh Adams", role: "Guitar / Vocals" },
+  { name: "Beth Adams", role: "Vocals / Percussion" },
+  { name: "Bassist", role: "Bass" },
+  { name: "Drummer", role: "Drums" },
+];
 const SEEDED_BOOKED_EVENTS = [
   { date: "2026-01-03", start: "19:00", end: "22:00", title: "Killarney's", type: "Confirmed" },
   { date: "2026-01-06", start: "13:00", end: "14:00", title: "Mertens House", type: "Confirmed" },
@@ -342,13 +352,13 @@ const SEEDED_BOOKED_EVENTS = [
   { date: "2026-01-27", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
   { date: "2026-02-10", start: "13:00", end: "14:00", title: "Mertens House", type: "Confirmed" },
   { date: "2026-02-13", start: "18:00", end: "21:00", title: "Burke Publick", type: "Confirmed" },
-  { date: "2026-02-14", start: "19:00", end: "22:00", title: "Lebanon Legion", type: "Confirmed" },
+  { date: "2026-02-14", start: "19:00", end: "22:00", title: "Lebanon Legion", type: "Confirmed", notes: "Full Band" },
   { date: "2026-02-17", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
   { date: "2026-02-24", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
   { date: "2026-03-07", start: "19:00", end: "22:00", title: "Killarney", type: "Confirmed" },
   { date: "2026-03-10", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
   { date: "2026-03-13", start: "18:00", end: "21:00", title: "Burke Publick", type: "Confirmed" },
-  { date: "2026-03-14", start: "19:00", end: "22:00", title: "Windsor Legion", type: "Confirmed" },
+  { date: "2026-03-14", start: "19:00", end: "22:00", title: "Windsor Legion", type: "Confirmed", notes: "Full Band" },
   { date: "2026-03-17", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
   { date: "2026-03-24", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
   { date: "2026-03-28", start: "17:00", end: "20:00", title: "Harry's Bar", type: "Confirmed" },
@@ -356,38 +366,38 @@ const SEEDED_BOOKED_EVENTS = [
   { date: "2026-04-14", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
   { date: "2026-04-21", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
   { date: "2026-04-28", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-  { date: "2026-05-09", start: "19:30", end: "21:00", title: "SHA Elks", type: "Confirmed" },
+  { date: "2026-05-09", start: "19:30", end: "21:00", title: "SHA Elks", type: "Confirmed", notes: "Full Band" },
   { date: "2026-05-12", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-05-16", start: "14:00", end: "17:00", title: "Dell Rice @ Foresters", type: "Confirmed" },
+  { date: "2026-05-16", start: "14:00", end: "17:00", title: "Dell Rice @ Foresters", type: "Confirmed", notes: "Full Band" },
   { date: "2026-05-19", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
   { date: "2026-05-23", start: "17:30", end: "20:30", title: "Bear Naked", type: "Confirmed" },
   { date: "2026-05-26", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
   { date: "2026-06-09", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-06-13", start: "18:30", end: "21:30", title: "Kingdom Cpg", type: "Confirmed" },
+  { date: "2026-06-13", start: "18:30", end: "21:30", title: "Kingdom Cpg", type: "Confirmed", notes: "Full Band" },
   { date: "2026-06-16", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
   { date: "2026-06-23", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-  { date: "2026-06-27", start: "18:30", end: "21:30", title: "Horseshoe Acres", type: "Confirmed" },
-  { date: "2026-07-04", start: "18:00", end: "21:00", title: "Van Guilder BBQ", type: "Confirmed" },
-  { date: "2026-07-11", start: "19:00", end: "22:00", title: "Bomoseen KOA", type: "Confirmed" },
+  { date: "2026-06-27", start: "18:30", end: "21:30", title: "Horseshoe Acres", type: "Confirmed", notes: "Full Band" },
+  { date: "2026-07-04", start: "18:00", end: "21:00", title: "Van Guilder BBQ", type: "Confirmed", notes: "Full Band" },
+  { date: "2026-07-11", start: "19:00", end: "22:00", title: "Bomoseen KOA", type: "Confirmed", notes: "Full Band" },
   { date: "2026-07-14", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-07-18", start: "18:00", end: "21:00", title: "Mikes Tiki Bar", type: "Confirmed", notes: "Dan" },
+  { date: "2026-07-18", start: "18:00", end: "21:00", title: "Mikes Tiki Bar", type: "Confirmed", notes: "Dan, Full Band" },
   { date: "2026-07-21", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
-  { date: "2026-07-25", start: "18:30", end: "21:30", title: "Kingdom Cmpg", type: "Confirmed" },
+  { date: "2026-07-25", start: "18:30", end: "21:30", title: "Kingdom Cmpg", type: "Confirmed", notes: "Full Band" },
   { date: "2026-07-28", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-  { date: "2026-07-30", start: "18:00", end: "21:00", title: "Cheshire Fair", type: "Confirmed" },
+  { date: "2026-07-30", start: "18:00", end: "21:00", title: "Cheshire Fair", type: "Confirmed", notes: "Full Band" },
   { date: "2026-08-04", start: "17:00", end: "19:00", title: "Chester PD Night Out", type: "Confirmed" },
   { date: "2026-08-08", start: "17:30", end: "20:30", title: "Bear Naked", type: "Confirmed" },
   { date: "2026-08-11", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-08-15", start: "14:00", end: "17:00", title: "Wells \"Woodstock\"", type: "Confirmed" },
+  { date: "2026-08-15", start: "14:00", end: "17:00", title: "Wells \"Woodstock\"", type: "Confirmed", notes: "Full Band" },
   { date: "2026-08-18", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
   { date: "2026-08-25", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-  { date: "2026-08-29", start: "15:00", end: "17:00", title: "Hartford 1978", type: "Confirmed" },
-  { date: "2026-09-05", start: "18:30", end: "21:30", title: "Sugar Ridge Cmp", type: "Confirmed" },
+  { date: "2026-08-29", start: "15:00", end: "17:00", title: "Hartford 1978", type: "Confirmed", notes: "Full Band" },
+  { date: "2026-09-05", start: "18:30", end: "21:30", title: "Sugar Ridge Cmp", type: "Confirmed", notes: "Full Band" },
   { date: "2026-09-08", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
   { date: "2026-09-15", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
-  { date: "2026-09-19", start: "14:30", end: "16:30", title: "NSRA Essex Fair", type: "Confirmed" },
+  { date: "2026-09-19", start: "14:30", end: "16:30", title: "NSRA Essex Fair", type: "Confirmed", notes: "Full Band" },
   { date: "2026-09-22", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-  { date: "2026-10-10", start: "12:30", end: "14:30", title: "St John's Club", type: "Confirmed" },
+  { date: "2026-10-10", start: "12:30", end: "14:30", title: "St John's Club", type: "Confirmed", notes: "Full Band" },
   { date: "2026-10-13", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
   { date: "2026-10-20", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
   { date: "2026-10-27", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
@@ -399,6 +409,31 @@ const SEEDED_BOOKED_EVENTS = [
   { date: "2026-12-15", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
   { date: "2026-12-22", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
 ];
+const FULL_BAND_SHOW_DATE_KEYS = new Set([
+  "2026-02-14",
+  "2026-03-14",
+  "2026-05-09",
+  "2026-05-16",
+  "2026-06-13",
+  "2026-06-27",
+  "2026-07-04",
+  "2026-07-11",
+  "2026-07-18",
+  "2026-07-25",
+  "2026-07-30",
+  "2026-08-15",
+  "2026-08-29",
+  "2026-09-05",
+  "2026-09-19",
+  "2026-09-20",
+  "2026-10-10",
+  "2026-12-31",
+]);
+const SEEDED_CONFIRMED_SHOW_DATE_KEYS = new Set([
+  ...SEEDED_BOOKED_EVENTS.map((event) => event.date),
+  "2026-09-20",
+  "2026-12-31",
+]);
 
 function safeStorageSet(key, value) {
   try {
@@ -427,6 +462,7 @@ function saveDraft() {
       musicians: state.musicians,
       assignments: state.calendar.assignments,
       blackouts: state.calendar.blackouts,
+      musicianShowBookings: state.musicianShowBookings,
     };
     safeStorageSet(STORAGE_KEY, JSON.stringify(payload));
   } catch (error) {
@@ -459,6 +495,9 @@ function loadDraft() {
     }
     if (Array.isArray(parsed.blackouts)) {
       state.calendar.blackouts = parsed.blackouts;
+    }
+    if (Array.isArray(parsed.musicianShowBookings)) {
+      state.musicianShowBookings = parsed.musicianShowBookings;
     }
   } catch (error) {
     // ignore invalid storage
@@ -1294,6 +1333,35 @@ function mergeSeededCalendarEvents(events = [], rangeStart = null, rangeEnd = nu
   return merged.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 }
 
+function isFullBandShowEvent(event) {
+  const dayKey = eventDayKeyFromValue(event?.start_time || event?.end_time || "");
+  if (FULL_BAND_SHOW_DATE_KEYS.has(dayKey)) return true;
+  const text = `${event?.title || ""} ${event?.notes || ""}`.toLowerCase();
+  return text.includes("full band") || text.includes("full");
+}
+
+function getShowLineupLabel(event) {
+  return isFullBandShowEvent(event) ? "Full Band" : "Duo";
+}
+
+function getSeededConfirmedMusicianNamesForEvent(event) {
+  const dayKey = eventDayKeyFromValue(event?.start_time || event?.end_time || "");
+  if (!SEEDED_CONFIRMED_SHOW_DATE_KEYS.has(dayKey)) return [];
+  const neededCount = isFullBandShowEvent(event) ? 4 : 2;
+  return DEFAULT_MUSICIAN_ROSTER.slice(0, neededCount).map((item) => item.name);
+}
+
+function getConfirmedMusicianNamesForEvent(event) {
+  const confirmedNames = state.calendar.assignments
+    .filter(
+      (item) =>
+        item.event_id === event.id && String(item.status || "").toLowerCase() === "confirmed"
+    )
+    .map((item) => musicianDisplayName(state.musicians.find((m) => m.id === item.musician_id)));
+  if (confirmedNames.length) return confirmedNames;
+  return getSeededConfirmedMusicianNamesForEvent(event);
+}
+
 function getConflictTrackedEventsForDate(dateStr, events = []) {
   const targetDate = normalizeDateValue(dateStr);
   if (!targetDate) return [];
@@ -1574,13 +1642,21 @@ function renderManagerChecklist(events) {
 }
 
 async function updateShowRecordCounts() {
+  const titleEl = document.getElementById("showRecordTitle");
   const fullEl = document.getElementById("showCountFull");
   const duoEl = document.getElementById("showCountDuo");
   const totalEl = document.getElementById("showCountTotal");
   if (!fullEl || !duoEl || !totalEl) return;
 
   const currentYear = new Date().getFullYear();
-  let bookedShows = state.calendar.events.filter((event) => {
+  if (titleEl) titleEl.textContent = `${currentYear} Year Total Shows`;
+  const yearStartDate = new Date(currentYear, 0, 1);
+  const yearEndDate = new Date(currentYear, 11, 31, 23, 59, 59, 999);
+  let bookedShows = mergeSeededCalendarEvents(
+    state.calendar.events,
+    yearStartDate,
+    yearEndDate
+  ).filter((event) => {
     const kind = String(event?.type || "").toLowerCase();
     if (kind !== "confirmed") return false;
     const start = new Date(event?.start_time || 0);
@@ -1589,7 +1665,7 @@ async function updateShowRecordCounts() {
 
   const client = state.calendar.client;
   if (client && state.calendar.session) {
-    const yearStart = new Date(currentYear, 0, 1).toISOString();
+    const yearStart = yearStartDate.toISOString();
     const nextYearStart = new Date(currentYear + 1, 0, 1).toISOString();
     const { data, error } = await client
       .from("events")
@@ -1610,13 +1686,13 @@ async function updateShowRecordCounts() {
 
   const counts = bookedShows.reduce(
     (acc, event) => {
-      const text = `${event?.title || ""} ${event?.notes || ""}`.toLowerCase();
+      const lineup = getShowLineupLabel(event);
       const hasAssignments = state.calendar.assignments.some(
         (item) => item.event_id === event.id
       );
-      if (text.includes("full band") || text.includes("full")) {
+      if (lineup === "Full Band") {
         acc.full += 1;
-      } else if (text.includes("duo") || !hasAssignments) {
+      } else if (!hasAssignments) {
         acc.duo += 1;
       } else {
         acc.full += 1;
@@ -4628,6 +4704,7 @@ function renderMusicianList() {
   if (!state.musicians.length) {
     list.innerHTML = "<p class=\"muted\">No musicians on roster yet.</p>";
     populateMusicianSelects();
+    renderMusicianShowCabinet();
     return;
   }
   list.innerHTML = "";
@@ -4680,6 +4757,153 @@ function renderMusicianList() {
     list.appendChild(card);
   });
   populateMusicianSelects();
+  renderMusicianShowCabinet();
+}
+
+function updateMusicianShowStatus(message, isError = false) {
+  const el = document.getElementById("musicianShowStatus");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("warning", isError);
+}
+
+function getSortedMusicians() {
+  return [...state.musicians].sort((a, b) =>
+    String(a.name || "").localeCompare(String(b.name || ""))
+  );
+}
+
+function ensureActiveMusicianShowCabinetId() {
+  const sorted = getSortedMusicians();
+  const current = state.musicianShowCabinet.musicianId;
+  const exists = sorted.some((musician) => musician.id === current);
+  if (!exists) {
+    state.musicianShowCabinet.musicianId = sorted[0]?.id || "";
+  }
+}
+
+function renderMusicianShowCabinet() {
+  const tabs = document.getElementById("musicianShowTabs");
+  const list = document.getElementById("musicianShowList");
+  if (!tabs || !list) return;
+  tabs.innerHTML = "";
+  list.innerHTML = "";
+
+  const sorted = getSortedMusicians();
+  if (!sorted.length) {
+    tabs.innerHTML = "<p class=\"muted\">Add a team member to open a show file.</p>";
+    list.innerHTML = "<p class=\"muted\">No musician show files yet.</p>";
+    return;
+  }
+
+  ensureActiveMusicianShowCabinetId();
+  const activeId = state.musicianShowCabinet.musicianId;
+
+  sorted.forEach((musician) => {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "cabinet-tab";
+    if (musician.id === activeId) tab.classList.add("active");
+    tab.textContent = musicianDisplayName(musician);
+    tab.addEventListener("click", () => {
+      state.musicianShowCabinet.musicianId = musician.id;
+      renderMusicianShowCabinet();
+    });
+    tabs.appendChild(tab);
+  });
+
+  const activeMusician = sorted.find((musician) => musician.id === activeId);
+  if (!activeMusician) {
+    list.innerHTML = "<p class=\"muted\">Select a musician to view show files.</p>";
+    return;
+  }
+
+  const entries = [...state.musicianShowBookings]
+    .filter((item) => item.musician_id === activeMusician.id)
+    .sort((a, b) => String(a.show_date || "").localeCompare(String(b.show_date || "")));
+
+  if (!entries.length) {
+    list.innerHTML = `<p class="muted">No manual show files saved for ${musicianDisplayName(activeMusician)} yet.</p>`;
+    return;
+  }
+
+  entries.forEach((entry) => {
+    const card = document.createElement("div");
+    card.className = "event-card";
+    const header = document.createElement("header");
+    header.innerHTML = `<span>${entry.show_title || "Untitled show"}</span><span>${entry.status || "Booked"}</span>`;
+    const dateMeta = document.createElement("div");
+    dateMeta.className = "event-meta";
+    dateMeta.textContent = entry.show_date ? formatDate(entry.show_date) : "No date";
+    card.appendChild(header);
+    card.appendChild(dateMeta);
+    if (entry.notes) {
+      const notes = document.createElement("div");
+      notes.className = "event-meta";
+      notes.textContent = entry.notes;
+      card.appendChild(notes);
+    }
+    const actions = document.createElement("div");
+    actions.className = "event-actions";
+    const remove = document.createElement("button");
+    remove.className = "btn ghost";
+    remove.type = "button";
+    remove.textContent = "Remove";
+    remove.addEventListener("click", () => {
+      state.musicianShowBookings = state.musicianShowBookings.filter((item) => item.id !== entry.id);
+      saveDraft();
+      renderMusicianShowCabinet();
+      updateMusicianShowStatus("Show file removed.");
+    });
+    actions.appendChild(remove);
+    card.appendChild(actions);
+    list.appendChild(card);
+  });
+}
+
+function clearMusicianShowForm() {
+  const ids = [
+    "musicianShowDate",
+    "musicianShowTitle",
+    "musicianShowNotes",
+  ];
+  ids.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  const statusSelect = document.getElementById("musicianShowStatusSelect");
+  if (statusSelect) statusSelect.value = "Booked";
+}
+
+function saveManualMusicianShow() {
+  ensureActiveMusicianShowCabinetId();
+  const musicianId = state.musicianShowCabinet.musicianId;
+  const showDate = document.getElementById("musicianShowDate")?.value || "";
+  const showTitle = document.getElementById("musicianShowTitle")?.value.trim() || "";
+  const status = document.getElementById("musicianShowStatusSelect")?.value || "Booked";
+  const notes = document.getElementById("musicianShowNotes")?.value.trim() || "";
+
+  if (!musicianId) {
+    updateMusicianShowStatus("Add a team member first.", true);
+    return;
+  }
+  if (!showDate || !showTitle) {
+    updateMusicianShowStatus("Show date and show title are required.", true);
+    return;
+  }
+
+  state.musicianShowBookings.unshift({
+    id: `manual-show-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
+    musician_id: musicianId,
+    show_date: showDate,
+    show_title: showTitle,
+    status,
+    notes,
+  });
+  saveDraft();
+  clearMusicianShowForm();
+  renderMusicianShowCabinet();
+  updateMusicianShowStatus("Show file saved.");
 }
 
 function clearMusicianForm() {
@@ -4855,9 +5079,13 @@ async function deleteMusician(id) {
   }
   state.musicians = state.musicians.filter((m) => m.id !== id);
   state.calendar.assignments = state.calendar.assignments.filter((a) => a.musician_id !== id);
+  state.musicianShowBookings = state.musicianShowBookings.filter((item) => item.musician_id !== id);
   if (state.musicianEditor.id === id) {
     clearMusicianForm();
     setMusicianEditorState("");
+  }
+  if (state.musicianShowCabinet.musicianId === id) {
+    state.musicianShowCabinet.musicianId = "";
   }
   saveDraft();
   renderMusicianList();
@@ -4867,13 +5095,7 @@ async function deleteMusician(id) {
 }
 
 async function seedDefaultMusicians() {
-  const defaults = [
-    { name: "Josh Adams", role: "Guitar / Vocals" },
-    { name: "Beth Adams", role: "Vocals / Percussion" },
-    { name: "Bassist", role: "Bass" },
-    { name: "Drummer", role: "Drums" },
-  ];
-  defaults.forEach((item) => {
+  DEFAULT_MUSICIAN_ROSTER.forEach((item) => {
     const exists = state.musicians.some(
       (m) => String(m.name || "").toLowerCase() === item.name.toLowerCase()
     );
@@ -5144,12 +5366,8 @@ async function renderBookedDatesList() {
     const monthList = document.createElement("div");
     monthList.className = "event-list";
     events.forEach((event) => {
-      const eventAssignments = state.calendar.assignments.filter(
-        (item) => item.event_id === event.id
-      );
-      const confirmedNames = eventAssignments
-        .filter((item) => String(item.status || "").toLowerCase() === "confirmed")
-        .map((item) => musicianDisplayName(state.musicians.find((m) => m.id === item.musician_id)));
+      const confirmedNames = getConfirmedMusicianNamesForEvent(event);
+      const lineup = getShowLineupLabel(event);
       const card = document.createElement("div");
       card.className = "event-card";
       const header = document.createElement("header");
@@ -5157,6 +5375,9 @@ async function renderBookedDatesList() {
       const meta = document.createElement("div");
       meta.className = "event-meta";
       meta.textContent = formatShowDateTimeWithWeekday(event.start_time);
+      const lineupMeta = document.createElement("div");
+      lineupMeta.className = "event-meta";
+      lineupMeta.textContent = `Lineup: ${lineup}`;
       const roster = document.createElement("div");
       roster.className = "event-meta";
       roster.textContent = confirmedNames.length
@@ -5164,6 +5385,7 @@ async function renderBookedDatesList() {
         : "No confirmed musicians yet.";
       card.appendChild(header);
       card.appendChild(meta);
+      card.appendChild(lineupMeta);
       card.appendChild(roster);
       monthList.appendChild(card);
     });
@@ -5909,6 +6131,10 @@ function setupListeners() {
   const assignmentConfirmed = document.getElementById("assignmentStatusConfirmed");
   if (assignmentConfirmed) {
     assignmentConfirmed.addEventListener("change", renderAssignmentList);
+  }
+  const saveMusicianShowBtn = document.getElementById("saveMusicianShow");
+  if (saveMusicianShowBtn) {
+    saveMusicianShowBtn.addEventListener("click", saveManualMusicianShow);
   }
 
   const calendarPrev = document.getElementById("calendarPrev");

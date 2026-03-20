@@ -96,7 +96,7 @@
             <div class="board-head-side">
               <div class="vinyl-art" aria-hidden="true"></div>
               <div class="show-record" aria-label="Shows booked record">
-                <span class="show-record-title">Shows</span>
+                <span class="show-record-title" id="showRecordTitle">Year Total Shows</span>
                 <span>Full: <strong id="showCountFull">0</strong></span>
                 <span>Duo: <strong id="showCountDuo">0</strong></span>
                 <span>Total: <strong id="showCountTotal">0</strong></span>
@@ -1154,6 +1154,42 @@
               </div>
             </div>
             <div id="assignmentList" class="event-list"></div>
+          </div>
+
+          <div class="form-section">
+            <h3>Musician Show Files</h3>
+            <p class="muted">Manually track which shows each person is booked for and whether they have confirmed.</p>
+            <div class="cabinet-shell">
+              <div id="musicianShowTabs" class="cabinet-tabs"></div>
+              <div class="cabinet-panel">
+                <div class="form-grid">
+                  <label>
+                    Show date
+                    <input id="musicianShowDate" type="date" />
+                  </label>
+                  <label>
+                    Show title
+                    <input id="musicianShowTitle" placeholder="Venue or show name" />
+                  </label>
+                  <label>
+                    Status
+                    <select id="musicianShowStatusSelect">
+                      <option value="Booked">Booked</option>
+                      <option value="Confirmed">Confirmed</option>
+                    </select>
+                  </label>
+                  <label>
+                    Notes
+                    <textarea id="musicianShowNotes" placeholder="Optional note"></textarea>
+                  </label>
+                </div>
+                <div class="inline-actions">
+                  <button class="btn" id="saveMusicianShow">Add show file</button>
+                  <p id="musicianShowStatus" class="muted"></p>
+                </div>
+                <div id="musicianShowList" class="event-list"></div>
+              </div>
+            </div>
           </div>
 
         </section>

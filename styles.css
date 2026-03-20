@@ -1231,6 +1231,48 @@ input[type="file"] {
   color: #8b2e2e;
 }
 
+.cabinet-shell {
+  display: grid;
+  gap: 0;
+  border: 1px solid #d8b395;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ead0ab 0%, #e2c196 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+}
+
+.cabinet-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 14px 0;
+  background: linear-gradient(180deg, #e8c89e 0%, #e2bd8e 100%);
+}
+
+.cabinet-tab {
+  border: 1px solid #bb8d5c;
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  background: linear-gradient(180deg, #fff7e8 0%, #f8e7ca 100%);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  padding: 10px 16px;
+  cursor: pointer;
+  box-shadow: 0 -2px 0 rgba(255, 255, 255, 0.35) inset;
+}
+
+.cabinet-tab.active {
+  background: linear-gradient(180deg, #fffdf8 0%, #fff3df 100%);
+  transform: translateY(1px);
+}
+
+.cabinet-panel {
+  padding: 18px;
+  background: linear-gradient(180deg, #fff8ee 0%, #fff2e0 100%);
+  border-top: 1px solid #cda578;
+}
+
 
 @media (max-width: 900px) {
   .layout {
