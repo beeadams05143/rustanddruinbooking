@@ -295,6 +295,89 @@ const CALENDAR_AUTH_SEEN_KEY = "rustandruin-calendar-auth-seen";
 const AUTO_HOLD_NOTE = "Pending contract signature (auto-created from agreement)";
 let switchTopView = null;
 const SYNC_POLL_INTERVAL_MS = 15000;
+const SEEDED_BOOKED_EVENTS = [
+  { date: "2026-01-03", start: "19:00", end: "22:00", title: "Killarney's", type: "Confirmed" },
+  { date: "2026-01-06", start: "13:00", end: "14:00", title: "Mertens House", type: "Confirmed" },
+  { date: "2026-01-07", start: "13:00", end: "15:00", title: "Spfd Senior Ctr", type: "Confirmed" },
+  { date: "2026-01-13", start: "13:00", end: "14:00", title: "Whitcolm Bld", type: "Confirmed" },
+  { date: "2026-01-20", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
+  { date: "2026-01-27", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
+  { date: "2026-02-10", start: "13:00", end: "14:00", title: "Mertens House", type: "Confirmed" },
+  { date: "2026-02-13", start: "18:00", end: "21:00", title: "Burke Publick", type: "Confirmed" },
+  { date: "2026-02-14", start: "19:00", end: "22:00", title: "Lebanon Legion", type: "Confirmed" },
+  { date: "2026-02-17", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
+  { date: "2026-02-24", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
+  { date: "2026-03-07", start: "19:00", end: "22:00", title: "Killarney", type: "Confirmed" },
+  { date: "2026-03-10", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
+  { date: "2026-03-13", start: "18:00", end: "21:00", title: "Burke Publick", type: "Confirmed" },
+  { date: "2026-03-14", start: "19:00", end: "22:00", title: "Windsor Legion", type: "Confirmed" },
+  { date: "2026-03-17", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
+  { date: "2026-03-24", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
+  { date: "2026-03-28", start: "17:00", end: "20:00", title: "Harry's Bar", type: "Confirmed" },
+  { date: "2026-04-07", start: "13:00", end: "14:30", title: "Whitcomb Bdg", type: "Confirmed" },
+  { date: "2026-04-14", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
+  { date: "2026-04-21", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
+  { date: "2026-04-28", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
+  { date: "2026-05-09", start: "19:30", end: "21:00", title: "SHA Elks", type: "Confirmed" },
+  { date: "2026-05-12", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
+  { date: "2026-05-16", start: "14:00", end: "17:00", title: "Dell Rice @ Foresters", type: "Confirmed" },
+  { date: "2026-05-19", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
+  { date: "2026-05-23", start: "17:30", end: "20:30", title: "Bear Naked", type: "Confirmed" },
+  { date: "2026-05-26", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
+  { date: "2026-06-09", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
+  { date: "2026-06-13", start: "18:30", end: "21:30", title: "Kingdom Cpg", type: "Confirmed" },
+  { date: "2026-06-16", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
+  { date: "2026-06-23", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
+  { date: "2026-06-27", start: "18:30", end: "21:30", title: "Horseshoe Acres", type: "Confirmed" },
+  { date: "2026-07-04", start: "18:00", end: "21:00", title: "Van Guilder BBQ", type: "Confirmed" },
+  { date: "2026-07-11", start: "19:00", end: "22:00", title: "Bomoseen KOA", type: "Confirmed" },
+  { date: "2026-07-14", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
+  { date: "2026-07-18", start: "18:00", end: "21:00", title: "Mikes Tiki Bar", type: "Confirmed", notes: "Dan" },
+  { date: "2026-07-21", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
+  { date: "2026-07-25", start: "18:30", end: "21:30", title: "Kingdom Cmpg", type: "Confirmed" },
+  { date: "2026-07-28", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
+  { date: "2026-07-30", start: "18:00", end: "21:00", title: "Cheshire Fair", type: "Confirmed" },
+  { date: "2026-08-04", start: "17:00", end: "19:00", title: "Chester PD Night Out", type: "Confirmed" },
+  { date: "2026-08-08", start: "17:30", end: "20:30", title: "Bear Naked", type: "Confirmed" },
+  { date: "2026-08-11", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
+  { date: "2026-08-15", start: "14:00", end: "17:00", title: "Wells \"Woodstock\"", type: "Confirmed" },
+  { date: "2026-08-18", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
+  { date: "2026-08-25", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
+  { date: "2026-08-29", start: "15:00", end: "17:00", title: "Hartford 1978", type: "Confirmed" },
+  { date: "2026-09-05", start: "18:30", end: "21:30", title: "Sugar Ridge Cmp", type: "Confirmed" },
+  { date: "2026-09-08", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
+  { date: "2026-09-15", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
+  { date: "2026-09-19", start: "14:30", end: "16:30", title: "NSRA Essex Fair", type: "Confirmed" },
+  { date: "2026-09-22", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
+  { date: "2026-10-10", start: "12:30", end: "14:30", title: "St John's Club", type: "Confirmed" },
+  { date: "2026-10-13", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
+  { date: "2026-10-20", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
+  { date: "2026-10-27", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
+  { date: "2026-11-10", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
+  { date: "2026-11-17", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
+  { date: "2026-11-24", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
+  { date: "2026-12-08", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
+  { date: "2026-12-12", start: "17:30", end: "20:30", title: "Bear Naked", type: "Confirmed" },
+  { date: "2026-12-15", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
+  { date: "2026-12-22", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
+];
+
+function safeStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function safeStorageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch (error) {
+    return null;
+  }
+}
 
 function saveDraft() {
   try {
@@ -307,7 +390,7 @@ function saveDraft() {
       assignments: state.calendar.assignments,
       blackouts: state.calendar.blackouts,
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    safeStorageSet(STORAGE_KEY, JSON.stringify(payload));
   } catch (error) {
     // ignore storage failures
   }
@@ -315,7 +398,7 @@ function saveDraft() {
 
 function loadDraft() {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = safeStorageGet(STORAGE_KEY);
     if (!stored) return;
     const parsed = JSON.parse(stored);
     if (parsed.agreement) {
@@ -346,7 +429,7 @@ function loadDraft() {
 
 function loadContractDraftSnapshots() {
   try {
-    const stored = localStorage.getItem(CONTRACT_DRAFT_SNAPSHOTS_KEY);
+    const stored = safeStorageGet(CONTRACT_DRAFT_SNAPSHOTS_KEY);
     if (!stored) return {};
     const parsed = JSON.parse(stored);
     return parsed && typeof parsed === "object" ? parsed : {};
@@ -357,7 +440,7 @@ function loadContractDraftSnapshots() {
 
 function saveContractDraftSnapshots(snapshots) {
   try {
-    localStorage.setItem(CONTRACT_DRAFT_SNAPSHOTS_KEY, JSON.stringify(snapshots));
+    safeStorageSet(CONTRACT_DRAFT_SNAPSHOTS_KEY, JSON.stringify(snapshots));
   } catch (error) {
     // ignore storage failures
   }
@@ -422,7 +505,7 @@ function saveCalendarSettings() {
     const payload = {
       overridePin: state.calendar.overridePin,
     };
-    localStorage.setItem(CALENDAR_SETTINGS_KEY, JSON.stringify(payload));
+    safeStorageSet(CALENDAR_SETTINGS_KEY, JSON.stringify(payload));
   } catch (error) {
     // ignore storage failures
   }
@@ -430,7 +513,7 @@ function saveCalendarSettings() {
 
 function loadCalendarSettings() {
   try {
-    const stored = localStorage.getItem(CALENDAR_SETTINGS_KEY);
+    const stored = safeStorageGet(CALENDAR_SETTINGS_KEY);
     if (!stored) return;
     const parsed = JSON.parse(stored);
     if (parsed.overridePin) state.calendar.overridePin = parsed.overridePin;
@@ -977,6 +1060,7 @@ function updateAgreementPreview() {
   if (liveVideoCreditInput) {
     liveVideoCreditInput.disabled = !totals.depositEnabled || totals.depositWaived;
   }
+  updateAgreementBookingWarning();
 }
 
 function refreshAgreementCreatedDate() {
@@ -985,6 +1069,50 @@ function refreshAgreementCreatedDate() {
   if (agreementCreatedInput) {
     agreementCreatedInput.value = state.agreement.agreementCreatedDate;
   }
+}
+
+async function updateAgreementBookingWarning() {
+  const warning = document.getElementById("agreementBookingWarning");
+  if (!warning) return;
+  const dateStr = normalizeDateValue(state.agreement.performanceDate);
+  if (!dateStr) {
+    warning.textContent = "";
+    warning.classList.add("hidden");
+    return;
+  }
+
+  let matches = getConflictTrackedEventsForDate(dateStr, state.calendar.events);
+  const client = state.calendar.client;
+  if (client && state.calendar.session) {
+    const dayStart = new Date(`${dateStr}T00:00:00`);
+    const dayEnd = new Date(`${dateStr}T23:59:59`);
+    const { data, error } = await client
+      .from("events")
+      .select("*")
+      .lte("start_time", dayEnd.toISOString())
+      .gte("end_time", dayStart.toISOString());
+    if (!error && Array.isArray(data)) {
+      matches = getConflictTrackedEventsForDate(
+        dateStr,
+        mergeSeededCalendarEvents(data, dayStart, dayEnd)
+      );
+    }
+  }
+
+  const uniqueMatches = matches.filter((event, index, arr) => {
+    const key = eventIdentityKey(event);
+    return index === arr.findIndex((item) => eventIdentityKey(item) === key);
+  });
+  if (!uniqueMatches.length) {
+    warning.textContent = "";
+    warning.classList.add("hidden");
+    return;
+  }
+
+  warning.textContent = `Already booked on this date: ${uniqueMatches
+    .map((event) => event.title || event.type)
+    .join(", ")}.`;
+  warning.classList.remove("hidden");
 }
 
 function updateInvoicePreview() {
@@ -1031,6 +1159,67 @@ function normalizeText(value) {
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function eventDayKeyFromValue(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  return formatDateInput(date);
+}
+
+function eventIdentityKey(event) {
+  const dayKey = eventDayKeyFromValue(event?.start_time || event?.end_time || "");
+  const titleKey = normalizeText(event?.title || event?.type || "event");
+  return `${dayKey}|${titleKey}`;
+}
+
+function getSeededCalendarEvents(rangeStart = null, rangeEnd = null) {
+  return SEEDED_BOOKED_EVENTS
+    .map((event, index) => {
+      const start = combineDateTime(event.date, event.start);
+      let end = combineDateTime(event.date, event.end);
+      if (start && end && end <= start) {
+        end.setDate(end.getDate() + 1);
+      }
+      return {
+        id: `seeded-booked-${index + 1}`,
+        type: event.type || "Confirmed",
+        title: event.title,
+        start_time: start ? start.toISOString() : "",
+        end_time: end ? end.toISOString() : "",
+        notes: event.notes || "",
+        override: false,
+        seeded: true,
+      };
+    })
+    .filter((event) => {
+      const start = new Date(event.start_time);
+      if (!Number.isFinite(start.getTime())) return false;
+      if (rangeStart && start < rangeStart) return false;
+      if (rangeEnd && start > rangeEnd) return false;
+      return true;
+    });
+}
+
+function mergeSeededCalendarEvents(events = [], rangeStart = null, rangeEnd = null) {
+  const merged = [...events];
+  const seen = new Set(events.map((event) => eventIdentityKey(event)));
+  getSeededCalendarEvents(rangeStart, rangeEnd).forEach((event) => {
+    const key = eventIdentityKey(event);
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(event);
+  });
+  return merged.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+}
+
+function getConflictTrackedEventsForDate(dateStr, events = []) {
+  const targetDate = normalizeDateValue(dateStr);
+  if (!targetDate) return [];
+  return events.filter((event) => {
+    const dayKey = eventDayKeyFromValue(event?.start_time || event?.end_time || "");
+    return dayKey === targetDate && isConflictTrackedShowType(event?.type);
+  });
 }
 
 function eventStartDate(event) {
@@ -1153,6 +1342,7 @@ function renderManagerChecklist(events) {
     return !(status === "completed" || item?.completed === true);
   });
   const missingContracts = events.filter((event) => {
+    if (event?.seeded) return false;
     const contract = state.calendar.contracts.find((item) => item.event_id === event.id);
     if (!contract) return true;
     const contractStatus = String(contract.status || "").toLowerCase();
@@ -1304,7 +1494,11 @@ async function updateShowRecordCounts() {
       .gte("start_time", yearStart)
       .lt("start_time", nextYearStart);
     if (!error && Array.isArray(data)) {
-      bookedShows = data.filter((event) => {
+      bookedShows = mergeSeededCalendarEvents(
+        data,
+        new Date(currentYear, 0, 1),
+        new Date(currentYear, 11, 31, 23, 59, 59, 999)
+      ).filter((event) => {
         const kind = String(event?.type || "").toLowerCase();
         return kind === "confirmed";
       });
@@ -1948,7 +2142,7 @@ function initSupabaseClient() {
     }
 
     if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-      localStorage.setItem(CALENDAR_AUTH_SEEN_KEY, "1");
+      safeStorageSet(CALENDAR_AUTH_SEEN_KEY, "1");
       updateSupabaseStatus("Signed in.");
       if (switchTopView) switchTopView("home");
       queueSupabaseSyncRefresh();
@@ -2033,7 +2227,7 @@ function syncTopAuthTabLabel() {
 function updateCalendarAuthVisibility() {
   const authSection = document.getElementById("calendarAuthSection");
   if (!authSection) return;
-  const signedInOnce = localStorage.getItem(CALENDAR_AUTH_SEEN_KEY) === "1";
+  const signedInOnce = safeStorageGet(CALENDAR_AUTH_SEEN_KEY) === "1";
   authSection.classList.toggle("hidden", Boolean(state.calendar.session) && signedInOnce);
 }
 
@@ -2103,7 +2297,7 @@ async function signInWithCredentials(email, password) {
     return false;
   }
   syncAuthFields(email, password);
-  localStorage.setItem(CALENDAR_AUTH_SEEN_KEY, "1");
+  safeStorageSet(CALENDAR_AUTH_SEEN_KEY, "1");
   updateSupabaseStatus("Signed in.");
   await refreshAuthState();
   await loadOverridePin();
@@ -2207,7 +2401,7 @@ async function refreshAuthState() {
   const { data } = await client.auth.getSession();
   state.calendar.session = data?.session || null;
   if (state.calendar.session) {
-    localStorage.setItem(CALENDAR_AUTH_SEEN_KEY, "1");
+    safeStorageSet(CALENDAR_AUTH_SEEN_KEY, "1");
   }
   syncTopAuthTabLabel();
   updateCalendarAuthVisibility();
@@ -2413,7 +2607,7 @@ async function fetchEventsForMonth() {
     return;
   }
 
-  state.calendar.events = data || [];
+  state.calendar.events = mergeSeededCalendarEvents(data || [], rangeStart, rangeEnd);
   renderCalendar();
   updateEventList();
   updateContractEventOptions();
@@ -2895,7 +3089,7 @@ function updateEventList() {
       selectEventForEdit(event, selected);
     });
     actions.appendChild(selectBtn);
-    if (String(event.type || "").toLowerCase() === "confirmed") {
+    if (String(event.type || "").toLowerCase() === "confirmed" && !event.seeded) {
       const uploadBtn = document.createElement("button");
       uploadBtn.className = "btn ghost";
       uploadBtn.textContent = "Upload contract";
@@ -3060,7 +3254,7 @@ async function handleCalendarSave() {
     return;
   }
 
-  const conflictList = (conflicts || []).filter((event) => {
+  const conflictList = mergeSeededCalendarEvents(conflicts || [], dayStart, dayEnd).filter((event) => {
     if (event.id === state.calendar.selectedEventId) return false;
     return isConflictTrackedShowType(event.type);
   });
@@ -5056,6 +5250,7 @@ function setupListeners() {
       }
       if (field === "performanceDate") {
         updateHolidayFromDate();
+        updateAgreementBookingWarning();
       }
       if (field === "performanceTime" || field === "performanceEndTime") {
         updatePerformanceHoursFromTimes();
