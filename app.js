@@ -10,6 +10,7 @@ function createInitialAgreementState() {
     performanceTime: "",
     performanceEndTime: "",
     holidayWeekend: false,
+    holidayRateType: "timeAndHalf",
     hours: "",
     feeTotal: "",
     depositAmount: "50",
@@ -19,6 +20,7 @@ function createInitialAgreementState() {
     liveVideoCredit: false,
     depositPaid: "",
     amountDueDayOf: "",
+    eventType: "Pub / Club",
     bandConfig: "Full Band",
     additionalMusicians: "0",
     venueAddress: "",
@@ -30,6 +32,8 @@ function createInitialAgreementState() {
     travelPerformerCount: "4",
     lodgingEnabled: false,
     lodgingRate: "250",
+    friendsFamilyDiscount: false,
+    friendsFamilyDiscountAmount: "",
     addonTent: false,
     addonLights: false,
     addonGenerator: false,
@@ -93,6 +97,11 @@ const state = {
     focusId: "",
     showCreate: true,
   },
+  agreementDraftContext: {
+    contractId: "",
+    eventId: "",
+    name: "",
+  },
   musicianEditor: {
     id: "",
   },
@@ -109,6 +118,7 @@ const agreementFields = [
   "performanceTime",
   "performanceEndTime",
   "holidayWeekend",
+  "holidayRateType",
   "hours",
   "feeTotal",
   "depositAmount",
@@ -118,6 +128,7 @@ const agreementFields = [
   "liveVideoCredit",
   "depositPaid",
   "amountDueDayOf",
+  "eventType",
   "bandConfig",
   "additionalMusicians",
   "venueAddress",
@@ -129,6 +140,8 @@ const agreementFields = [
   "travelPerformerCount",
   "lodgingEnabled",
   "lodgingRate",
+  "friendsFamilyDiscount",
+  "friendsFamilyDiscountAmount",
   "addonTent",
   "addonLights",
   "addonGenerator",
@@ -271,6 +284,7 @@ function hoursBetweenTimes(startTime, endTime) {
 }
 
 const STORAGE_KEY = "rustandruin-booking-draft";
+const CONTRACT_DRAFT_SNAPSHOTS_KEY = "rustandruin-contract-draft-snapshots";
 const CALENDAR_SETTINGS_KEY = "rustandruin-calendar-settings";
 const SUPABASE_URL =
   window.RR_SUPABASE_CONFIG?.url || "https://ipxjalcgiaqcyubrxqxu.supabase.co";
@@ -330,6 +344,79 @@ function loadDraft() {
   }
 }
 
+function loadContractDraftSnapshots() {
+  try {
+    const stored = localStorage.getItem(CONTRACT_DRAFT_SNAPSHOTS_KEY);
+    if (!stored) return {};
+    const parsed = JSON.parse(stored);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function saveContractDraftSnapshots(snapshots) {
+  try {
+    localStorage.setItem(CONTRACT_DRAFT_SNAPSHOTS_KEY, JSON.stringify(snapshots));
+  } catch (error) {
+    // ignore storage failures
+  }
+}
+
+function getContractDraftSnapshotKey(contract = {}) {
+  if (contract?.event_id) return `event:${contract.event_id}`;
+  if (contract?.id) return `contract:${contract.id}`;
+  if (contract?.name) return `name:${String(contract.name).trim().toLowerCase()}`;
+  return "";
+}
+
+function saveAgreementSnapshotForContract(contract = {}) {
+  const key = getContractDraftSnapshotKey(contract);
+  if (!key) return;
+  const snapshots = loadContractDraftSnapshots();
+  snapshots[key] = {
+    agreement: { ...state.agreement },
+    savedAt: new Date().toISOString(),
+  };
+  saveContractDraftSnapshots(snapshots);
+}
+
+function getAgreementSnapshotForContract(contract = {}) {
+  const snapshots = loadContractDraftSnapshots();
+  const keys = [
+    contract?.event_id ? `event:${contract.event_id}` : "",
+    contract?.id ? `contract:${contract.id}` : "",
+    contract?.name ? `name:${String(contract.name).trim().toLowerCase()}` : "",
+  ].filter(Boolean);
+  for (const key of keys) {
+    if (snapshots[key]?.agreement) return snapshots[key].agreement;
+  }
+  return null;
+}
+
+function setAgreementDraftContext(contract = {}) {
+  state.agreementDraftContext = {
+    contractId: contract?.id || "",
+    eventId: contract?.event_id || "",
+    name: contract?.name || "",
+  };
+}
+
+function getActiveAgreementDraftContract() {
+  const context = state.agreementDraftContext || {};
+  return {
+    id: context.contractId || "",
+    event_id: context.eventId || "",
+    name: context.name || "",
+  };
+}
+
+function persistAgreementDraftSnapshot() {
+  const activeContract = getActiveAgreementDraftContract();
+  if (!activeContract.id && !activeContract.event_id && !activeContract.name) return;
+  saveAgreementSnapshotForContract(activeContract);
+}
+
 function saveCalendarSettings() {
   try {
     const payload = {
@@ -369,17 +456,45 @@ function formatTimeInput(date) {
   return `${hours}:${minutes}`;
 }
 
+function normalizeDateValue(dateStr) {
+  if (!dateStr) return "";
+  const trimmed = String(dateStr).trim();
+  if (!trimmed) return "";
+  if (trimmed.includes("-")) {
+    const [year, month, day] = trimmed.split("-").map(Number);
+    if (!year || !month || !day) return "";
+    return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  if (trimmed.includes("/")) {
+    const [month, day, year] = trimmed.split("/").map(Number);
+    if (!year || !month || !day) return "";
+    return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  return "";
+}
+
+function normalizeTimeValue(timeStr) {
+  if (!timeStr) return "";
+  const parsed = parseTimeValue(String(timeStr).trim());
+  if (!parsed) return "";
+  return `${String(parsed.hours).padStart(2, "0")}:${String(parsed.minutes).padStart(2, "0")}`;
+}
+
 function parseLocalDate(dateStr) {
-  if (!dateStr) return null;
-  const [year, month, day] = dateStr.split("-").map(Number);
+  const normalized = normalizeDateValue(dateStr);
+  if (!normalized) return null;
+  const [year, month, day] = normalized.split("-").map(Number);
   if (!year || !month || !day) return null;
   return new Date(year, month - 1, day);
 }
 
 function combineDateTime(dateStr, timeStr) {
-  if (!dateStr || !timeStr) return null;
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const parsedTime = parseTimeValue(timeStr);
+  const normalizedDate = normalizeDateValue(dateStr);
+  const normalizedTime = normalizeTimeValue(timeStr);
+  if (!normalizedDate || !normalizedTime) return null;
+  const [year, month, day] = normalizedDate.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const parsedTime = parseTimeValue(normalizedTime);
   if (!parsedTime) return null;
   return new Date(year, month - 1, day, parsedTime.hours, parsedTime.minutes || 0);
 }
@@ -590,6 +705,7 @@ function getAgreementTotals() {
   const extraMembers = toNumber(state.agreement.additionalMusicians);
   const bandMembers = baseBandMembers + (extraMembers > 0 ? extraMembers : 0);
   const baseHourlyRatePerMember = 50;
+  const basePerformanceRate = state.agreement.bandConfig === "Full Band" ? 200 : 100;
   const manualPerformanceHours = toNumber(state.agreement.hours);
   const computedHours =
     manualPerformanceHours > 0
@@ -598,17 +714,32 @@ function getAgreementTotals() {
           state.agreement.performanceTime,
           state.agreement.performanceEndTime
         );
-  const performanceFeeAuto = computedHours * baseHourlyRatePerMember * bandMembers;
-  const performanceFeeEffective = performanceFeeAuto;
+  const extraMusicianRate = extraMembers > 0 ? extraMembers * baseHourlyRatePerMember : 0;
+  const hourlyPerformanceRate = basePerformanceRate + extraMusicianRate;
+  const performanceFeeAuto = computedHours * hourlyPerformanceRate;
   const nonPerformanceHours = toNumber(state.agreement.nonPerformanceHours);
   const onsiteFee = state.agreement.chargeNonPerformance
     ? nonPerformanceHours * baseHourlyRatePerMember * bandMembers
     : 0;
   const backlineFee = state.agreement.backlineSound ? 50 : 0;
-  const holidayHours = computedHours + (state.agreement.chargeNonPerformance ? nonPerformanceHours : 0);
+  const holidayMultiplier = state.agreement.holidayWeekend
+    ? state.agreement.holidayRateType === "double"
+      ? 2
+      : state.agreement.holidayRateType === "timeAndHalf"
+      ? 1.5
+      : 1
+    : 1;
   const holidayFee = state.agreement.holidayWeekend
-    ? holidayHours * baseHourlyRatePerMember * bandMembers
+    ? (performanceFeeAuto + onsiteFee) * (holidayMultiplier - 1)
     : 0;
+  const performanceFeeEffective = performanceFeeAuto + onsiteFee + holidayFee + backlineFee;
+  const friendsFamilyDiscountAmount = state.agreement.friendsFamilyDiscount
+    ? Math.max(0, toNumber(state.agreement.friendsFamilyDiscountAmount))
+    : 0;
+  const cappedFriendsFamilyDiscount = Math.min(
+    friendsFamilyDiscountAmount,
+    performanceFeeEffective
+  );
   const travelHours = toNumber(state.agreement.travelHours);
   const roundTripTravelHours = travelHours * 2;
   const travelBandMembers = Math.max(0, toNumber(state.agreement.travelPerformerCount));
@@ -619,7 +750,7 @@ function getAgreementTotals() {
     ? toNumber(state.agreement.lodgingRate)
     : 0;
   const travelLodgingTotal = travelFee + lodgingFee;
-  const eventSubtotal = performanceFeeEffective + onsiteFee + backlineFee + holidayFee;
+  const eventSubtotal = Math.max(0, performanceFeeEffective - cappedFriendsFamilyDiscount);
   const feeSubtotal = eventSubtotal + addOnTotal + adjustedDeposit;
   const totalWithDeposit = eventSubtotal + addOnTotal + adjustedDeposit + travelFee + lodgingFee;
 
@@ -634,6 +765,8 @@ function getAgreementTotals() {
     totalWithDeposit,
     performanceFee: eventSubtotal,
     performanceFeeAuto,
+    basePerformanceRate,
+    hourlyPerformanceRate,
     travelFee,
     travelHours,
     bandMembers,
@@ -643,6 +776,8 @@ function getAgreementTotals() {
     travelBandMembers,
     travelLodgingTotal,
     holidayFee,
+    holidayMultiplier,
+    friendsFamilyDiscountAmount: cappedFriendsFamilyDiscount,
     performanceHoursTotal: computedHours,
     eventSubtotal,
     backlineFee,
@@ -711,9 +846,25 @@ function updateAgreementPreview() {
     "[data-fill='holidayFee']",
     state.agreement.holidayWeekend ? toMoney(totals.holidayFee) : "$0.00"
   );
+  setText(
+    "[data-fill='holidayRateType']",
+    state.agreement.holidayWeekend
+      ? state.agreement.holidayRateType === "double"
+        ? "Double"
+        : state.agreement.holidayRateType === "timeAndHalf"
+        ? "Time and a half"
+        : "Regular"
+      : "Standard"
+  );
+  setText("[data-fill='eventType']", state.agreement.eventType || "__");
   setText("[data-fill='bandConfig']", state.agreement.bandConfig);
   setText("[data-fill='venueAddress']", state.agreement.venueAddress || "__");
-  setText("[data-fill='depositPaid']", state.agreement.depositPaid || "__");
+  setText(
+    "[data-fill='depositPaid']",
+    totals.depositWaived
+      ? `Waived ${toMoney(totals.rawDepositAmount)}`
+      : state.agreement.depositPaid || "__"
+  );
   setText("[data-fill='depositDue']", toMoney(totals.depositAmount));
   setText("[data-fill='amountDueDayOf']", state.agreement.amountDueDayOf || "__");
   setText("[data-fill='requestedSongs']", state.agreement.requestedSongs || "None");
@@ -726,7 +877,7 @@ function updateAgreementPreview() {
   }
 
   setText("[data-fill='performanceFee']", toMoney(totals.performanceFee));
-  setText("[data-fill='performanceFeeAuto']", toMoney(totals.performanceFee));
+  setText("[data-fill='performanceFeeAuto']", toMoney(totals.performanceFeeAuto));
   setText(
     "[data-fill='depositAmount']",
     !totals.depositEnabled
@@ -737,9 +888,14 @@ function updateAgreementPreview() {
   );
   setText(
     "[data-fill='depositCredits']",
-    totals.depositCredits > 0 ? `-${toMoney(totals.depositCredits)}` : "$0.00"
+    totals.depositWaived
+      ? toMoney(totals.rawDepositAmount)
+      : totals.depositCredits > 0
+      ? `-${toMoney(totals.depositCredits)}`
+      : "$0.00"
   );
   setText("[data-fill='addonTotal']", toMoney(totals.addOnTotal));
+  setText("[data-fill='friendsFamilyDiscount']", toMoney(totals.friendsFamilyDiscountAmount));
   setText("[data-fill='feesSubtotal']", toMoney(totals.feeSubtotal));
   setText("[data-fill='totalWithDeposit']", toMoney(totals.totalWithDeposit));
   setText("[data-fill='travelHours']", state.agreement.travelHours || "__");
@@ -787,9 +943,19 @@ function updateAgreementPreview() {
     warning.classList.toggle("hidden", !state.agreement.holidayWeekend);
   }
 
+  const holidayDetails = document.getElementById("holidayDetails");
+  if (holidayDetails) {
+    holidayDetails.classList.toggle("hidden", !state.agreement.holidayWeekend);
+  }
+
   const nonPerformanceField = document.getElementById("nonPerformanceHours");
   if (nonPerformanceField) {
     nonPerformanceField.disabled = !state.agreement.chargeNonPerformance;
+  }
+
+  const friendsFamilyDiscountField = document.getElementById("friendsFamilyDiscountAmount");
+  if (friendsFamilyDiscountField) {
+    friendsFamilyDiscountField.disabled = !state.agreement.friendsFamilyDiscount;
   }
 
   const depositAmountInput = document.getElementById("depositAmount");
@@ -810,6 +976,14 @@ function updateAgreementPreview() {
   const liveVideoCreditInput = document.getElementById("liveVideoCredit");
   if (liveVideoCreditInput) {
     liveVideoCreditInput.disabled = !totals.depositEnabled || totals.depositWaived;
+  }
+}
+
+function refreshAgreementCreatedDate() {
+  state.agreement.agreementCreatedDate = todayString();
+  const agreementCreatedInput = document.getElementById("agreementCreatedDate");
+  if (agreementCreatedInput) {
+    agreementCreatedInput.value = state.agreement.agreementCreatedDate;
   }
 }
 
@@ -3486,16 +3660,23 @@ async function markContractNoLongerNeeded(contract, checked = false) {
 }
 
 function editDraftContract(contract) {
+  setAgreementDraftContext(contract);
+  const snapshot = getAgreementSnapshotForContract(contract);
+  if (snapshot) {
+    state.agreement = { ...createInitialAgreementState(), ...snapshot };
+  }
   const linkedEvent = state.calendar.events.find((event) => event.id === contract.event_id);
   if (linkedEvent) {
     const start = new Date(linkedEvent.start_time);
     const end = new Date(linkedEvent.end_time || linkedEvent.start_time);
-    state.agreement.clientName = linkedEvent.title || "";
+    state.agreement.clientName = state.agreement.clientName || linkedEvent.title || "";
     state.agreement.performanceDate = formatDateInput(start);
     state.agreement.performanceTime = formatTimeInput(start);
     state.agreement.performanceEndTime = formatTimeInput(end);
   } else if (contract?.name) {
-    state.agreement.clientName = String(contract.name).replace(/\s+Agreement$/i, "").trim();
+    state.agreement.clientName =
+      state.agreement.clientName ||
+      String(contract.name).replace(/\s+Agreement$/i, "").trim();
   }
   syncAgreementForm();
   updateAgreementPreview();
@@ -3665,9 +3846,20 @@ async function ensureHoldEventForAgreement() {
   const title = state.agreement.clientName || "Contract Needed";
 
   const start = combineDateTime(date, startTime);
-  const end = combineDateTime(date, endTime);
+  let end = combineDateTime(date, endTime);
+  if (start && end && end <= start) {
+    end.setDate(end.getDate() + 1);
+  }
   if (!start || !end || end <= start) {
-    return { ok: false, reason: "missing_fields" };
+    return {
+      ok: false,
+      reason: "missing_fields",
+      details: {
+        date: date || "(blank)",
+        startTime: startTime || "(blank)",
+        endTime: endTime || "(blank)",
+      },
+    };
   }
 
   const dayStart = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0);
@@ -3740,6 +3932,12 @@ async function ensureHoldEventForAgreement() {
     if (error) return { ok: false, reason: "contract_update_failed" };
   }
 
+  saveAgreementSnapshotForContract({
+    id: existingContract?.[0]?.id || "",
+    event_id: eventId,
+    name: `${title} Agreement`,
+  });
+
   await fetchEventsForMonth();
   await fetchContracts();
   return { ok: true, reason: "synced", eventId };
@@ -3764,6 +3962,7 @@ function focusCalendarOnDate(dateStr) {
 }
 
 async function addAgreementToCalendarPending() {
+  prepareAgreementForOutput();
   setAgreementCalendarStatus("Adding contract-needed event to calendar...");
   const result = await ensureHoldEventForAgreement();
   if (result?.ok) {
@@ -3784,11 +3983,14 @@ async function addAgreementToCalendarPending() {
     return false;
   }
   if (result?.reason === "missing_fields") {
+    const details = result?.details
+      ? ` Date: ${result.details.date} | Start: ${result.details.startTime} | End: ${result.details.endTime}`
+      : "";
     updateSupabaseStatus(
-      "Set performance date, start time, and end time in Agreement, then tap Add to Calendar (Pending).",
+      `Set performance date, start time, and end time in Agreement, then tap Add to Calendar (Pending).${details}`,
       true
     );
-    setAgreementCalendarStatus("Missing date/start/end time in Agreement.", true);
+    setAgreementCalendarStatus(`Missing/invalid date or time in Agreement.${details}`, true);
     return false;
   }
   const reasonLabel = result?.reason ? ` (${result.reason})` : "";
@@ -3799,6 +4001,11 @@ async function addAgreementToCalendarPending() {
 
 function resetAgreementForm() {
   state.agreement = createInitialAgreementState();
+  state.agreementDraftContext = {
+    contractId: "",
+    eventId: "",
+    name: "",
+  };
   syncAgreementForm();
   updateAgreementPreview();
   saveDraft();
@@ -3822,6 +4029,31 @@ function syncAgreementForm() {
       el.value = state.agreement[field];
     }
   });
+}
+
+function syncAgreementStateFromForm() {
+  agreementFields.forEach((field) => {
+    const el = document.getElementById(field);
+    if (!el) return;
+    if (el.type === "checkbox") {
+      state.agreement[field] = el.checked;
+    } else {
+      if (field === "performanceDate") {
+        state.agreement[field] = normalizeDateValue(el.value);
+      } else if (field === "performanceTime" || field === "performanceEndTime") {
+        state.agreement[field] = normalizeTimeValue(el.value);
+      } else {
+        state.agreement[field] = el.value;
+      }
+    }
+  });
+}
+
+function prepareAgreementForOutput() {
+  syncAgreementStateFromForm();
+  updateAgreementPreview();
+  saveDraft();
+  persistAgreementDraftSnapshot();
 }
 
 function syncInvoiceForm() {
@@ -4833,6 +5065,11 @@ function setupListeners() {
         const nonPerformanceField = document.getElementById("nonPerformanceHours");
         if (nonPerformanceField) nonPerformanceField.value = "";
       }
+      if (field === "friendsFamilyDiscount" && !state.agreement.friendsFamilyDiscount) {
+        state.agreement.friendsFamilyDiscountAmount = "";
+        const discountField = document.getElementById("friendsFamilyDiscountAmount");
+        if (discountField) discountField.value = "";
+      }
       if (field === "depositEnabled") {
         if (!state.agreement.depositEnabled) {
           state.agreement.depositWaived = false;
@@ -4852,6 +5089,7 @@ function setupListeners() {
       }
       updateAgreementPreview();
       saveDraft();
+      persistAgreementDraftSnapshot();
     };
     el.addEventListener("input", handler);
     el.addEventListener("change", handler);
@@ -4923,7 +5161,8 @@ function setupListeners() {
   const aboutTabs = document.getElementById("aboutTabs");
   const homeTab = document.getElementById("homeTab");
   const messagePreviewWrap = document.getElementById("messagePreviewWrap");
-  const generatePdfBtn = document.getElementById("generatePdf");
+  const topOpenPdfBtn = document.getElementById("openPdf");
+  const topPrintPdfBtn = document.getElementById("printPdf");
   const sharePdfBtn = document.getElementById("sharePdf");
   let activeTop = "login";
   const navHistory = [];
@@ -5011,7 +5250,8 @@ function setupListeners() {
     const inBookkeeping =
       target === "agreement" || target === "invoice" || target === "receipt";
     if (messagePreviewWrap) messagePreviewWrap.classList.toggle("hidden", !inBookkeeping);
-    if (generatePdfBtn) generatePdfBtn.classList.toggle("hidden", !inBookkeeping);
+    if (topOpenPdfBtn) topOpenPdfBtn.classList.toggle("hidden", !inBookkeeping);
+    if (topPrintPdfBtn) topPrintPdfBtn.classList.toggle("hidden", !inBookkeeping);
     if (sharePdfBtn) sharePdfBtn.classList.toggle("hidden", !inBookkeeping);
     document.querySelectorAll(".section-tab[data-panel]").forEach((btn) => {
       btn.classList.toggle("active", btn.getAttribute("data-panel") === target);
@@ -5142,7 +5382,7 @@ function setupListeners() {
   if (agreementCopyMessageBtn) {
     agreementCopyMessageBtn.addEventListener("click", async () => {
       state.activeTab = "agreement";
-      await copyMessage();
+      await copyMessage("agreementCalendarStatus", agreementCopyMessageBtn);
     });
   }
   document.getElementById("invoicePdf").addEventListener("click", () => generatePdf("invoice"));
@@ -5150,7 +5390,7 @@ function setupListeners() {
   if (invoiceCopyMessageBtn) {
     invoiceCopyMessageBtn.addEventListener("click", async () => {
       state.activeTab = "invoice";
-      await copyMessage();
+      await copyMessage("pdfStatus", invoiceCopyMessageBtn);
     });
   }
   document.getElementById("receiptPdf").addEventListener("click", () => generatePdf("receipt"));
@@ -5158,10 +5398,9 @@ function setupListeners() {
   if (receiptCopyMessageBtn) {
     receiptCopyMessageBtn.addEventListener("click", async () => {
       state.activeTab = "receipt";
-      await copyMessage();
+      await copyMessage("pdfStatus", receiptCopyMessageBtn);
     });
   }
-  document.getElementById("generatePdf").addEventListener("click", () => generatePdf(state.activeTab));
   document.getElementById("sharePdf").addEventListener("click", shareLastPdf);
 
   const signInBtn = document.getElementById("signIn");
@@ -5412,6 +5651,14 @@ function setupListeners() {
 
   const uploadContract = document.getElementById("uploadContract");
   if (uploadContract) uploadContract.addEventListener("click", handleContractUpload);
+  const openPdfBtn = document.getElementById("openPdf");
+  if (openPdfBtn) {
+    openPdfBtn.addEventListener("click", async () => {
+      await generatePdf(state.activeTab, { openAfterGenerate: true });
+    });
+  }
+  const printPdfBtn = document.getElementById("printPdf");
+  if (printPdfBtn) printPdfBtn.addEventListener("click", printLastPdf);
 
   const invoiceSave = document.getElementById("invoiceSave");
   if (invoiceSave) invoiceSave.addEventListener("click", saveInvoiceToSupabase);
@@ -5440,9 +5687,12 @@ function setupListeners() {
   renderContractsHub();
 }
 
-async function generatePdf(type) {
+async function generatePdf(type, options = {}) {
   const statusEl = document.getElementById("pdfStatus");
+  const openButton = document.getElementById("openPdf");
+  const printButton = document.getElementById("printPdf");
   const shareButton = document.getElementById("sharePdf");
+  const { openAfterGenerate = false } = options;
   if (!window.html2canvas || !window.jspdf) {
     statusEl.textContent = "PDF tools not loaded. Using Print instead.";
     window.print();
@@ -5459,6 +5709,13 @@ async function generatePdf(type) {
 
   const target = document.getElementById(previewMap[type]);
   if (!target) return;
+
+  if (type === "agreement") {
+    prepareAgreementForOutput();
+    refreshAgreementCreatedDate();
+    updateAgreementPreview();
+    saveDraft();
+  }
 
   document.body.classList.add("pdf-export");
   await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -5505,12 +5762,16 @@ async function generatePdf(type) {
 
   const fileName = fileNameMap[type];
   pdf.save(fileName);
-  lastPdfBlob = pdf.output("blob");
-  lastPdfName = fileName;
+  setLastGeneratedPdf(pdf.output("blob"), fileName);
+  if (openButton) openButton.disabled = !lastPdfUrl;
+  if (printButton) printButton.disabled = !lastPdfUrl;
   if (shareButton) {
-    shareButton.disabled = !navigator.canShare;
+    shareButton.disabled = !lastPdfBlob;
   }
   statusEl.textContent = "PDF generated.";
+  if (openAfterGenerate) {
+    openLastPdfPreview();
+  }
   setTimeout(() => {
     statusEl.textContent = "";
   }, 3000);
@@ -5535,6 +5796,66 @@ async function generatePdf(type) {
 
 let lastPdfBlob = null;
 let lastPdfName = "RustAndRuin-Agreement.pdf";
+let lastPdfUrl = "";
+
+function setLastGeneratedPdf(blob, fileName) {
+  if (lastPdfUrl) {
+    URL.revokeObjectURL(lastPdfUrl);
+    lastPdfUrl = "";
+  }
+  lastPdfBlob = blob || null;
+  lastPdfName = fileName || "RustAndRuin-Agreement.pdf";
+  if (lastPdfBlob) {
+    lastPdfUrl = URL.createObjectURL(lastPdfBlob);
+  }
+}
+
+function openLastPdfPreview() {
+  const statusEl = document.getElementById("pdfStatus");
+  if (!lastPdfUrl) {
+    if (statusEl) statusEl.textContent = "Generate a PDF first.";
+    return false;
+  }
+  const previewWindow = window.open(lastPdfUrl, "_blank", "noopener,noreferrer");
+  if (!previewWindow && statusEl) {
+    statusEl.textContent = "Popup blocked. Allow popups to open the PDF preview.";
+    return false;
+  }
+  if (statusEl) {
+    statusEl.textContent = "PDF opened in a new tab. Use the browser print/download controls there.";
+  }
+  return true;
+}
+
+function printLastPdf() {
+  const statusEl = document.getElementById("pdfStatus");
+  if (!lastPdfUrl) {
+    if (statusEl) statusEl.textContent = "Generate a PDF first.";
+    return;
+  }
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  iframe.src = lastPdfUrl;
+  iframe.onload = () => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      if (statusEl) statusEl.textContent = "Print dialog opened.";
+    } catch (error) {
+      openLastPdfPreview();
+    } finally {
+      setTimeout(() => {
+        iframe.remove();
+      }, 1000);
+    }
+  };
+  document.body.appendChild(iframe);
+}
 
 async function shareLastPdf() {
   const statusEl = document.getElementById("pdfStatus");
@@ -5555,29 +5876,67 @@ async function shareLastPdf() {
       statusEl.textContent = "Share canceled.";
     }
   } else {
-    statusEl.textContent = "Sharing not supported. Use the downloaded PDF.";
+    const opened = openLastPdfPreview();
+    if (!opened && statusEl) {
+      statusEl.textContent = "Sharing not supported on this device. Use Open PDF or the downloaded file.";
+    }
   }
 }
 
-async function copyMessage() {
-  const statusEl = document.getElementById("pdfStatus");
+async function copyMessage(statusTargetId = "pdfStatus", triggerButton = null) {
+  const statusEl = document.getElementById(statusTargetId) || document.getElementById("pdfStatus");
+  if (state.activeTab === "agreement") {
+    prepareAgreementForOutput();
+  }
   const message = buildMessage(state.activeTab);
   const payload = `${message.subject}\n\n${message.body}`;
 
   try {
-    await navigator.clipboard.writeText(payload);
-    statusEl.textContent = "Message copied.";
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(payload);
+    } else {
+      throw new Error("Clipboard API unavailable");
+    }
+    if (statusEl) statusEl.textContent = "Message copied.";
+    if (triggerButton) {
+      const originalText = triggerButton.textContent;
+      triggerButton.textContent = "Copied";
+      setTimeout(() => {
+        triggerButton.textContent = originalText;
+      }, 1500);
+    }
   } catch (error) {
-    statusEl.textContent = "Could not copy message.";
+    try {
+      const fallback = document.createElement("textarea");
+      fallback.value = payload;
+      fallback.setAttribute("readonly", "readonly");
+      fallback.style.position = "fixed";
+      fallback.style.opacity = "0";
+      fallback.style.pointerEvents = "none";
+      document.body.appendChild(fallback);
+      fallback.focus();
+      fallback.select();
+      fallback.setSelectionRange(0, fallback.value.length);
+      const copied = document.execCommand("copy");
+      document.body.removeChild(fallback);
+      if (statusEl) statusEl.textContent = copied ? "Message copied." : "Could not copy message.";
+      if (copied && triggerButton) {
+        const originalText = triggerButton.textContent;
+        triggerButton.textContent = "Copied";
+        setTimeout(() => {
+          triggerButton.textContent = originalText;
+        }, 1500);
+      }
+    } catch (fallbackError) {
+      if (statusEl) statusEl.textContent = "Could not copy message.";
+    }
   }
 }
 
 async function init() {
   loadDraft();
   loadCalendarSettings();
-  if (!state.agreement.agreementCreatedDate) {
-    state.agreement.agreementCreatedDate = todayString();
-  }
+  refreshAgreementCreatedDate();
   if (!state.agreement.chargeNonPerformance) {
     state.agreement.nonPerformanceHours = "";
   }

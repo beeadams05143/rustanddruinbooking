@@ -33,7 +33,8 @@
         <button class="tab top-tab" data-top="shows">Shows</button>
         <button class="tab top-tab" data-top="musicians">Musicians + Tech Crew</button>
         <button class="tab top-tab" data-top="about">About</button>
-        <button class="tab cta" id="generatePdf">Generate PDF</button>
+        <button class="tab cta" id="openPdf" disabled>Open PDF</button>
+        <button class="tab" id="printPdf" disabled>Print PDF</button>
         <button class="tab" id="sharePdf" disabled>Share PDF</button>
       </nav>
 
@@ -250,6 +251,16 @@
                 <p id="holidayWarning" class="holiday-warning hidden">
                   THIS IS A HOLIDAY WEEKEND
                 </p>
+                <div id="holidayDetails" class="hidden">
+                  <label>
+                    Holiday rate
+                    <select id="holidayRateType">
+                      <option value="regular">Regular rate (1x)</option>
+                      <option value="timeAndHalf">Time and a half (1.5x)</option>
+                      <option value="double">Double (2x)</option>
+                    </select>
+                  </label>
+                </div>
               </div>
               <label>
                 Performance start time (on stage)
@@ -274,6 +285,13 @@
                 </label>
               </div>
               <label>
+                Event type
+                <select id="eventType">
+                  <option>Pub / Club</option>
+                  <option>Private Event</option>
+                </select>
+              </label>
+              <label>
                 Band configuration
                 <select id="bandConfig">
                   <option>Full Band</option>
@@ -288,6 +306,16 @@
                 <input id="backlineSound" type="checkbox" />
                 Backline / sound tech (+$50 per show)
               </label>
+              <div class="field-stack">
+                <label class="checkbox inline-note">
+                  <input id="friendsFamilyDiscount" type="checkbox" />
+                  Friends &amp; family / preferred venue discount
+                </label>
+                <label>
+                  Discount amount
+                  <input id="friendsFamilyDiscountAmount" placeholder="100" disabled />
+                </label>
+              </div>
               <label>
                 Venue address (GPS)
                 <textarea id="venueAddress" placeholder="123 Main St, City, ST 00000"></textarea>
@@ -442,11 +470,11 @@
 
           <div class="form-footer agreement-actions">
             <p class="inline-help">Client signs on PDF.</p>
-            <button class="btn" id="submitAgreement">Submit Agreement</button>
-            <button class="btn ghost" id="resetAgreement">Reset Form</button>
-            <button class="btn ghost" id="addPendingHold">Add to Calendar (Pending)</button>
-            <button class="btn ghost" id="agreementCopyMessage">Copy Agreement Message</button>
-            <button class="primary" id="agreementPdf">Generate PDF</button>
+            <button class="btn" id="submitAgreement" type="button">Submit Agreement</button>
+            <button class="btn ghost" id="resetAgreement" type="button">Reset Form</button>
+            <button class="btn ghost" id="addPendingHold" type="button">Add to Calendar (Pending)</button>
+            <button class="btn ghost" id="agreementCopyMessage" type="button">Copy Agreement Message</button>
+            <button class="primary" id="agreementPdf" type="button">Generate PDF</button>
           </div>
           <p id="agreementCalendarStatus" class="muted"></p>
         </section>
@@ -462,6 +490,7 @@
               </p>
               </div>
               <div class="contract-meta">
+                <p>Event type: <span data-fill="eventType"></span></p>
                 <p>Full Band / Duo: <span data-fill="bandConfig"></span></p>
                 <p>Agreement created: <span data-fill="agreementCreatedDate"></span></p>
               </div>
@@ -477,7 +506,9 @@
                 <span data-fill="performanceEndTime"></span>. Performance hours (on stage):
                 <span data-fill="performanceHoursDisplay"></span> hours · Non-performance hours on site:
                 <span data-fill="nonPerformanceHoursDisplay"></span> hours · Performance fee:
-                <span data-fill="performanceFeeAuto"></span>. Add-ons total:
+                <span data-fill="performanceFeeAuto"></span>. Holiday adjustment:
+                <span data-fill="holidayFee"></span> (<span data-fill="holidayRateType"></span>). Preferred venue /
+                friends &amp; family discount: <span data-fill="friendsFamilyDiscount"></span>. Add-ons total:
                 <span data-fill="addonTotal"></span>. Travel: <span data-fill="travelFee"></span>.
                 Lodging: <span data-fill="lodgingFee"></span>. Payment must be made prior to performance. Pay in
                 cash, check to Rust and Ruin, Venmo @rustandruinvt, or PayPal @rustandruin. Deposit:
@@ -555,6 +586,8 @@
                   <span data-fill="performanceHoursDisplay"></span> hours
                 </p>
                 <p>Performance fee: <span data-fill="performanceFeeAuto"></span></p>
+                <p>Holiday adjustment: <span data-fill="holidayFee"></span></p>
+                <p>Preferred venue / friends &amp; family discount: <span data-fill="friendsFamilyDiscount"></span></p>
                 <p>Add-ons total: <span data-fill="addonTotal"></span></p>
                 <p>Deposit credits: <span data-fill="depositCredits"></span></p>
                 <p>Lodging fee: <span data-fill="lodgingFee"></span></p>
