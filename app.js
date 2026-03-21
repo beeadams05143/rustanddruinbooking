@@ -13,16 +13,16 @@ function createInitialAgreementState() {
     holidayRateType: "timeAndHalf",
     hours: "",
     feeTotal: "",
-    depositAmount: "50",
-    depositEnabled: true,
+    depositAmount: "",
+    depositEnabled: false,
     depositWaived: false,
     promoCredit: false,
     liveVideoCredit: false,
     depositPaid: "",
     amountDueDayOf: "",
-    eventType: "Pub / Club",
-    bandConfig: "Full Band",
-    additionalMusicians: "0",
+    eventType: "",
+    bandConfig: "",
+    additionalMusicians: "",
     venueAddress: "",
     nonPerformanceHours: "",
     chargeNonPerformance: false,
@@ -49,9 +49,8 @@ function createInitialAgreementState() {
   };
 }
 
-const state = {
-  agreement: createInitialAgreementState(),
-  invoice: {
+function createInitialInvoiceState() {
+  return {
     invoiceNumber: "INV-001",
     clientName: "",
     clientEmail: "",
@@ -63,17 +62,27 @@ const state = {
     depositPaid: "",
     addons: "",
     totalOverride: "",
-  },
-  receipt: {
+  };
+}
+
+function createInitialReceiptState() {
+  return {
     receiptNumber: "RCPT-001",
     clientName: "",
     paymentDate: "",
     amountPaid: "",
     paymentMethod: "Venmo",
     relatedInvoice: "",
-  },
+  };
+}
+
+const state = {
+  agreement: createInitialAgreementState(),
+  invoice: createInitialInvoiceState(),
+  receipt: createInitialReceiptState(),
   calendar: {
     overridePin: "",
+    hiddenSeededEventKeys: [],
     client: null,
     monthOffset: 0,
     selectedDate: "",
@@ -343,6 +352,53 @@ const DEFAULT_MUSICIAN_ROSTER = [
   { name: "Bassist", role: "Bass" },
   { name: "Drummer", role: "Drums" },
 ];
+const SEEDED_TODD_SHOW_FILES = [
+  { show_date: "2026-02-14", show_title: "Lebanon Legion" },
+  { show_date: "2026-03-14", show_title: "Windsor Legion" },
+  { show_date: "2026-05-16", show_title: "Dell Rice" },
+  { show_date: "2026-06-27", show_title: "Horseshoe Acres" },
+  { show_date: "2026-07-04", show_title: "Vanguilder BBQ" },
+  { show_date: "2026-07-30", show_title: "Cheshire Fair" },
+  { show_date: "2026-08-29", show_title: "Hartford 1978 Class Reunion" },
+  { show_date: "2026-09-19", show_title: "NSRA Essex Fair" },
+  { show_date: "2026-10-10", show_title: "St. John's Club" },
+  { show_date: "2026-12-31", show_title: "New Year's Eve Lebanon American Legion" },
+];
+const SEEDED_DAN_SHOW_FILES = [
+  { show_date: "2026-05-09", show_title: "Springfield Elks SHA Fundraiser" },
+  { show_date: "2026-06-13", show_title: "Kingdom Campground" },
+  { show_date: "2026-07-11", show_title: "Bombazine KOA" },
+  { show_date: "2026-07-18", show_title: "Mike's Tiki Bar" },
+  { show_date: "2026-07-25", show_title: "Kingdom Campground" },
+  { show_date: "2026-08-15", show_title: "Wells Woodstock Show" },
+  { show_date: "2026-09-05", show_title: "Sugar Ridge Campground" },
+  { show_date: "2026-09-20", show_title: "Chester Craft Fair" },
+];
+const SEEDED_JENNY_GARY_SHOW_DATES = [
+  "2026-02-14",
+  "2026-03-14",
+  "2026-05-09",
+  "2026-05-16",
+  "2026-06-13",
+  "2026-06-27",
+  "2026-07-04",
+  "2026-07-11",
+  "2026-07-18",
+  "2026-07-25",
+  "2026-07-30",
+  "2026-08-15",
+  "2026-08-29",
+  "2026-09-05",
+  "2026-09-19",
+  "2026-09-20",
+  "2026-10-10",
+  "2026-12-31",
+];
+const SEEDED_MUSICIAN_BLACKOUTS = [
+  { musician_name: "Jenny", start_date: "2026-08-21", end_date: "2026-08-22" },
+  { musician_name: "Gary", start_date: "2026-08-21", end_date: "2026-08-22" },
+  { musician_name: "Todd", start_date: "2026-10-03", end_date: "2026-10-03" },
+];
 const SEEDED_BOOKED_EVENTS = [
   { date: "2026-01-03", start: "19:00", end: "22:00", title: "Killarney's", type: "Confirmed" },
   { date: "2026-01-06", start: "13:00", end: "14:00", title: "Mertens House", type: "Confirmed" },
@@ -368,7 +424,7 @@ const SEEDED_BOOKED_EVENTS = [
   { date: "2026-04-28", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
   { date: "2026-05-09", start: "19:30", end: "21:00", title: "SHA Elks", type: "Confirmed", notes: "Full Band" },
   { date: "2026-05-12", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-05-16", start: "14:00", end: "17:00", title: "Dell Rice @ Foresters", type: "Confirmed", notes: "Full Band" },
+  { date: "2026-05-16", start: "14:00", end: "17:00", title: "Dell Rice", type: "Confirmed", notes: "Full Band" },
   { date: "2026-05-19", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
   { date: "2026-05-23", start: "17:30", end: "20:30", title: "Bear Naked", type: "Confirmed" },
   { date: "2026-05-26", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
@@ -455,13 +511,13 @@ function safeStorageGet(key) {
 function saveDraft() {
   try {
     const payload = {
-      agreement: state.agreement,
       invoice: state.invoice,
       receipt: state.receipt,
       workOrders: state.workOrders,
       musicians: state.musicians,
       assignments: state.calendar.assignments,
       blackouts: state.calendar.blackouts,
+      hiddenSeededEventKeys: state.calendar.hiddenSeededEventKeys,
       musicianShowBookings: state.musicianShowBookings,
     };
     safeStorageSet(STORAGE_KEY, JSON.stringify(payload));
@@ -475,9 +531,6 @@ function loadDraft() {
     const stored = safeStorageGet(STORAGE_KEY);
     if (!stored) return;
     const parsed = JSON.parse(stored);
-    if (parsed.agreement) {
-      state.agreement = { ...state.agreement, ...parsed.agreement };
-    }
     if (parsed.invoice) {
       state.invoice = { ...state.invoice, ...parsed.invoice };
     }
@@ -495,6 +548,9 @@ function loadDraft() {
     }
     if (Array.isArray(parsed.blackouts)) {
       state.calendar.blackouts = parsed.blackouts;
+    }
+    if (Array.isArray(parsed.hiddenSeededEventKeys)) {
+      state.calendar.hiddenSeededEventKeys = parsed.hiddenSeededEventKeys;
     }
     if (Array.isArray(parsed.musicianShowBookings)) {
       state.musicianShowBookings = parsed.musicianShowBookings;
@@ -893,11 +949,21 @@ function getAgreementTotals() {
   const addOnTotal = Object.entries(addonFees).reduce((total, [key, value]) => {
     return state.agreement[key] ? total + value : total;
   }, 0);
-  const baseBandMembers = state.agreement.bandConfig === "Full Band" ? 4 : 2;
+    const baseBandMembers =
+      state.agreement.bandConfig === "Full Band"
+        ? 4
+        : state.agreement.bandConfig === "Duo"
+        ? 2
+        : 0;
   const extraMembers = toNumber(state.agreement.additionalMusicians);
   const bandMembers = baseBandMembers + (extraMembers > 0 ? extraMembers : 0);
   const baseHourlyRatePerMember = 50;
-  const basePerformanceRate = state.agreement.bandConfig === "Full Band" ? 200 : 100;
+  const basePerformanceRate =
+    state.agreement.bandConfig === "Full Band"
+      ? 200
+      : state.agreement.bandConfig === "Duo"
+      ? 100
+      : 0;
   const manualPerformanceHours = toNumber(state.agreement.hours);
   const computedHours =
     manualPerformanceHours > 0
@@ -1049,7 +1115,7 @@ function updateAgreementPreview() {
       : "Standard"
   );
   setText("[data-fill='eventType']", state.agreement.eventType || "__");
-  setText("[data-fill='bandConfig']", state.agreement.bandConfig);
+  setText("[data-fill='bandConfig']", state.agreement.bandConfig || "__");
   setText("[data-fill='venueAddress']", state.agreement.venueAddress || "__");
   setText(
     "[data-fill='depositPaid']",
@@ -1324,8 +1390,10 @@ function getSeededCalendarEvents(rangeStart = null, rangeEnd = null) {
 function mergeSeededCalendarEvents(events = [], rangeStart = null, rangeEnd = null) {
   const merged = [...events];
   const seen = new Set(events.map((event) => eventIdentityKey(event)));
+  const hiddenSeededEventKeys = new Set(state.calendar.hiddenSeededEventKeys || []);
   getSeededCalendarEvents(rangeStart, rangeEnd).forEach((event) => {
     const key = eventIdentityKey(event);
+    if (hiddenSeededEventKeys.has(key)) return;
     if (seen.has(key)) return;
     seen.add(key);
     merged.push(event);
@@ -1714,7 +1782,7 @@ function updateManagerDesk() {
   updateShowRecordCounts();
 }
 
-function updateOpsProgress() {
+async function updateOpsProgress() {
   const fill = document.getElementById("opsProgressFill");
   const summary = document.getElementById("opsProgressSummary");
   const detail = document.getElementById("opsProgressDetail");
@@ -1725,23 +1793,36 @@ function updateOpsProgress() {
     const status = String(item.status || "").toLowerCase();
     return status === "completed" || item.completed === true;
   }).length;
+  const workOrdersOpen = Math.max(0, workOrdersTotal - workOrdersDone);
 
-  const trackableContracts = state.calendar.contracts.filter((item) => {
+  const pendingSignatureContracts = state.calendar.contracts.filter((item) => {
+    if (item?.file_path) return false;
+    const status = String(item.status || "").toLowerCase();
+    return !status.includes("created") && !status.includes("no contract needed");
+  });
+  const signedContracts = state.calendar.contracts.filter((item) => {
+    if (!item?.file_path) return false;
     const status = String(item.status || "").toLowerCase();
     const path = String(item.file_path || "");
     return !(status.includes("created") || path.startsWith("created-contracts/"));
   });
-  const contractsTotal = trackableContracts.length;
-  const contractsDone = trackableContracts.filter((item) => {
-    const status = String(item.status || "").toLowerCase();
-    return Boolean(item.file_path) || status.includes("signed");
-  }).length;
+  const contractsTotal = pendingSignatureContracts.length + signedContracts.length;
+  const contractsDone = signedContracts.length;
+  const contractsPendingSignature = pendingSignatureContracts.length;
 
   const today = new Date();
+  const currentYear = today.getFullYear();
+  const yearStartDate = new Date(currentYear, 0, 1);
+  const yearEndDate = new Date(currentYear, 11, 31, 23, 59, 59, 999);
+  const yearShowEvents = (await getShowsRangeEvents(yearStartDate, yearEndDate)).filter((item) => {
+    const kind = String(item.type || "").toLowerCase();
+    if (kind === "blackout") return false;
+    const start = new Date(item.start_time || item.end_time || 0);
+    return Number.isFinite(start.getTime()) && start.getFullYear() === currentYear;
+  });
   const activeEventIds = new Set(
-    state.calendar.events
+    yearShowEvents
       .filter((item) => {
-        if (String(item.type || "").toLowerCase() === "blackout") return false;
         const eventEnd = new Date(item.end_time || item.start_time || 0);
         return Number.isFinite(eventEnd.getTime()) && eventEnd >= today;
       })
@@ -1759,19 +1840,19 @@ function updateOpsProgress() {
     return String(item.status || "").toLowerCase() === "confirmed";
   }).length;
 
-  const showEvents = state.calendar.events.filter(
-    (item) => String(item.type || "").toLowerCase() !== "blackout"
-  );
+  const showEvents = yearShowEvents;
   const showsTotal = showEvents.length;
   const showsDone = showEvents.filter(
     (item) => String(item.type || "").toLowerCase() === "confirmed"
   ).length;
+  const unlinkedPendingContracts = pendingSignatureContracts.filter((item) => !item.event_id).length;
+  const adjustedShowsTotal = showsTotal + unlinkedPendingContracts;
 
   const useAssignmentMetric = assignmentsTotal > 0;
   const totalItems =
     workOrdersTotal +
     contractsTotal +
-    (useAssignmentMetric ? assignmentsTotal : showsTotal);
+    (useAssignmentMetric ? assignmentsTotal : adjustedShowsTotal);
   const doneItems =
     workOrdersDone +
     contractsDone +
@@ -1780,10 +1861,10 @@ function updateOpsProgress() {
 
   fill.style.width = `${percent}%`;
   summary.textContent = `${percent}% complete across active jobs`;
-  detail.textContent = `Work orders ${workOrdersDone}/${workOrdersTotal} • Contracts signed ${contractsDone}/${contractsTotal} • ${
+  detail.textContent = `Work orders open ${workOrdersOpen} • Contract${contractsPendingSignature === 1 ? "" : "s"} pending signature ${contractsPendingSignature} • ${
     useAssignmentMetric
       ? `Musician confirmations ${assignmentsDone}/${assignmentsTotal}`
-      : `Shows confirmed ${showsDone}/${showsTotal}`
+      : `Shows confirmed ${showsDone}/${adjustedShowsTotal}`
   }`;
   updateManagerDesk();
 }
@@ -1999,7 +2080,8 @@ async function saveInvoiceToSupabaseInternal(silent) {
       return;
     }
   }
-  if (status && !silent) status.textContent = "Invoice saved.";
+  resetInvoiceForm();
+  if (status && !silent) status.textContent = "Invoice saved and form reset.";
   await fetchInvoices();
 }
 
@@ -2048,7 +2130,8 @@ async function saveReceiptToSupabaseInternal(silent) {
       return;
     }
   }
-  if (status && !silent) status.textContent = "Receipt saved.";
+  resetReceiptForm();
+  if (status && !silent) status.textContent = "Receipt saved and form reset.";
   await fetchReceipts();
 }
 
@@ -2597,6 +2680,7 @@ async function refreshAuthState() {
     await fetchMusicians();
     await fetchMusicianAssignments();
     await fetchMusicianBlackouts();
+    await fetchWorkOrders();
     await fetchInvoices();
     await fetchReceipts();
   } else {
@@ -2607,6 +2691,7 @@ async function refreshAuthState() {
     state.calendar.blackouts = [];
     state.billing.invoices = [];
     state.billing.receipts = [];
+    state.workOrders = [];
     renderMusicianList();
     renderCalendar();
     updateEventList();
@@ -2701,6 +2786,7 @@ function queueSupabaseSyncRefresh() {
       fetchMusicianAssignments(),
       fetchMusicianBlackouts(),
       fetchMusicians(),
+      fetchWorkOrders(),
       fetchInvoices(),
       fetchReceipts(),
     ]);
@@ -2719,6 +2805,7 @@ function startSupabaseSync() {
     "musician_assignments",
     "musician_blackouts",
     "musicians",
+    "work_orders",
     "invoices",
     "receipts",
   ].forEach((table) => {
@@ -3194,6 +3281,140 @@ function selectEventForEdit(event, selectedDateOverride = "") {
     renderMusicianAssignments();
 }
 
+function getCalendarEventsForDate(dateValue) {
+  const selectedDate = parseLocalDate(dateValue);
+  if (!selectedDate) return [];
+  const dayStart = startOfDay(selectedDate);
+  const dayEnd = new Date(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth(),
+    selectedDate.getDate(),
+    23,
+    59,
+    59,
+    999
+  );
+  return mergeSeededCalendarEvents(state.calendar.events, dayStart, dayEnd).filter((event) => {
+    const start = new Date(event.start_time);
+    const end = new Date(event.end_time);
+    return selectedDate >= startOfDay(start) && selectedDate <= startOfDay(end);
+  });
+}
+
+function getVisibleMonthCalendarEvents() {
+  const monthStart = getCalendarMonth();
+  const rangeStart = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1, 0, 0, 0, 0);
+  const rangeEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0, 23, 59, 59, 999);
+  return mergeSeededCalendarEvents(state.calendar.events, rangeStart, rangeEnd)
+    .filter((event) => {
+      const start = new Date(event.start_time);
+      return start >= rangeStart && start <= rangeEnd;
+    })
+    .sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+}
+
+function buildEventCard(event, selected, compact = false) {
+  const card = document.createElement("div");
+  card.className = "event-card";
+  if (!compact && state.calendar.selectedEventId === event.id) {
+    card.classList.add("selected");
+  }
+
+  const header = document.createElement("header");
+  header.innerHTML = `<span>${event.title || eventTypeLabel(event.type)}</span><span>${eventTypeLabel(event.type)}</span>`;
+  header.addEventListener("click", () => {
+    selectEventForEdit(event, selected);
+  });
+
+  const meta = document.createElement("div");
+  meta.className = "event-meta";
+  meta.textContent = `${formatShortDateTime(event.start_time)} → ${formatShortDateTime(
+    event.end_time
+  )}`;
+  meta.addEventListener("click", () => {
+    selectEventForEdit(event, selected);
+  });
+
+  card.appendChild(header);
+  card.appendChild(meta);
+
+  if (event.notes) {
+    const notes = document.createElement("div");
+    notes.className = "event-meta";
+    notes.textContent = event.notes || "";
+    notes.addEventListener("click", () => {
+      selectEventForEdit(event, selected);
+    });
+    card.appendChild(notes);
+  }
+
+  if (compact) return card;
+
+  const actions = document.createElement("div");
+  actions.className = "event-actions";
+  const uploadInput = document.createElement("input");
+  uploadInput.type = "file";
+  uploadInput.accept = "application/pdf";
+  uploadInput.className = "hidden";
+  uploadInput.addEventListener("change", async () => {
+    const file = uploadInput.files?.[0];
+    if (!file) return;
+    const result = await uploadSignedContractForEvent(event.id, file, `${event.title || event.type} Agreement`);
+    updateSupabaseStatus(result.message, !result.ok);
+    setCalendarStatus(
+      result.ok ? "Signed contract uploaded and saved." : result.message,
+      !result.ok
+    );
+    if (result.ok) {
+      selectEventForEdit(
+        state.calendar.events.find((item) => item.id === event.id) || event,
+        selected
+      );
+    }
+    uploadInput.value = "";
+  });
+  const selectBtn = document.createElement("button");
+  selectBtn.className = "btn ghost";
+  selectBtn.textContent = "Edit";
+  selectBtn.addEventListener("click", () => {
+    selectEventForEdit(event, selected);
+  });
+  actions.appendChild(selectBtn);
+  if (String(event.type || "").toLowerCase() === "confirmed" && !event.seeded) {
+    const uploadBtn = document.createElement("button");
+    uploadBtn.className = "btn ghost";
+    uploadBtn.textContent = "Upload contract";
+    uploadBtn.addEventListener("click", () => uploadInput.click());
+    actions.appendChild(uploadBtn);
+  }
+  const del = document.createElement("button");
+  del.className = "btn ghost";
+  del.textContent = "Delete";
+  del.addEventListener("click", () => deleteCalendarEvent(event));
+  actions.appendChild(del);
+
+  const contract = state.calendar.contracts.find((item) => item.event_id === event.id);
+  if (contract && !contract.file_path) {
+    const badge = document.createElement("span");
+    badge.className = "badge-inline draft";
+    badge.textContent = "Pending contract";
+    card.appendChild(badge);
+  }
+  if (contract && contract.file_path) {
+    const link = document.createElement("button");
+    link.className = "btn ghost";
+    link.textContent = "View contract";
+    link.addEventListener("click", (evt) => {
+      evt.preventDefault();
+      openContractForEvent(event.id);
+    });
+    card.appendChild(link);
+  }
+  card.appendChild(uploadInput);
+  card.appendChild(actions);
+  return card;
+}
+
 function updateEventList() {
   const list = document.getElementById("eventList");
   const selectedLabel = document.getElementById("selectedEventLabel");
@@ -3201,8 +3422,25 @@ function updateEventList() {
 
   const selected = state.calendar.selectedDate;
   if (!selected) {
-    list.innerHTML = "<p class=\"muted\">Select a date on the calendar to view events.</p>";
-    if (selectedLabel) selectedLabel.textContent = "Select a date to view events.";
+    const monthEvents = getVisibleMonthCalendarEvents();
+    if (!monthEvents.length) {
+      list.innerHTML = "<p class=\"muted\">Select a date on the calendar to view events.</p>";
+      if (selectedLabel) selectedLabel.textContent = "Select a date to view events.";
+      state.calendar.selectedEventId = "";
+      renderMusicianAssignments();
+      return;
+    }
+    list.innerHTML = "";
+    monthEvents.forEach((event) => {
+      const selectedDate = formatDateInput(new Date(event.start_time));
+      list.appendChild(buildEventCard(event, selectedDate, true));
+    });
+    if (selectedLabel) {
+      selectedLabel.textContent = `Showing all dates with events in ${getCalendarMonth().toLocaleString(undefined, {
+        month: "long",
+        year: "numeric",
+      })}. Tap a day to focus it.`;
+    }
     state.calendar.selectedEventId = "";
     renderMusicianAssignments();
     return;
@@ -3210,11 +3448,7 @@ function updateEventList() {
   const selectedDate = parseLocalDate(selected);
   if (!selectedDate) return;
 
-  const events = state.calendar.events.filter((event) => {
-    const start = new Date(event.start_time);
-    const end = new Date(event.end_time);
-    return selectedDate >= startOfDay(start) && selectedDate <= startOfDay(end);
-  });
+  const events = getCalendarEventsForDate(selected);
 
   if (!events.length) {
     list.innerHTML = "<p class=\"muted\">No events for selected date.</p>";
@@ -3226,97 +3460,7 @@ function updateEventList() {
 
   list.innerHTML = "";
   events.forEach((event) => {
-    const card = document.createElement("div");
-    card.className = "event-card";
-    if (state.calendar.selectedEventId === event.id) {
-      card.classList.add("selected");
-    }
-    const header = document.createElement("header");
-    header.innerHTML = `<span>${event.title || eventTypeLabel(event.type)}</span><span>${eventTypeLabel(event.type)}</span>`;
-    header.addEventListener("click", () => {
-      selectEventForEdit(event, selected);
-    });
-    const meta = document.createElement("div");
-    meta.className = "event-meta";
-    meta.textContent = `${formatShortDateTime(event.start_time)} → ${formatShortDateTime(
-      event.end_time
-    )}`;
-    meta.addEventListener("click", () => {
-      selectEventForEdit(event, selected);
-    });
-    const notes = document.createElement("div");
-    notes.className = "event-meta";
-    notes.textContent = event.notes || "";
-    notes.addEventListener("click", () => {
-      selectEventForEdit(event, selected);
-    });
-
-    const actions = document.createElement("div");
-    actions.className = "event-actions";
-    const uploadInput = document.createElement("input");
-    uploadInput.type = "file";
-    uploadInput.accept = "application/pdf";
-    uploadInput.className = "hidden";
-    uploadInput.addEventListener("change", async () => {
-      const file = uploadInput.files?.[0];
-      if (!file) return;
-      const result = await uploadSignedContractForEvent(event.id, file, `${event.title || event.type} Agreement`);
-      updateSupabaseStatus(result.message, !result.ok);
-      setCalendarStatus(
-        result.ok ? "Signed contract uploaded and saved." : result.message,
-        !result.ok
-      );
-      if (result.ok) {
-        selectEventForEdit(
-          state.calendar.events.find((item) => item.id === event.id) || event,
-          selected
-        );
-      }
-      uploadInput.value = "";
-    });
-    const selectBtn = document.createElement("button");
-    selectBtn.className = "btn ghost";
-    selectBtn.textContent = "Edit";
-    selectBtn.addEventListener("click", () => {
-      selectEventForEdit(event, selected);
-    });
-    actions.appendChild(selectBtn);
-    if (String(event.type || "").toLowerCase() === "confirmed" && !event.seeded) {
-      const uploadBtn = document.createElement("button");
-      uploadBtn.className = "btn ghost";
-      uploadBtn.textContent = "Upload contract";
-      uploadBtn.addEventListener("click", () => uploadInput.click());
-      actions.appendChild(uploadBtn);
-    }
-    const del = document.createElement("button");
-    del.className = "btn ghost";
-    del.textContent = "Delete";
-    del.addEventListener("click", () => deleteCalendarEvent(event.id));
-    actions.appendChild(del);
-
-    card.appendChild(header);
-    card.appendChild(meta);
-    if (event.notes) card.appendChild(notes);
-    const contract = state.calendar.contracts.find((item) => item.event_id === event.id);
-    if (contract && !contract.file_path) {
-      const badge = document.createElement("span");
-      badge.className = "badge-inline draft";
-      badge.textContent = "🚩 Pending contract";
-      card.appendChild(badge);
-    }
-    if (contract && contract.file_path) {
-      const link = document.createElement("button");
-      link.className = "btn ghost";
-      link.textContent = "View contract";
-      link.addEventListener("click", (evt) => {
-        evt.preventDefault();
-        openContractForEvent(event.id);
-      });
-      card.appendChild(link);
-    }
-    card.appendChild(uploadInput);
-    card.appendChild(actions);
-    list.appendChild(card);
+    list.appendChild(buildEventCard(event, selected, false));
   });
 
   if (selectedLabel) {
@@ -3328,9 +3472,18 @@ function updateEventList() {
   renderMusicianAssignments();
 }
 
-async function deleteCalendarEvent(id) {
+async function deleteCalendarEvent(eventOrId) {
+  const event = typeof eventOrId === "object"
+    ? eventOrId
+    : state.calendar.events.find((item) => item.id === eventOrId) || null;
+  const id = event?.id || (typeof eventOrId === "string" ? eventOrId : "");
+  if (!event && !id) return;
+
   const client = state.calendar.client;
-  if (client && state.calendar.session) {
+  if (event?.seeded) {
+    removeEventFromEverywhere(event);
+    updateSupabaseStatus("Show removed everywhere in the app.");
+  } else if (client && state.calendar.session && id) {
     const { error: assignmentError } = await client
       .from("musician_assignments")
       .delete()
@@ -3371,16 +3524,17 @@ async function deleteCalendarEvent(id) {
       updateSupabaseStatus(`Could not delete event: ${eventError.message}`, true);
       return;
     }
-    updateSupabaseStatus("Event deleted.");
+    const cleanup = removeEventFromEverywhere(event || { id });
+    const showFileNote = cleanup.removedShowFiles
+      ? ` Removed ${cleanup.removedShowFiles} linked musician show file${cleanup.removedShowFiles === 1 ? "" : "s"}.`
+      : "";
+    updateSupabaseStatus(`Event deleted everywhere.${showFileNote}`);
   } else {
-    state.calendar.events = state.calendar.events.filter((event) => event.id !== id);
-    state.calendar.assignments = state.calendar.assignments.filter(
-      (assignment) => assignment.event_id !== id
-    );
-    saveDraft();
-  }
-  if (state.calendar.selectedEventId === id) {
-    state.calendar.selectedEventId = "";
+    const cleanup = removeEventFromEverywhere(event || { id });
+    const showFileNote = cleanup.removedShowFiles
+      ? ` Removed ${cleanup.removedShowFiles} linked musician show file${cleanup.removedShowFiles === 1 ? "" : "s"}.`
+      : "";
+    updateSupabaseStatus(`Event deleted everywhere.${showFileNote}`);
   }
   await fetchMusicianAssignments();
   await fetchEventsForMonth();
@@ -3600,6 +3754,8 @@ async function handleCalendarSave() {
 
 function clearCalendarForm() {
   const ids = [
+    "calendarStartDate",
+    "calendarEndDate",
     "calendarEventTitle",
     "calendarStartTime",
     "calendarEndTime",
@@ -3611,6 +3767,14 @@ function clearCalendarForm() {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
+  const typeSelect = document.getElementById("calendarType");
+  if (typeSelect) typeSelect.value = "Contract Needed";
+  const allDayInput = document.getElementById("calendarAllDay");
+  if (allDayInput) allDayInput.checked = false;
+  const startTime = document.getElementById("calendarStartTime");
+  const endTime = document.getElementById("calendarEndTime");
+  if (startTime) startTime.removeAttribute("disabled");
+  if (endTime) endTime.removeAttribute("disabled");
   state.calendar.selectedEventId = "";
   const selectedLabel = document.getElementById("selectedEventLabel");
   if (selectedLabel) {
@@ -3685,6 +3849,23 @@ async function handleContractUpload() {
   if (eventId) {
     await openContractForEvent(eventId);
   }
+}
+
+function resetRosterBlackoutForm() {
+  const musician = document.getElementById("rosterBlackoutMusician");
+  const startDate = document.getElementById("rosterBlackoutStartDate");
+  const startTime = document.getElementById("rosterBlackoutStartTime");
+  const endDate = document.getElementById("rosterBlackoutEndDate");
+  const endTime = document.getElementById("rosterBlackoutEndTime");
+  const notes = document.getElementById("rosterBlackoutNotes");
+  const allDay = document.getElementById("rosterBlackoutAllDay");
+  if (musician) musician.value = "";
+  if (startDate) startDate.value = "";
+  if (startTime) startTime.value = "";
+  if (endDate) endDate.value = "";
+  if (endTime) endTime.value = "";
+  if (notes) notes.value = "";
+  if (allDay) allDay.checked = false;
 }
 
 function updateContractList() {
@@ -4481,11 +4662,129 @@ function syncReceiptForm() {
   });
 }
 
+function resetInvoiceForm() {
+  state.invoice = createInitialInvoiceState();
+  syncInvoiceForm();
+  const invoiceBandFull = document.getElementById("invoiceBandFull");
+  const invoiceBandDuo = document.getElementById("invoiceBandDuo");
+  const invoiceFile = document.getElementById("invoiceFile");
+  if (invoiceBandFull) invoiceBandFull.checked = false;
+  if (invoiceBandDuo) invoiceBandDuo.checked = false;
+  if (invoiceFile) invoiceFile.value = "";
+  updateInvoicePreview();
+  updateMessagePreview();
+  saveDraft();
+}
+
+function resetReceiptForm() {
+  state.receipt = createInitialReceiptState();
+  syncReceiptForm();
+  const receiptFile = document.getElementById("receiptFile");
+  if (receiptFile) receiptFile.value = "";
+  updateReceiptPreview();
+  updateMessagePreview();
+  saveDraft();
+}
+
 function setWorkOrderStatus(message, isError = false) {
   const el = document.getElementById("workOrderStatus");
   if (!el) return;
   el.textContent = message;
   el.classList.toggle("warning", isError);
+}
+
+function mapWorkOrderRow(row) {
+  return {
+    id: row.id,
+    date: row.date || "",
+    category: row.category || "Other",
+    description: row.description || row.title || "",
+    needed: row.needed || "",
+    deadline: row.deadline || "",
+    files: row.files || "",
+    status: row.status || "Open",
+    followUp: row.follow_up || "",
+    completed:
+      row.completed === true || String(row.status || "").toLowerCase() === "completed",
+    createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+  };
+}
+
+function serializeWorkOrder(order) {
+  return {
+    id: order.id,
+    date: order.date || null,
+    category: order.category || "Other",
+    description: order.description || "",
+    needed: order.needed || "",
+    deadline: order.deadline || null,
+    files: order.files || "",
+    status: order.status || (order.completed ? "Completed" : "Open"),
+    follow_up: order.followUp || "",
+    completed: order.completed === true || String(order.status || "").toLowerCase() === "completed",
+  };
+}
+
+async function fetchWorkOrders() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) {
+    renderWorkOrders();
+    return;
+  }
+
+  const { data, error } = await client
+    .from("work_orders")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(300);
+
+  if (error) {
+    setWorkOrderStatus(formatSupabaseError(error, "Could not load work orders."), true);
+    renderWorkOrders();
+    return;
+  }
+
+  state.workOrders = (data || []).map(mapWorkOrderRow);
+  saveDraft();
+  renderWorkOrders();
+}
+
+async function saveWorkOrder(order) {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) {
+    return { ok: false, localOnly: true };
+  }
+
+  const payload = serializeWorkOrder(order);
+  const { data, error } = await client
+    .from("work_orders")
+    .upsert(payload, { onConflict: "id" })
+    .select()
+    .single();
+
+  if (error) {
+    return { ok: false, message: formatSupabaseError(error, "Could not save work order.") };
+  }
+
+  return { ok: true, row: data };
+}
+
+async function deleteWorkOrderRecord(id) {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session || !id) {
+    return { ok: false, localOnly: true };
+  }
+
+  const { error } = await client
+    .from("work_orders")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    return { ok: false, message: formatSupabaseError(error, "Could not delete work order.") };
+  }
+
+  return { ok: true };
 }
 
 function resetWorkOrderForm() {
@@ -4609,7 +4908,7 @@ function renderWorkOrders() {
   updateOpsProgress();
 }
 
-function submitWorkOrder() {
+async function submitWorkOrder() {
   const date = document.getElementById("workOrderDate")?.value || "";
   const category = document.getElementById("workOrderCategory")?.value || "Other";
   const description = document.getElementById("workOrderDescription")?.value.trim() || "";
@@ -4628,7 +4927,7 @@ function submitWorkOrder() {
     return;
   }
 
-  state.workOrders.unshift({
+  const order = {
     id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     date,
     category,
@@ -4640,13 +4939,31 @@ function submitWorkOrder() {
     followUp,
     completed: status === "Completed",
     createdAt: new Date().toISOString(),
-  });
+  };
+  state.workOrders.unshift(order);
   state.workOrderView.focusId = "";
   state.workOrderView.showCreate = true;
   saveDraft();
+  const saveResult = await saveWorkOrder(order);
+  if (!saveResult.ok && !saveResult.localOnly) {
+    state.workOrders = state.workOrders.filter((item) => item.id !== order.id);
+    saveDraft();
+    renderWorkOrders();
+    setWorkOrderStatus(saveResult.message, true);
+    return;
+  }
+  if (saveResult.row) {
+    const idx = state.workOrders.findIndex((item) => item.id === order.id);
+    if (idx !== -1) state.workOrders[idx] = mapWorkOrderRow(saveResult.row);
+    saveDraft();
+  }
   renderWorkOrders();
   resetWorkOrderForm();
-  setWorkOrderStatus("Work order submitted.");
+  setWorkOrderStatus(
+    saveResult.localOnly
+      ? "Work order saved on this device only. Sign in and add the Supabase table to sync it everywhere."
+      : "Work order submitted and synced."
+  );
 }
 
 function updateMusicianStatus(message, isError = false) {
@@ -4661,6 +4978,57 @@ function updateRosterBlackoutStatus(message, isError = false) {
   if (!el) return;
   el.textContent = message;
   el.classList.toggle("warning", isError);
+}
+
+function updateTroubleshootingStatus(message, isError = false) {
+  const el = document.getElementById("troubleshootingStatus");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("warning", isError);
+}
+
+function clearLocalAppDataPreservingLogin() {
+  const okay = window.confirm(
+    "Reset app data on this device and reload? This keeps the sign-in session when possible."
+  );
+  if (!okay) return;
+
+  [
+    STORAGE_KEY,
+    CONTRACT_DRAFT_SNAPSHOTS_KEY,
+    CALENDAR_SETTINGS_KEY,
+    CALENDAR_AUTH_SEEN_KEY,
+  ].forEach((key) => {
+    try {
+      localStorage.removeItem(key);
+    } catch (error) {
+      // ignore storage failures
+    }
+  });
+
+  updateTroubleshootingStatus("Local app data cleared. Reloading...");
+  window.setTimeout(() => {
+    window.location.reload();
+  }, 250);
+}
+
+async function refreshSignedInAppData() {
+  updateTroubleshootingStatus("Refreshing app data...");
+  try {
+    await Promise.all([
+      fetchEventsForMonth(),
+      fetchContracts(),
+      fetchMusicianAssignments(),
+      fetchMusicianBlackouts(),
+      fetchMusicians(),
+      fetchWorkOrders(),
+      fetchInvoices(),
+      fetchReceipts(),
+    ]);
+    updateTroubleshootingStatus("Fresh data loaded.");
+  } catch (error) {
+    updateTroubleshootingStatus("Could not refresh app data.", true);
+  }
 }
 
 function musicianDisplayName(musician) {
@@ -4699,63 +5067,6 @@ function populateMusicianSelects() {
 }
 
 function renderMusicianList() {
-  const list = document.getElementById("musicianList");
-  if (!list) return;
-  if (!state.musicians.length) {
-    list.innerHTML = "<p class=\"muted\">No musicians on roster yet.</p>";
-    populateMusicianSelects();
-    renderMusicianShowCabinet();
-    return;
-  }
-  list.innerHTML = "";
-  const sorted = [...state.musicians].sort((a, b) =>
-    String(a.name || "").localeCompare(String(b.name || ""))
-  );
-  sorted.forEach((musician) => {
-    const card = document.createElement("div");
-    card.className = "event-card";
-    const header = document.createElement("header");
-    const statusLabel = musician.active === false ? "Inactive" : "Active";
-    header.innerHTML = `<span>${musicianDisplayName(musician)}</span><span>${statusLabel}</span>`;
-    const meta = document.createElement("div");
-    meta.className = "event-meta";
-    meta.textContent = musician.role || "No role set";
-    const contact = document.createElement("div");
-    contact.className = "event-meta";
-    const contactParts = [musician.email, musician.phone].filter(Boolean);
-    contact.textContent = contactParts.length ? contactParts.join(" · ") : "No contact info";
-    card.appendChild(header);
-    card.appendChild(meta);
-    card.appendChild(contact);
-    if (musician.notes) {
-      const notes = document.createElement("div");
-      notes.className = "event-meta";
-      notes.textContent = musician.notes;
-      card.appendChild(notes);
-    }
-    const actions = document.createElement("div");
-    actions.className = "event-actions";
-    const toggle = document.createElement("button");
-    toggle.className = "btn ghost";
-    toggle.dataset.action = "toggle-musician";
-    toggle.dataset.id = musician.id;
-    toggle.textContent = musician.active === false ? "Set active" : "Set inactive";
-    const edit = document.createElement("button");
-    edit.className = "btn ghost";
-    edit.dataset.action = "edit-musician";
-    edit.dataset.id = musician.id;
-    edit.textContent = "Edit";
-    const remove = document.createElement("button");
-    remove.className = "btn ghost";
-    remove.dataset.action = "delete-musician";
-    remove.dataset.id = musician.id;
-    remove.textContent = "Delete";
-    actions.appendChild(edit);
-    actions.appendChild(toggle);
-    actions.appendChild(remove);
-    card.appendChild(actions);
-    list.appendChild(card);
-  });
   populateMusicianSelects();
   renderMusicianShowCabinet();
 }
@@ -4782,16 +5093,219 @@ function ensureActiveMusicianShowCabinetId() {
   }
 }
 
+function getEventDateKey(event) {
+  return eventDayKeyFromValue(event?.start_time || event?.end_time || "");
+}
+
+function eventMatchesMusicianShowBooking(event, booking) {
+  const eventDate = getEventDateKey(event);
+  if (!eventDate || eventDate !== normalizeDateValue(booking?.show_date || "")) return false;
+
+  const eventTitle = normalizeText(event?.title || event?.type || "");
+  const bookingTitle = normalizeText(booking?.show_title || "");
+  if (!eventTitle || !bookingTitle) return false;
+
+  return eventTitle === bookingTitle
+    || eventTitle.includes(bookingTitle)
+    || bookingTitle.includes(eventTitle)
+    || getSharedWordCount(eventTitle, bookingTitle) >= 2;
+}
+
+function getSharedWordCount(leftText, rightText) {
+  const leftWords = new Set(String(leftText || "").split(" ").filter(Boolean));
+  const rightWords = new Set(String(rightText || "").split(" ").filter(Boolean));
+  let shared = 0;
+  leftWords.forEach((word) => {
+    if (rightWords.has(word)) shared += 1;
+  });
+  return shared;
+}
+
+function removeAgreementSnapshotForEventId(eventId) {
+  if (!eventId) return;
+  const snapshots = loadContractDraftSnapshots();
+  const key = `event:${eventId}`;
+  if (!snapshots[key]) return;
+  delete snapshots[key];
+  saveContractDraftSnapshots(snapshots);
+}
+
+function removeEventFromEverywhere(event) {
+  if (!event) {
+    return { removedAssignments: 0, removedContracts: 0, removedShowFiles: 0 };
+  }
+
+  const eventId = event.id || "";
+  let removedAssignments = 0;
+  let removedContracts = 0;
+  let removedShowFiles = 0;
+
+  if (event.seeded) {
+    const hiddenKey = eventIdentityKey(event);
+    if (hiddenKey && !(state.calendar.hiddenSeededEventKeys || []).includes(hiddenKey)) {
+      state.calendar.hiddenSeededEventKeys = [...(state.calendar.hiddenSeededEventKeys || []), hiddenKey];
+    }
+  } else if (eventId) {
+    const priorEventCount = state.calendar.events.length;
+    state.calendar.events = state.calendar.events.filter((item) => item.id !== eventId);
+    removedAssignments = state.calendar.assignments.filter((item) => item.event_id === eventId).length;
+    state.calendar.assignments = state.calendar.assignments.filter((item) => item.event_id !== eventId);
+    removedContracts = state.calendar.contracts.filter((item) => item.event_id === eventId).length;
+    state.calendar.contracts = state.calendar.contracts.filter((item) => item.event_id !== eventId);
+    if (state.calendar.selectedEventId === eventId || priorEventCount !== state.calendar.events.length) {
+      state.calendar.selectedEventId = "";
+    }
+    removeAgreementSnapshotForEventId(eventId);
+  }
+
+  const showFileBefore = state.musicianShowBookings.length;
+  state.musicianShowBookings = state.musicianShowBookings.filter(
+    (booking) => !eventMatchesMusicianShowBooking(event, booking)
+  );
+  removedShowFiles = showFileBefore - state.musicianShowBookings.length;
+
+  saveDraft();
+  return { removedAssignments, removedContracts, removedShowFiles };
+}
+
+function getCanonicalSeededShowTitle(showDate) {
+  return (
+    SEEDED_TODD_SHOW_FILES.find((show) => show.show_date === showDate)?.show_title ||
+    SEEDED_DAN_SHOW_FILES.find((show) => show.show_date === showDate)?.show_title ||
+    SEEDED_BOOKED_EVENTS.find((event) => event.date === showDate)?.title ||
+    ""
+  );
+}
+
+function ensureSeededShowFilesForMusician(namePattern, showDates, idPrefix) {
+  const musician = state.musicians.find((item) =>
+    namePattern.test(String(item?.name || "").trim())
+  );
+  if (!musician?.id) return false;
+
+  let added = false;
+  let updated = false;
+
+  showDates.forEach((showDate, index) => {
+    const canonicalTitle = getCanonicalSeededShowTitle(showDate);
+    if (!canonicalTitle) return;
+
+    const existingForDate = state.musicianShowBookings.find((entry) =>
+      entry.musician_id === musician.id &&
+      entry.show_date === showDate
+    );
+    if (existingForDate) {
+      if (
+        normalizeText(existingForDate.show_title || "") !== normalizeText(canonicalTitle) ||
+        existingForDate.status !== "Confirmed"
+      ) {
+        existingForDate.show_title = canonicalTitle;
+        existingForDate.status = "Confirmed";
+        updated = true;
+      }
+      return;
+    }
+
+    state.musicianShowBookings.push({
+      id: `${idPrefix}-${index + 1}`,
+      musician_id: musician.id,
+      show_date: showDate,
+      show_title: canonicalTitle,
+      status: "Confirmed",
+      notes: "Seeded confirmed show",
+    });
+    added = true;
+  });
+
+  if (added || updated) {
+    saveDraft();
+  }
+  return added || updated;
+}
+
+function ensureToddSeededShowFiles() {
+  return ensureSeededShowFilesForMusician(
+    /\btodd\b/i,
+    SEEDED_TODD_SHOW_FILES.map((show) => show.show_date),
+    "seeded-todd-show"
+  );
+}
+
+function ensureDanSeededShowFiles() {
+  return ensureSeededShowFilesForMusician(
+    /\bdan\b/i,
+    SEEDED_DAN_SHOW_FILES.map((show) => show.show_date),
+    "seeded-dan-show"
+  );
+}
+
+function ensureJennySeededShowFiles() {
+  return ensureSeededShowFilesForMusician(
+    /\bjenny\b/i,
+    SEEDED_JENNY_GARY_SHOW_DATES,
+    "seeded-jenny-show"
+  );
+}
+
+function ensureGarySeededShowFiles() {
+  return ensureSeededShowFilesForMusician(
+    /\bgary\b/i,
+    SEEDED_JENNY_GARY_SHOW_DATES,
+    "seeded-gary-show"
+  );
+}
+
+function ensureSeededMusicianBlackouts() {
+  let added = false;
+
+  SEEDED_MUSICIAN_BLACKOUTS.forEach((entry, index) => {
+    const musician = state.musicians.find((item) =>
+      new RegExp(`\\b${entry.musician_name}\\b`, "i").test(String(item?.name || "").trim())
+    );
+    if (!musician?.id) return;
+
+    const start = combineDateTime(entry.start_date, "00:00");
+    const end = combineDateTime(entry.end_date, "23:59");
+    if (!start || !end) return;
+
+    const exists = state.calendar.blackouts.some((blackout) =>
+      blackout.musician_id === musician.id &&
+      blackout.all_day === true &&
+      String(blackout.start_time || "") === start.toISOString() &&
+      String(blackout.end_time || "") === end.toISOString()
+    );
+    if (exists) return;
+
+    state.calendar.blackouts.push({
+      id: `seeded-blackout-${index + 1}`,
+      musician_id: musician.id,
+      start_time: start.toISOString(),
+      end_time: end.toISOString(),
+      all_day: true,
+      notes: "Seeded blackout",
+    });
+    added = true;
+  });
+
+  if (added) {
+    saveDraft();
+  }
+  return added;
+}
+
 function renderMusicianShowCabinet() {
   const tabs = document.getElementById("musicianShowTabs");
   const list = document.getElementById("musicianShowList");
-  if (!tabs || !list) return;
+  const headerWrap = document.getElementById("musicianCabinetHeader");
+  if (!tabs || !list || !headerWrap) return;
   tabs.innerHTML = "";
   list.innerHTML = "";
+  headerWrap.innerHTML = "";
 
   const sorted = getSortedMusicians();
   if (!sorted.length) {
     tabs.innerHTML = "<p class=\"muted\">Add a team member to open a show file.</p>";
+    headerWrap.innerHTML = "<p class=\"muted\">No team members loaded yet.</p>";
     list.innerHTML = "<p class=\"muted\">No musician show files yet.</p>";
     return;
   }
@@ -4814,9 +5328,51 @@ function renderMusicianShowCabinet() {
 
   const activeMusician = sorted.find((musician) => musician.id === activeId);
   if (!activeMusician) {
+    headerWrap.innerHTML = "<p class=\"muted\">Select a musician to manage their folder.</p>";
     list.innerHTML = "<p class=\"muted\">Select a musician to view show files.</p>";
     return;
   }
+
+  const summary = document.createElement("div");
+  summary.className = "cabinet-summary";
+  const statusLabel = activeMusician.active === false ? "Inactive" : "Active";
+  const contactParts = [activeMusician.email, activeMusician.phone].filter(Boolean);
+  summary.innerHTML = `
+    <div class="cabinet-summary-top">
+      <strong>${musicianDisplayName(activeMusician)}</strong>
+      <span class="musician-card-status">${statusLabel}</span>
+    </div>
+    <p>${activeMusician.role || "No role set"}</p>
+    <p>${contactParts.length ? contactParts.join(" · ") : "No contact info"}</p>
+    ${activeMusician.notes ? `<p>${activeMusician.notes}</p>` : ""}
+  `;
+  headerWrap.appendChild(summary);
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "cabinet-toolbar-actions";
+  const edit = document.createElement("button");
+  edit.type = "button";
+  edit.className = "btn ghost";
+  edit.textContent = "Edit roster info";
+  edit.addEventListener("click", () => editMusicianFromList(activeMusician.id));
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "btn ghost";
+  toggle.textContent = activeMusician.active === false ? "Set active" : "Set inactive";
+  toggle.addEventListener("click", async () => {
+    await toggleMusicianActive(activeMusician.id);
+  });
+  const removeMusicianBtn = document.createElement("button");
+  removeMusicianBtn.type = "button";
+  removeMusicianBtn.className = "btn ghost";
+  removeMusicianBtn.textContent = "Delete team member";
+  removeMusicianBtn.addEventListener("click", async () => {
+    await deleteMusician(activeMusician.id);
+  });
+  toolbar.appendChild(edit);
+  toolbar.appendChild(toggle);
+  toolbar.appendChild(removeMusicianBtn);
+  headerWrap.appendChild(toolbar);
 
   const entries = [...state.musicianShowBookings]
     .filter((item) => item.musician_id === activeMusician.id)
@@ -4919,11 +5475,9 @@ function setMusicianEditorState(id = "") {
   state.musicianEditor.id = id || "";
   const addBtn = document.getElementById("addMusician");
   const cancelBtn = document.getElementById("cancelMusicianEdit");
-  const seedBtn = document.getElementById("seedMusicians");
   const isEditing = Boolean(state.musicianEditor.id);
   if (addBtn) addBtn.textContent = isEditing ? "Save changes" : "Add team member";
   if (cancelBtn) cancelBtn.classList.toggle("hidden", !isEditing);
-  if (seedBtn) seedBtn.classList.toggle("hidden", isEditing);
 }
 
 function editMusicianFromList(id) {
@@ -4967,6 +5521,11 @@ async function fetchMusicians() {
     return;
   }
   state.musicians = data || [];
+  ensureToddSeededShowFiles();
+  ensureDanSeededShowFiles();
+  ensureJennySeededShowFiles();
+  ensureGarySeededShowFiles();
+  ensureSeededMusicianBlackouts();
   renderMusicianList();
   renderMusicianAssignments();
   renderAssignmentSummaryLists();
@@ -5542,6 +6101,7 @@ async function fetchMusicianBlackouts() {
     return;
   }
   state.calendar.blackouts = data || [];
+  ensureSeededMusicianBlackouts();
   renderBlackoutList();
 }
 
@@ -5592,7 +6152,8 @@ async function saveRosterBlackout() {
     saveDraft();
     renderBlackoutList();
   }
-  updateRosterBlackoutStatus("Blackout saved.");
+  resetRosterBlackoutForm();
+  updateRosterBlackoutStatus("Blackout saved and form reset.");
 }
 
 function setupListeners() {
@@ -5765,6 +6326,7 @@ function setupListeners() {
       contracts: "Signed Contracts",
       contractscreated: "Contracts Created",
       musicians: "Musicians + Tech Crew",
+      troubleshooting: "Troubleshooting",
       allabout: "App Overview",
       howto: "How-To Playbook",
     };
@@ -5777,6 +6339,7 @@ function setupListeners() {
       workorders: "Work Orders",
       shows: "Shows",
       musicians: "Musicians + Tech Crew",
+      troubleshooting: "Troubleshooting",
       about: "Guide Folder",
     };
     const folderLabel = folderNames[topTarget] || "Workspace";
@@ -5798,6 +6361,7 @@ function setupListeners() {
     document.getElementById("contractsCreatedTab").classList.toggle("hidden", target !== "contractscreated");
     document.getElementById("contractsHubTab").classList.toggle("hidden", target !== "contractshub");
     document.getElementById("musiciansTab").classList.toggle("hidden", target !== "musicians");
+    document.getElementById("troubleshootingTab").classList.toggle("hidden", target !== "troubleshooting");
     document.getElementById("showsTab").classList.toggle("hidden", target !== "shows");
     document.getElementById("workOrdersTab").classList.toggle("hidden", target !== "workorders");
     document.getElementById("allaboutTab").classList.toggle("hidden", target !== "allabout");
@@ -5853,6 +6417,10 @@ function setupListeners() {
     }
     if (topTarget === "musicians") {
       switchPanel("musicians");
+      return;
+    }
+    if (topTarget === "troubleshooting") {
+      switchPanel("troubleshooting");
       return;
     }
 
@@ -6053,7 +6621,7 @@ function setupListeners() {
   }
   const workOrderList = document.getElementById("workOrderList");
   if (workOrderList) {
-    workOrderList.addEventListener("click", (event) => {
+    workOrderList.addEventListener("click", async (event) => {
       const button = event.target.closest("button[data-action][data-id]");
       if (!button) return;
       const { action, id } = button.dataset;
@@ -6065,12 +6633,40 @@ function setupListeners() {
           current.status === "Completed" || current.completed === true;
         current.status = nowDone ? "Open" : "Completed";
         current.completed = !nowDone;
+        const saveResult = await saveWorkOrder(current);
+        if (!saveResult.ok && !saveResult.localOnly) {
+          current.status = nowDone ? "Completed" : "Open";
+          current.completed = nowDone;
+          setWorkOrderStatus(saveResult.message, true);
+          renderWorkOrders();
+          return;
+        }
+        if (saveResult.row) {
+          state.workOrders[idx] = mapWorkOrderRow(saveResult.row);
+        }
+        setWorkOrderStatus(
+          saveResult.localOnly
+            ? "Status changed on this device only."
+            : "Work order updated."
+        );
       } else if (action === "delete") {
-        state.workOrders.splice(idx, 1);
+        const [removed] = state.workOrders.splice(idx, 1);
+        const deleteResult = await deleteWorkOrderRecord(id);
+        if (!deleteResult.ok && !deleteResult.localOnly) {
+          state.workOrders.splice(idx, 0, removed);
+          setWorkOrderStatus(deleteResult.message, true);
+          renderWorkOrders();
+          return;
+        }
         if (state.workOrderView.focusId === id) {
           state.workOrderView.focusId = "";
           state.workOrderView.showCreate = true;
         }
+        setWorkOrderStatus(
+          deleteResult.localOnly
+            ? "Work order removed on this device only."
+            : "Work order deleted."
+        );
       }
       saveDraft();
       renderWorkOrders();
@@ -6135,6 +6731,14 @@ function setupListeners() {
   const saveMusicianShowBtn = document.getElementById("saveMusicianShow");
   if (saveMusicianShowBtn) {
     saveMusicianShowBtn.addEventListener("click", saveManualMusicianShow);
+  }
+  const refreshAppDataBtn = document.getElementById("refreshAppData");
+  if (refreshAppDataBtn) {
+    refreshAppDataBtn.addEventListener("click", refreshSignedInAppData);
+  }
+  const resetLocalAppDataBtn = document.getElementById("resetLocalAppData");
+  if (resetLocalAppDataBtn) {
+    resetLocalAppDataBtn.addEventListener("click", clearLocalAppDataPreservingLogin);
   }
 
   const calendarPrev = document.getElementById("calendarPrev");
@@ -6495,6 +7099,11 @@ async function copyMessage(statusTargetId = "pdfStatus", triggerButton = null) {
 async function init() {
   loadDraft();
   loadCalendarSettings();
+  ensureToddSeededShowFiles();
+  ensureDanSeededShowFiles();
+  ensureJennySeededShowFiles();
+  ensureGarySeededShowFiles();
+  ensureSeededMusicianBlackouts();
   refreshAgreementCreatedDate();
   if (!state.agreement.chargeNonPerformance) {
     state.agreement.nonPerformanceHours = "";
@@ -6532,6 +7141,7 @@ async function init() {
   fetchMusicianAssignments();
   fetchMusicianBlackouts();
   fetchMusicians();
+  fetchWorkOrders();
   fetchInvoices();
   fetchReceipts();
   renderMusicianList();

@@ -32,6 +32,7 @@
         <button class="tab top-tab" data-top="workorders">Work Orders</button>
         <button class="tab top-tab" data-top="shows">Shows</button>
         <button class="tab top-tab" data-top="musicians">Musicians + Tech Crew</button>
+        <button class="tab top-tab" data-top="troubleshooting">Troubleshooting</button>
         <button class="tab top-tab" data-top="about">About</button>
         <button class="tab cta" id="openPdf" disabled>Open PDF</button>
         <button class="tab" id="printPdf" disabled>Print PDF</button>
@@ -272,7 +273,7 @@
               </label>
               <label>
                 Performance hours (on stage)
-                <input id="hours" placeholder="3" />
+                <input id="hours" placeholder="Select" />
               </label>
               <div class="field-stack">
                 <label>
@@ -287,6 +288,7 @@
               <label>
                 Event type
                 <select id="eventType">
+                  <option value="">Select</option>
                   <option>Pub / Club</option>
                   <option>Private Event</option>
                 </select>
@@ -294,13 +296,14 @@
               <label>
                 Band configuration
                 <select id="bandConfig">
+                  <option value="">Select</option>
                   <option>Full Band</option>
                   <option>Duo</option>
                 </select>
               </label>
               <label>
                 Additional musicians (beyond band size)
-                <input id="additionalMusicians" placeholder="0" />
+                <input id="additionalMusicians" placeholder="Leave blank if unknown" />
               </label>
               <label class="checkbox">
                 <input id="backlineSound" type="checkbox" />
@@ -313,7 +316,7 @@
                 </label>
                 <label>
                   Discount amount
-                  <input id="friendsFamilyDiscountAmount" placeholder="100" disabled />
+                  <input id="friendsFamilyDiscountAmount" placeholder="Enter amount" disabled />
                 </label>
               </div>
               <label>
@@ -429,7 +432,7 @@
                 <input id="feeDepositDue" readonly />
               </label>
               <label class="checkbox inline-note">
-                <input id="depositEnabled" type="checkbox" checked />
+                <input id="depositEnabled" type="checkbox" />
                 Apply deposit (default $50)
               </label>
               <label class="checkbox">
@@ -1088,13 +1091,11 @@
             <div class="inline-actions">
               <button class="btn" id="addMusician">Add team member</button>
               <button class="btn ghost hidden" id="cancelMusicianEdit">Cancel edit</button>
-              <button class="btn ghost" id="seedMusicians">Seed default roster</button>
               <p id="musicianStatus" class="muted"></p>
             </div>
-            <div id="musicianList" class="event-list"></div>
           </div>
 
-          <div class="form-section">
+          <div class="form-section blackout-section">
             <h3>Musician Blackouts</h3>
             <div class="form-grid">
               <label>
@@ -1128,32 +1129,11 @@
                 All-day blackout
               </label>
             </div>
-            <div class="inline-actions">
+            <div class="inline-actions blackout-actions">
               <button class="btn" id="saveRosterBlackout">Save blackout</button>
               <p id="rosterBlackoutStatus" class="muted"></p>
             </div>
             <div id="blackoutList" class="event-list"></div>
-          </div>
-
-          <div class="form-section">
-            <h3>Assignments &amp; Availability</h3>
-            <div class="form-grid">
-              <label>
-                Filter by musician
-                <select id="assignmentFilterMusician"></select>
-              </label>
-              <div class="checkbox-group">
-                <label class="checkbox">
-                  <input id="assignmentStatusPending" type="checkbox" checked />
-                  Pending
-                </label>
-                <label class="checkbox">
-                  <input id="assignmentStatusConfirmed" type="checkbox" checked />
-                  Confirmed
-                </label>
-              </div>
-            </div>
-            <div id="assignmentList" class="event-list"></div>
           </div>
 
           <div class="form-section">
@@ -1162,36 +1142,67 @@
             <div class="cabinet-shell">
               <div id="musicianShowTabs" class="cabinet-tabs"></div>
               <div class="cabinet-panel">
-                <div class="form-grid">
-                  <label>
+                <div id="musicianCabinetHeader" class="cabinet-header"></div>
+                <div class="show-file-form">
+                  <label class="show-file-field">
                     Show date
                     <input id="musicianShowDate" type="date" />
                   </label>
-                  <label>
+                  <label class="show-file-field">
                     Show title
                     <input id="musicianShowTitle" placeholder="Venue or show name" />
                   </label>
-                  <label>
+                  <label class="show-file-field">
                     Status
                     <select id="musicianShowStatusSelect">
                       <option value="Booked">Booked</option>
                       <option value="Confirmed">Confirmed</option>
                     </select>
                   </label>
-                  <label>
+                  <label class="show-file-field show-file-notes">
                     Notes
                     <textarea id="musicianShowNotes" placeholder="Optional note"></textarea>
                   </label>
-                </div>
-                <div class="inline-actions">
+                  <div class="inline-actions show-file-actions">
                   <button class="btn" id="saveMusicianShow">Add show file</button>
                   <p id="musicianShowStatus" class="muted"></p>
+                  </div>
                 </div>
                 <div id="musicianShowList" class="event-list"></div>
               </div>
             </div>
           </div>
 
+        </section>
+      </main>
+
+      <main class="layout single hidden" id="troubleshootingTab">
+        <section class="panel form-panel">
+          <h2>Troubleshooting</h2>
+          <p class="muted">Use this tab when a phone or browser is acting stuck on old app data.</p>
+
+          <div class="form-section">
+            <h3>Safe Reset Tools</h3>
+            <p class="muted">
+              The reset below clears this device&apos;s saved app data and reloads the app, but it does not intentionally sign the user out.
+            </p>
+            <div class="inline-actions troubleshooting-actions">
+              <button class="btn ghost" id="refreshAppData">Refresh signed-in data</button>
+              <button class="btn" id="resetLocalAppData">Reset app data on this device</button>
+              <p id="troubleshootingStatus" class="muted"></p>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>Safari iPhone Tips</h3>
+            <ul class="troubleshooting-list">
+              <li>Remove the Home Screen app icon first, then reopen the site in Safari before adding it back.</li>
+              <li>In iPhone Settings, go to Safari, Advanced, Website Data, find this site, and delete that site data.</li>
+              <li>If the page still looks stale, use Clear History and Website Data in Safari settings, then reopen the site.</li>
+              <li>Make sure Josh opens the same exact site address each time. `localhost`, `127.0.0.1`, and a Wi-Fi IP count as different sites.</li>
+              <li>After clearing data, add the site back to the Home Screen from Safari using Share, then Add to Home Screen.</li>
+            </ul>
+          </div>
         </section>
       </main>
 
