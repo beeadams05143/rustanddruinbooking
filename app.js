@@ -5177,6 +5177,11 @@ function getCanonicalSeededShowTitle(showDate) {
   );
 }
 
+function isInternalSeededNote(noteText) {
+  const normalized = normalizeText(noteText || "");
+  return normalized === "seeded blackout" || normalized === "seeded confirmed show";
+}
+
 function ensureSeededShowFilesForMusician(namePattern, showDates, idPrefix) {
   const musician = state.musicians.find((item) =>
     namePattern.test(String(item?.name || "").trim())
@@ -5197,10 +5202,12 @@ function ensureSeededShowFilesForMusician(namePattern, showDates, idPrefix) {
     if (existingForDate) {
       if (
         normalizeText(existingForDate.show_title || "") !== normalizeText(canonicalTitle) ||
-        existingForDate.status !== "Confirmed"
+        existingForDate.status !== "Confirmed" ||
+        isInternalSeededNote(existingForDate.notes)
       ) {
         existingForDate.show_title = canonicalTitle;
         existingForDate.status = "Confirmed";
+        existingForDate.notes = "";
         updated = true;
       }
       return;
@@ -5212,7 +5219,7 @@ function ensureSeededShowFilesForMusician(namePattern, showDates, idPrefix) {
       show_date: showDate,
       show_title: canonicalTitle,
       status: "Confirmed",
-      notes: "Seeded confirmed show",
+      notes: "",
     });
     added = true;
   });
@@ -5282,7 +5289,7 @@ function ensureSeededMusicianBlackouts() {
       start_time: start.toISOString(),
       end_time: end.toISOString(),
       all_day: true,
-      notes: "Seeded blackout",
+      notes: "",
     });
     added = true;
   });
@@ -5393,7 +5400,7 @@ function renderMusicianShowCabinet() {
     dateMeta.textContent = entry.show_date ? formatDate(entry.show_date) : "No date";
     card.appendChild(header);
     card.appendChild(dateMeta);
-    if (entry.notes) {
+    if (entry.notes && !isInternalSeededNote(entry.notes)) {
       const notes = document.createElement("div");
       notes.className = "event-meta";
       notes.textContent = entry.notes;
@@ -6074,7 +6081,7 @@ function renderBlackoutList() {
     )}`;
     card.appendChild(header);
     card.appendChild(meta);
-    if (entry.notes) {
+    if (entry.notes && !isInternalSeededNote(entry.notes)) {
       const notes = document.createElement("div");
       notes.className = "event-meta";
       notes.textContent = entry.notes;
