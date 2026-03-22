@@ -533,6 +533,20 @@ function saveDraft() {
   }
 }
 
+function persistVisibleFormState() {
+  if (state.activeTab === "agreement") {
+    syncAgreementStateFromForm();
+    updatePerformanceHoursFromTimes();
+    updateHolidayFromDate();
+    updateAgreementPreview();
+  } else if (state.activeTab === "invoice") {
+    updateInvoicePreview();
+  } else if (state.activeTab === "receipt") {
+    updateReceiptPreview();
+  }
+  saveDraft();
+}
+
 function loadDraft() {
   try {
     const stored = safeStorageGet(STORAGE_KEY);
@@ -2484,7 +2498,9 @@ function initSupabaseClient() {
     if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
       safeStorageSet(CALENDAR_AUTH_SEEN_KEY, "1");
       updateSupabaseStatus("Signed in.");
-      if (switchTopView) switchTopView("home");
+      if (switchTopView) {
+        switchTopView(state.workspace.top || "home");
+      }
       queueSupabaseSyncRefresh();
     } else if (event === "SIGNED_OUT") {
       updateSupabaseStatus("Signed out.");
@@ -2784,7 +2800,7 @@ async function refreshAuthState() {
     updateOpsProgress();
   }
   if (switchTopView) {
-    switchTopView(state.calendar.session ? "home" : "login");
+    switchTopView(state.calendar.session ? state.workspace.top || "home" : "login");
   }
 }
 
@@ -6968,10 +6984,16 @@ function setupListeners() {
   }
 
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden && state.calendar.session) {
+    if (document.hidden) {
+      persistVisibleFormState();
+      return;
+    }
+    if (state.calendar.session) {
       queueSupabaseSyncRefresh();
     }
   });
+  window.addEventListener("pagehide", persistVisibleFormState);
+  window.addEventListener("beforeunload", persistVisibleFormState);
 
   const uploadContract = document.getElementById("uploadContract");
   if (uploadContract) uploadContract.addEventListener("click", handleContractUpload);
