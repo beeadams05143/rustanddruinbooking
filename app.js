@@ -1558,6 +1558,26 @@ function getConflictTrackedEventsForDate(dateStr, events = []) {
   });
 }
 
+function dedupeShowEvents(events = []) {
+  const seen = new Set();
+  return events.filter((event) => {
+    const titleKey = normalizeText(event?.title || event?.type || "event");
+    const typeKey = normalizeText(event?.type || "");
+    const startDate = new Date(event?.start_time || "");
+    const endDate = new Date(event?.end_time || "");
+    const startKey = Number.isFinite(startDate.getTime())
+      ? startDate.toISOString()
+      : String(event?.start_time || "");
+    const endKey = Number.isFinite(endDate.getTime())
+      ? endDate.toISOString()
+      : String(event?.end_time || "");
+    const key = `${titleKey}|${typeKey}|${startKey}|${endKey}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function getShowsRangeEvents(rangeStart, rangeEnd) {
   let events = mergeSeededCalendarEvents(state.calendar.events, rangeStart, rangeEnd).filter((event) => {
     const start = new Date(event.start_time);
@@ -1577,7 +1597,7 @@ async function getShowsRangeEvents(rangeStart, rangeEnd) {
     }
   }
 
-  return events;
+  return dedupeShowEvents(events);
 }
 
 function eventStartDate(event) {
@@ -4595,13 +4615,15 @@ function renderContractsHub() {
           failureMessage: "PDF loaded, but the message could not be copied.",
         });
         const file = lastPdfBlob ? new File([lastPdfBlob], lastPdfName, { type: "application/pdf" }) : null;
+        const shareMessage = getCurrentShareMessage();
         if (file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
             await navigator.share({
               files: [file],
-              title: contract.name || "Rust and Ruin Agreement",
+              title: shareMessage.subject || contract.name || "Rust and Ruin Agreement",
+              text: shareMessage.payload,
             });
-            setContractsHubStatus("Shared.");
+            setContractsHubStatus("Shared. Message copied as backup.");
             return;
           } catch (error) {
             setContractsHubStatus("Share canceled.");
@@ -7391,13 +7413,15 @@ async function shareLastPdf() {
   }
 
   const file = new File([lastPdfBlob], lastPdfName, { type: "application/pdf" });
+  const shareMessage = getCurrentShareMessage();
   if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({
         files: [file],
-        title: "Rust and Ruin Agreement",
+        title: shareMessage.subject,
+        text: shareMessage.payload,
       });
-      statusEl.textContent = "Shared.";
+      statusEl.textContent = "Shared. Message copied as backup.";
     } catch (error) {
       statusEl.textContent = "Share canceled.";
     }
@@ -7409,6 +7433,18 @@ async function shareLastPdf() {
   }
 }
 
+function getCurrentShareMessage() {
+  if (state.activeTab === "agreement") {
+    prepareAgreementForOutput();
+  }
+  const message = buildMessage(state.activeTab);
+  return {
+    subject: message.subject,
+    body: message.body,
+    payload: `${message.subject}\n\n${message.body}`,
+  };
+}
+
 async function copyCurrentMessageToClipboard(options = {}) {
   const {
     statusEl = document.getElementById("pdfStatus"),
@@ -7417,11 +7453,7 @@ async function copyCurrentMessageToClipboard(options = {}) {
     failureMessage = "Could not copy message.",
   } = options;
 
-  if (state.activeTab === "agreement") {
-    prepareAgreementForOutput();
-  }
-  const message = buildMessage(state.activeTab);
-  const payload = `${message.subject}\n\n${message.body}`;
+  const { payload } = getCurrentShareMessage();
 
   const setCopiedState = () => {
     if (statusEl) statusEl.textContent = successMessage;
