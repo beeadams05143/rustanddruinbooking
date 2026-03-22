@@ -4199,6 +4199,42 @@ function setContractsHubStatus(message, isError = false) {
   el.classList.toggle("warning", isError);
 }
 
+function findCreatedAgreementForPendingContract(contract) {
+  if (!contract) return null;
+  const snapshot = getAgreementSnapshotForContract(contract) || {};
+  const linkedEvent = state.calendar.events.find((event) => event.id === contract.event_id);
+  const snapshotName = normalizeText(snapshot.clientName || "");
+  const snapshotDate = normalizeDateValue(snapshot.performanceDate || "");
+  const eventName = normalizeText(
+    linkedEvent?.title || String(contract.name || "").replace(/\s+Agreement$/i, "")
+  );
+  const eventDate = linkedEvent ? formatDateInput(new Date(linkedEvent.start_time)) : "";
+
+  const createdContracts = state.calendar.contracts
+    .filter((item) => {
+      if (!item?.file_path) return false;
+      const status = String(item.status || "").toLowerCase();
+      const path = String(item.file_path || "");
+      return status.includes("created") || path.startsWith("created-contracts/");
+    })
+    .sort((a, b) => new Date(b.uploaded_at || b.created_at || 0) - new Date(a.uploaded_at || a.created_at || 0));
+
+  const scored = createdContracts
+    .map((item) => {
+      const name = normalizeText(item.name || "");
+      let score = 0;
+      if (snapshotName && name.includes(snapshotName)) score += 4;
+      if (eventName && name.includes(eventName)) score += 3;
+      if (snapshotDate && String(item.name || "").includes(snapshotDate)) score += 4;
+      if (eventDate && String(item.name || "").includes(eventDate)) score += 3;
+      return { item, score };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  return scored[0]?.item || null;
+}
+
 function contractTimestampLabel(contract) {
   return formatShortDateTime(contract.uploaded_at || contract.created_at || "");
 }
@@ -4477,6 +4513,17 @@ function renderContractsHub() {
       uploadBtn.className = "btn ghost";
       uploadBtn.textContent = "Upload signed PDF";
       uploadBtn.addEventListener("click", () => fileInput.click());
+      const openUnsignedBtn = document.createElement("button");
+      openUnsignedBtn.className = "btn ghost";
+      openUnsignedBtn.textContent = "Open unsigned PDF";
+      openUnsignedBtn.addEventListener("click", async () => {
+        const createdAgreement = findCreatedAgreementForPendingContract(contract);
+        if (!createdAgreement?.file_path) {
+          setContractsHubStatus("No saved unsigned agreement PDF found for this draft.", true);
+          return;
+        }
+        await openContractPdfPath(createdAgreement.file_path);
+      });
       const editBtn = document.createElement("button");
       editBtn.className = "btn ghost";
       editBtn.textContent = "Edit Draft";
@@ -4500,6 +4547,7 @@ function renderContractsHub() {
       });
       actions.appendChild(signedWrap);
       actions.appendChild(noContractWrap);
+      actions.appendChild(openUnsignedBtn);
       actions.appendChild(uploadBtn);
       actions.appendChild(editBtn);
       actions.appendChild(
