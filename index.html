@@ -328,6 +328,7 @@
               Performance time total: <span data-fill="performanceHoursTotal"></span> hours
             </p>
             <p id="agreementBookingWarning" class="warning hidden"></p>
+            <div id="agreementBookingActions" class="inline-actions hidden"></div>
             <p class="section-total">
               Event subtotal (before add-ons & travel): <span data-fill="eventSubtotal"></span>
             </p>
@@ -475,6 +476,7 @@
           <div class="form-footer agreement-actions">
             <p class="inline-help">Client signs on PDF.</p>
             <button class="btn" id="submitAgreement" type="button">Submit Agreement</button>
+            <button class="btn ghost" id="completeAgreement" type="button">Done</button>
             <button class="btn ghost" id="resetAgreement" type="button">Reset Form</button>
             <button class="btn ghost" id="addPendingHold" type="button">Add to Calendar (Pending)</button>
             <button class="btn ghost" id="agreementCopyMessage" type="button">Copy Agreement Message</button>
@@ -503,20 +505,31 @@
             <div class="contract-section">
               <h3>1. Fees</h3>
               <p>
-                Payment of fees: <span data-fill="totalWithDeposit"></span> for
-                <span data-fill="performanceHoursDisplay"></span> hours. Performance date:
-                <span data-fill="performanceDate"></span> from
-                <span data-fill="performanceTime"></span> to
-                <span data-fill="performanceEndTime"></span>. Performance hours (on stage):
-                <span data-fill="performanceHoursDisplay"></span> hours · Non-performance hours on site:
-                <span data-fill="nonPerformanceHoursDisplay"></span> hours · Performance fee:
-                <span data-fill="performanceFeeAuto"></span>. Holiday adjustment:
-                <span data-fill="holidayFee"></span> (<span data-fill="holidayRateType"></span>). Preferred venue /
-                friends &amp; family discount: <span data-fill="friendsFamilyDiscount"></span>. Add-ons total:
-                <span data-fill="addonTotal"></span>. Travel: <span data-fill="travelFee"></span>.
-                Lodging: <span data-fill="lodgingFee"></span>. Payment must be made prior to performance. Pay in
-                cash, check to Rust and Ruin, Venmo @rustandruinvt, or PayPal @rustandruin. Deposit:
-                <span data-fill="depositAmount"></span>. Contract is void if not returned within 10 days.
+                The total fee for this event is <span data-fill="totalWithDeposit"></span> for
+                <span data-fill="totalContractedHoursDisplay"></span> total contracted on-site hours.
+                The performance date is <span data-fill="performanceDate"></span>, with performance time
+                from <span data-fill="performanceTime"></span> to
+                <span data-fill="performanceEndTime"></span>. This includes
+                <span data-fill="performanceHoursDisplay"></span> performance hours on stage and
+                <span data-fill="nonPerformanceHoursDisplay"></span> additional required on-site hours
+                when not performing.
+              </p>
+              <p>
+                The fee breakdown is as follows: performance fee
+                <span data-fill="performanceFeeAuto"></span>; additional on-site time fee
+                <span data-fill="nonPerformanceFee"></span>; holiday adjustment
+                <span data-fill="holidayFee"></span> (<span data-fill="holidayRateType"></span>);
+                preferred venue / friends &amp; family discount
+                <span data-fill="friendsFamilyDiscountDisplay"></span>; subtotal after discount
+                <span data-fill="eventSubtotal"></span>; add-ons total
+                <span data-fill="addonTotal"></span>; travel
+                <span data-fill="travelFee"></span>; and lodging
+                <span data-fill="lodgingFee"></span>.
+              </p>
+              <p>
+                Deposit: <span data-fill="depositAmount"></span>. Payment must be made prior to
+                performance by cash, check to Rust and Ruin, Venmo @rustandruinvt, or PayPal
+                @rustandruin. Contract is void if not returned within 10 days.
                 <span id="promoCreditsInline" class="hidden">
                   Promo credits: $5 for a promo post with tag and $10 for a live video with tag. If
                   selected, client agrees to make those posts. Credits are applied to the deposit.
@@ -590,8 +603,10 @@
                   <span data-fill="performanceHoursDisplay"></span> hours
                 </p>
                 <p>Performance fee: <span data-fill="performanceFeeAuto"></span></p>
+                <p>Additional on-site time fee: <span data-fill="nonPerformanceFee"></span></p>
                 <p>Holiday adjustment: <span data-fill="holidayFee"></span></p>
-                <p>Preferred venue / friends &amp; family discount: <span data-fill="friendsFamilyDiscount"></span></p>
+                <p>Preferred venue / friends &amp; family discount: <span data-fill="friendsFamilyDiscountDisplay"></span></p>
+                <p>Subtotal after discount: <span data-fill="eventSubtotal"></span></p>
                 <p>Add-ons total: <span data-fill="addonTotal"></span></p>
                 <p>Deposit credits: <span data-fill="depositCredits"></span></p>
                 <p>Lodging fee: <span data-fill="lodgingFee"></span></p>

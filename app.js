@@ -80,6 +80,9 @@ const state = {
   agreement: createInitialAgreementState(),
   invoice: createInitialInvoiceState(),
   receipt: createInitialReceiptState(),
+  workspace: {
+    top: "login",
+  },
   calendar: {
     overridePin: "",
     hiddenSeededEventKeys: [],
@@ -511,6 +514,10 @@ function safeStorageGet(key) {
 function saveDraft() {
   try {
     const payload = {
+      agreement: state.agreement,
+      agreementDraftContext: state.agreementDraftContext,
+      activeTab: state.activeTab,
+      workspace: state.workspace,
       invoice: state.invoice,
       receipt: state.receipt,
       workOrders: state.workOrders,
@@ -531,6 +538,21 @@ function loadDraft() {
     const stored = safeStorageGet(STORAGE_KEY);
     if (!stored) return;
     const parsed = JSON.parse(stored);
+    if (parsed.agreement) {
+      state.agreement = { ...state.agreement, ...parsed.agreement };
+    }
+    if (parsed.agreementDraftContext) {
+      state.agreementDraftContext = {
+        ...state.agreementDraftContext,
+        ...parsed.agreementDraftContext,
+      };
+    }
+    if (parsed.activeTab) {
+      state.activeTab = parsed.activeTab;
+    }
+    if (parsed.workspace && typeof parsed.workspace === "object") {
+      state.workspace = { ...state.workspace, ...parsed.workspace };
+    }
     if (parsed.invoice) {
       state.invoice = { ...state.invoice, ...parsed.invoice };
     }
@@ -587,13 +609,19 @@ function getContractDraftSnapshotKey(contract = {}) {
 }
 
 function saveAgreementSnapshotForContract(contract = {}) {
-  const key = getContractDraftSnapshotKey(contract);
-  if (!key) return;
   const snapshots = loadContractDraftSnapshots();
-  snapshots[key] = {
-    agreement: { ...state.agreement },
-    savedAt: new Date().toISOString(),
-  };
+  const keys = [
+    contract?.event_id ? `event:${contract.event_id}` : "",
+    contract?.id ? `contract:${contract.id}` : "",
+    contract?.name ? `name:${String(contract.name).trim().toLowerCase()}` : "",
+  ].filter(Boolean);
+  if (!keys.length) return;
+  keys.forEach((key) => {
+    snapshots[key] = {
+      agreement: { ...state.agreement },
+      savedAt: new Date().toISOString(),
+    };
+  });
   saveContractDraftSnapshots(snapshots);
 }
 
@@ -1101,6 +1129,15 @@ function updateAgreementPreview() {
       : "0.00"
   );
   setText(
+    "[data-fill='totalContractedHoursDisplay']",
+    (
+      totals.performanceHoursTotal +
+      (state.agreement.chargeNonPerformance
+        ? toNumber(state.agreement.nonPerformanceHours)
+        : 0)
+    ).toFixed(2)
+  );
+  setText(
     "[data-fill='holidayFee']",
     state.agreement.holidayWeekend ? toMoney(totals.holidayFee) : "$0.00"
   );
@@ -1136,6 +1173,7 @@ function updateAgreementPreview() {
 
   setText("[data-fill='performanceFee']", toMoney(totals.performanceFee));
   setText("[data-fill='performanceFeeAuto']", toMoney(totals.performanceFeeAuto));
+  setText("[data-fill='nonPerformanceFee']", toMoney(totals.onsiteFee));
   setText(
     "[data-fill='depositAmount']",
     !totals.depositEnabled
@@ -1154,6 +1192,12 @@ function updateAgreementPreview() {
   );
   setText("[data-fill='addonTotal']", toMoney(totals.addOnTotal));
   setText("[data-fill='friendsFamilyDiscount']", toMoney(totals.friendsFamilyDiscountAmount));
+  setText(
+    "[data-fill='friendsFamilyDiscountDisplay']",
+    totals.friendsFamilyDiscountAmount > 0
+      ? `-${toMoney(totals.friendsFamilyDiscountAmount)}`
+      : "$0.00"
+  );
   setText("[data-fill='feesSubtotal']", toMoney(totals.feeSubtotal));
   setText("[data-fill='totalWithDeposit']", toMoney(totals.totalWithDeposit));
   setText("[data-fill='travelHours']", state.agreement.travelHours || "__");
@@ -1259,11 +1303,16 @@ function refreshAgreementCreatedDate() {
 
 async function updateAgreementBookingWarning() {
   const warning = document.getElementById("agreementBookingWarning");
+  const actions = document.getElementById("agreementBookingActions");
   if (!warning) return;
   const dateStr = normalizeDateValue(state.agreement.performanceDate);
   if (!dateStr) {
     warning.textContent = "";
     warning.classList.add("hidden");
+    if (actions) {
+      actions.innerHTML = "";
+      actions.classList.add("hidden");
+    }
     return;
   }
 
@@ -1289,16 +1338,45 @@ async function updateAgreementBookingWarning() {
     const key = eventIdentityKey(event);
     return index === arr.findIndex((item) => eventIdentityKey(item) === key);
   });
-  if (!uniqueMatches.length) {
+  const activeDraft = getActiveAgreementDraftContract();
+  const filteredMatches = uniqueMatches.filter((event) => {
+    if (activeDraft.event_id && event.id === activeDraft.event_id) return false;
+    const eventAgreementName = `${event.title || event.type || "Event"} Agreement`
+      .trim()
+      .toLowerCase();
+    if (activeDraft.name && eventAgreementName === String(activeDraft.name).trim().toLowerCase()) {
+      return false;
+    }
+    return true;
+  });
+  if (!filteredMatches.length) {
     warning.textContent = "";
     warning.classList.add("hidden");
+    if (actions) {
+      actions.innerHTML = "";
+      actions.classList.add("hidden");
+    }
     return;
   }
 
-  warning.textContent = `Already booked on this date: ${uniqueMatches
+  warning.textContent = `Already booked on this date: ${filteredMatches
     .map((event) => event.title || event.type)
     .join(", ")}.`;
   warning.classList.remove("hidden");
+  if (actions) {
+    actions.innerHTML = "";
+    filteredMatches.forEach((event) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn ghost";
+      button.textContent = `Open ${event.title || event.type}`;
+      button.addEventListener("click", async () => {
+        await openAgreementForCalendarEvent(event);
+      });
+      actions.appendChild(button);
+    });
+    actions.classList.toggle("hidden", filteredMatches.length === 0);
+  }
 }
 
 function updateInvoicePreview() {
@@ -3281,6 +3359,55 @@ function selectEventForEdit(event, selectedDateOverride = "") {
     renderMusicianAssignments();
 }
 
+async function openAgreementForCalendarEvent(event) {
+  if (!event) return;
+
+  const existingContract = state.calendar.contracts.find((item) => item.event_id === event.id);
+  const draftContract = existingContract || {
+    id: "",
+    event_id: event.id,
+    name: `${event.title || event.type || "Event"} Agreement`,
+  };
+
+  setAgreementDraftContext(draftContract);
+  const snapshot = getAgreementSnapshotForContract(draftContract);
+  state.agreement = snapshot
+    ? { ...createInitialAgreementState(), ...snapshot }
+    : createInitialAgreementState();
+
+  const start = new Date(event.start_time);
+  const end = new Date(event.end_time || event.start_time);
+  state.agreement.clientName = state.agreement.clientName || event.title || "";
+  state.agreement.performanceDate = formatDateInput(start);
+  state.agreement.performanceTime = formatTimeInput(start);
+  state.agreement.performanceEndTime = formatTimeInput(end);
+
+  syncAgreementForm();
+  updatePerformanceHoursFromTimes();
+  updateHolidayFromDate();
+  updateAgreementPreview();
+  saveDraft();
+  persistAgreementDraftSnapshot();
+
+  if (!existingContract && state.calendar.client && state.calendar.session && !event.seeded) {
+    await upsertPendingContractForEvent(event.id, event.title || event.type);
+    await fetchContracts();
+    setAgreementDraftContext({
+      id: "",
+      event_id: event.id,
+      name: `${event.title || event.type || "Event"} Agreement`,
+    });
+  }
+
+  if (switchTopView) {
+    state.activeTab = "agreement";
+    switchTopView("bookkeeping");
+  }
+  setAgreementCalendarStatus(
+    "Agreement loaded from the selected calendar event. You can now create or edit the contract for this booking."
+  );
+}
+
 function getCalendarEventsForDate(dateValue) {
   const selectedDate = parseLocalDate(dateValue);
   if (!selectedDate) return [];
@@ -3375,11 +3502,18 @@ function buildEventCard(event, selected, compact = false) {
   });
   const selectBtn = document.createElement("button");
   selectBtn.className = "btn ghost";
-  selectBtn.textContent = "Edit";
+  selectBtn.textContent = "Edit event";
   selectBtn.addEventListener("click", () => {
     selectEventForEdit(event, selected);
   });
   actions.appendChild(selectBtn);
+  const contractBtn = document.createElement("button");
+  contractBtn.className = "btn ghost";
+  contractBtn.textContent = "Create/Edit Contract";
+  contractBtn.addEventListener("click", async () => {
+    await openAgreementForCalendarEvent(event);
+  });
+  actions.appendChild(contractBtn);
   if (String(event.type || "").toLowerCase() === "confirmed" && !event.seeded) {
     const uploadBtn = document.createElement("button");
     uploadBtn.className = "btn ghost";
@@ -4582,8 +4716,22 @@ function resetAgreementForm() {
 async function submitAgreement() {
   const added = await addAgreementToCalendarPending();
   if (!added) return;
+  await generatePdf("agreement", { openAfterGenerate: true });
+  setAgreementCalendarStatus(
+    "Submitted. Pending contract saved to calendar and PDF opened for preview. You can keep editing until you tap Done."
+  );
+}
+
+function completeAgreementWorkflow() {
+  prepareAgreementForOutput();
+  const activeContract = getActiveAgreementDraftContract();
+  if (activeContract.id || activeContract.event_id || activeContract.name) {
+    saveAgreementSnapshotForContract(activeContract);
+  }
   resetAgreementForm();
-  setAgreementCalendarStatus("Submitted. Pending hold added and form reset.");
+  setAgreementCalendarStatus(
+    "Contract setup marked done. Waiting for signature. Agreement form cleared for the next booking."
+  );
 }
 
 function syncAgreementForm() {
@@ -6385,6 +6533,7 @@ function setupListeners() {
     updateWorkspaceHead(activeTop, target);
     rememberRoute(activeTop, target);
     updateMessagePreview();
+    saveDraft();
   };
 
   const switchTop = (topTarget) => {
@@ -6394,6 +6543,7 @@ function setupListeners() {
       topTarget = "login";
     }
     activeTop = topTarget;
+    state.workspace.top = topTarget;
     document.querySelectorAll(".top-tab[data-top]").forEach((btn) => {
       btn.classList.toggle("active", btn.getAttribute("data-top") === topTarget);
     });
@@ -6499,6 +6649,10 @@ function setupListeners() {
   const submitAgreementBtn = document.getElementById("submitAgreement");
   if (submitAgreementBtn) {
     submitAgreementBtn.addEventListener("click", submitAgreement);
+  }
+  const completeAgreementBtn = document.getElementById("completeAgreement");
+  if (completeAgreementBtn) {
+    completeAgreementBtn.addEventListener("click", completeAgreementWorkflow);
   }
   const resetAgreementBtn = document.getElementById("resetAgreement");
   if (resetAgreementBtn) {
@@ -6850,7 +7004,10 @@ function setupListeners() {
         : "Hide message";
     });
   }
-  switchTop(state.calendar.session ? "home" : "login");
+  const preferredTop = state.calendar.session
+    ? state.workspace.top || "home"
+    : "login";
+  switchTop(preferredTop);
   setMusicianEditorState("");
   renderWorkOrders();
   updateCreatedContractList();
