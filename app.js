@@ -4598,6 +4598,11 @@ function renderContractsHub() {
       openUnsignedBtn.addEventListener("click", async () => {
         loadAgreementDraftFromContract(contract);
         state.activeTab = "agreement";
+        const copied = await copyCurrentMessageToClipboard({
+          statusEl: document.getElementById("contractsHubStatus"),
+          successMessage: "Draft message copied. Preparing PDF...",
+          failureMessage: "Could not copy the message, but the PDF is still loading.",
+        });
         const createdAgreement = findCreatedAgreementForPendingContract(contract);
         if (!createdAgreement?.file_path) {
           setContractsHubStatus("No saved unsigned agreement PDF found for this draft.", true);
@@ -4609,11 +4614,6 @@ function renderContractsHub() {
           setContractsHubStatus
         );
         if (!loaded) return;
-        await copyCurrentMessageToClipboard({
-          statusEl: document.getElementById("contractsHubStatus"),
-          successMessage: "Draft message copied. Opening PDF share options...",
-          failureMessage: "PDF loaded, but the message could not be copied.",
-        });
         const file = lastPdfBlob ? new File([lastPdfBlob], lastPdfName, { type: "application/pdf" }) : null;
         const shareMessage = getCurrentShareMessage();
         if (file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -4623,7 +4623,7 @@ function renderContractsHub() {
               title: shareMessage.subject || contract.name || "Rust and Ruin Agreement",
               text: shareMessage.payload,
             });
-            setContractsHubStatus("Shared. Message copied as backup.");
+            setContractsHubStatus(copied ? "Shared. Message copied as backup." : "Shared.");
             return;
           } catch (error) {
             setContractsHubStatus("Share canceled.");
@@ -7477,12 +7477,18 @@ async function copyCurrentMessageToClipboard(options = {}) {
     try {
       const fallback = document.createElement("textarea");
       fallback.value = payload;
-      fallback.setAttribute("readonly", "readonly");
       fallback.style.position = "fixed";
-      fallback.style.opacity = "0";
+      fallback.style.top = "0";
+      fallback.style.left = "-9999px";
+      fallback.style.width = "1px";
+      fallback.style.height = "1px";
+      fallback.style.fontSize = "16px";
+      fallback.style.opacity = "0.01";
       fallback.style.pointerEvents = "none";
+      fallback.style.webkitUserSelect = "text";
       document.body.appendChild(fallback);
       fallback.focus();
+      fallback.removeAttribute("readonly");
       fallback.select();
       fallback.setSelectionRange(0, fallback.value.length);
       const copied = document.execCommand("copy");
