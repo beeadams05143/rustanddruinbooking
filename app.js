@@ -136,14 +136,12 @@ const agreementFields = [
   "holidayWeekend",
   "holidayRateType",
   "hours",
-  "feeTotal",
   "depositAmount",
   "depositEnabled",
   "depositWaived",
   "promoCredit",
   "liveVideoCredit",
   "depositPaid",
-  "amountDueDayOf",
   "eventType",
   "bandConfig",
   "additionalMusicians",
@@ -1093,13 +1091,24 @@ function updateFeesAndDepositsFields(totals) {
     if (depositInput) depositInput.value = state.agreement.depositAmount;
   }
 
-  const feeValue = formatNumberInput(totals.eventSubtotal);
+  const feeValue = toMoney(totals.eventSubtotal);
   state.agreement.feeTotal = feeValue;
   const feeInput = document.getElementById("feeTotal");
   if (feeInput) feeInput.value = feeValue;
 
   const backlineInput = document.getElementById("feeBackline");
-  if (backlineInput) backlineInput.value = toMoney(totals.backlineFee);
+  if (backlineInput) {
+    backlineInput.value = totals.backlineFee > 0
+      ? `${toMoney(totals.backlineFee)} included`
+      : "$0.00";
+  }
+
+  const discountInput = document.getElementById("feeDiscount");
+  if (discountInput) {
+    discountInput.value = totals.friendsFamilyDiscountAmount > 0
+      ? `-${toMoney(totals.friendsFamilyDiscountAmount)}`
+      : "$0.00";
+  }
 
   const addonsInput = document.getElementById("feeAddons");
   if (addonsInput) addonsInput.value = toMoney(totals.addOnTotal);

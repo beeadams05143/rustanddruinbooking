@@ -416,12 +416,16 @@
             <h3>Fees &amp; Deposits</h3>
             <div class="form-grid">
               <label>
-                Performance fee (from event subtotal)
+                Event subtotal
                 <input id="feeTotal" placeholder="1200" readonly />
               </label>
               <label>
-                Backline / sound tech fee
+                Backline / sound tech included above
                 <input id="feeBackline" readonly />
+              </label>
+              <label>
+                Friends &amp; family discount applied
+                <input id="feeDiscount" readonly />
               </label>
               <label>
                 Add-ons total
@@ -461,12 +465,12 @@
                 <input id="depositPaid" />
               </label>
               <label>
-                Amount due day of
-                <input id="amountDueDayOf" placeholder="$1150" />
+                Amount due day of after deposit
+                <input id="amountDueDayOf" placeholder="$1150" readonly />
               </label>
             </div>
             <p class="section-total">
-              Fees &amp; deposits subtotal: <span data-fill="feesSubtotal"></span>
+              Total after discount, add-ons, and deposit: <span data-fill="feesSubtotal"></span>
             </p>
             <p class="section-total">
               Deposit credits: <span data-fill="depositCredits"></span>
