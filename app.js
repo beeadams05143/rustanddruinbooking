@@ -2601,7 +2601,7 @@ async function openSupabaseStoragePath(path, statusHandler = updateSupabaseStatu
   return true;
 }
 
-async function loadSupabaseStoragePdf(path, fileName, statusHandler = updateSupabaseStatus) {
+async function loadSupabasePdfIntoMemory(path, fileName, statusHandler = updateSupabaseStatus) {
   const client = state.calendar.client;
   if (!client || !state.calendar.session || !path) {
     if (statusHandler) statusHandler("Could not load PDF.", true);
@@ -2629,7 +2629,7 @@ async function loadSupabaseStoragePdf(path, fileName, statusHandler = updateSupa
     const blob = await response.blob();
     setLastGeneratedPdf(blob, fileName || "RustAndRuin-Agreement.pdf");
     return true;
-  } catch (fetchError) {
+  } catch (error) {
     if (statusHandler) statusHandler("Could not load PDF file.", true);
     return false;
   }
@@ -4509,50 +4509,6 @@ function editDraftContract(contract) {
   setContractsHubStatus("Draft loaded in Agreement. Update details and generate a new contract.");
 }
 
-async function copyPendingContractMessage(contract, triggerButton = null) {
-  loadAgreementDraftFromContract(contract);
-  state.activeTab = "agreement";
-  await copyCurrentMessageToClipboard({
-    statusEl: document.getElementById("contractsHubStatus"),
-    triggerButton,
-    successMessage: "Draft message copied to clipboard.",
-    failureMessage: "Could not copy draft message.",
-  });
-}
-
-async function sharePendingContractPdf(contract, triggerButton = null) {
-  loadAgreementDraftFromContract(contract);
-  state.activeTab = "agreement";
-  const createdAgreement = findCreatedAgreementForPendingContract(contract);
-  if (!createdAgreement?.file_path) {
-    setContractsHubStatus("No saved unsigned agreement PDF found for this draft.", true);
-    return;
-  }
-
-  const loaded = await loadSupabaseStoragePdf(
-    createdAgreement.file_path,
-    `${contract.name || "RustAndRuin-Agreement"}.pdf`,
-    setContractsHubStatus
-  );
-  if (!loaded) return;
-
-  const copied = await copyCurrentMessageToClipboard({
-    statusEl: document.getElementById("contractsHubStatus"),
-    triggerButton,
-    successMessage: "Draft message copied. Opening share options...",
-    failureMessage: "PDF loaded, but the message could not be copied.",
-  });
-
-  if (navigator.share && navigator.canShare) {
-    await shareLastPdf();
-    return;
-  }
-
-  if (copied) {
-    setContractsHubStatus("PDF ready. Open or preview it from this device to send.");
-  }
-}
-
 function renderContractsHub() {
   const pendingList = document.getElementById("contractsHubPendingList");
   const signedList = document.getElementById("contractsHubSignedList");
@@ -4621,10 +4577,36 @@ function renderContractsHub() {
       openUnsignedBtn.textContent = "Open unsigned PDF";
       openUnsignedBtn.addEventListener("click", async () => {
         loadAgreementDraftFromContract(contract);
+        state.activeTab = "agreement";
         const createdAgreement = findCreatedAgreementForPendingContract(contract);
         if (!createdAgreement?.file_path) {
           setContractsHubStatus("No saved unsigned agreement PDF found for this draft.", true);
           return;
+        }
+        const loaded = await loadSupabasePdfIntoMemory(
+          createdAgreement.file_path,
+          `${contract.name || "RustAndRuin-Agreement"}.pdf`,
+          setContractsHubStatus
+        );
+        if (!loaded) return;
+        await copyCurrentMessageToClipboard({
+          statusEl: document.getElementById("contractsHubStatus"),
+          successMessage: "Draft message copied. Opening PDF share options...",
+          failureMessage: "PDF loaded, but the message could not be copied.",
+        });
+        const file = lastPdfBlob ? new File([lastPdfBlob], lastPdfName, { type: "application/pdf" }) : null;
+        if (file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: contract.name || "Rust and Ruin Agreement",
+            });
+            setContractsHubStatus("Shared.");
+            return;
+          } catch (error) {
+            setContractsHubStatus("Share canceled.");
+            return;
+          }
         }
         await openContractPdfPath(createdAgreement.file_path);
       });
@@ -4633,18 +4615,6 @@ function renderContractsHub() {
       editBtn.textContent = "Edit Draft";
       editBtn.addEventListener("click", () => {
         editDraftContract(contract);
-      });
-      const copyBtn = document.createElement("button");
-      copyBtn.className = "btn ghost";
-      copyBtn.textContent = "Copy Message";
-      copyBtn.addEventListener("click", async () => {
-        await copyPendingContractMessage(contract, copyBtn);
-      });
-      const shareBtn = document.createElement("button");
-      shareBtn.className = "btn ghost";
-      shareBtn.textContent = "Share PDF";
-      shareBtn.addEventListener("click", async () => {
-        await sharePendingContractPdf(contract, shareBtn);
       });
       fileInput.addEventListener("change", async () => {
         const file = fileInput.files?.[0];
@@ -4665,8 +4635,6 @@ function renderContractsHub() {
       actions.appendChild(noContractWrap);
       actions.appendChild(openUnsignedBtn);
       actions.appendChild(uploadBtn);
-      actions.appendChild(shareBtn);
-      actions.appendChild(copyBtn);
       actions.appendChild(editBtn);
       actions.appendChild(
         createConfirmDeleteButton(async () => {
