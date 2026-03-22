@@ -4557,6 +4557,8 @@ async function ensureHoldEventForAgreement() {
     return { ok: false, reason: "not_signed_in" };
   }
 
+  const activeDraft = getActiveAgreementDraftContract();
+
   const date = state.agreement.performanceDate;
   const startTime = state.agreement.performanceTime;
   const endTime = state.agreement.performanceEndTime;
@@ -4579,23 +4581,36 @@ async function ensureHoldEventForAgreement() {
     };
   }
 
-  const dayStart = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0);
-  const dayEnd = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 23, 59, 59);
+  let linkedEvent = null;
+  let eventId = activeDraft.event_id || "";
+  if (eventId) {
+    const { data } = await client
+      .from("events")
+      .select("*")
+      .eq("id", eventId)
+      .maybeSingle();
+    linkedEvent = data || null;
+  }
 
-  const { data: existing } = await client
-    .from("events")
-    .select("*")
-    .in("type", ["Hold", "Contract Needed"])
-    .gte("start_time", dayStart.toISOString())
-    .lte("start_time", dayEnd.toISOString())
-    .limit(50);
+  if (!linkedEvent) {
+    const dayStart = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0);
+    const dayEnd = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 23, 59, 59);
 
-  const autoHold = (existing || []).find((event) =>
-    (event.notes || "").toLowerCase().includes("auto-created from agreement")
-  );
-  const exactHold = (existing || []).find((event) => event.title === title);
-  const matchedHold = autoHold || exactHold || null;
-  let eventId = matchedHold ? matchedHold.id : null;
+    const { data: existing } = await client
+      .from("events")
+      .select("*")
+      .in("type", ["Hold", "Contract Needed"])
+      .gte("start_time", dayStart.toISOString())
+      .lte("start_time", dayEnd.toISOString())
+      .limit(50);
+
+    const autoHold = (existing || []).find((event) =>
+      (event.notes || "").toLowerCase().includes("auto-created from agreement")
+    );
+    const exactHold = (existing || []).find((event) => event.title === title);
+    linkedEvent = autoHold || exactHold || null;
+    eventId = linkedEvent ? linkedEvent.id : "";
+  }
 
   if (!eventId) {
     const { data, error } = await client
@@ -4612,17 +4627,22 @@ async function ensureHoldEventForAgreement() {
       .single();
     if (error) return { ok: false, reason: "event_insert_failed" };
     eventId = data.id;
+    linkedEvent = data;
   } else {
+    const updatePayload = {
+      title,
+      start_time: start.toISOString(),
+      end_time: end.toISOString(),
+    };
+    const normalizedType = String(linkedEvent?.type || "").toLowerCase();
+    if (normalizedType === "hold" || normalizedType === "contract needed" || !normalizedType) {
+      updatePayload.type = "Contract Needed";
+      updatePayload.notes = AUTO_HOLD_NOTE;
+      updatePayload.override = false;
+    }
     const { error } = await client
       .from("events")
-      .update({
-        type: "Contract Needed",
-        title,
-        start_time: start.toISOString(),
-        end_time: end.toISOString(),
-        notes: AUTO_HOLD_NOTE,
-        override: false,
-      })
+      .update(updatePayload)
       .eq("id", eventId);
     if (error) return { ok: false, reason: "event_update_failed" };
   }
@@ -4634,23 +4654,43 @@ async function ensureHoldEventForAgreement() {
     .limit(1);
 
   if (!existingContract || !existingContract.length) {
-    const { error } = await client.from("contracts").insert({
-      name: `${title} Agreement`,
-      file_path: null,
-      event_id: eventId,
-      status: "Pending signature",
-    });
+    const { data: insertedContract, error } = await client
+      .from("contracts")
+      .insert({
+        name: `${title} Agreement`,
+        file_path: null,
+        event_id: eventId,
+        status: "Pending signature",
+      })
+      .select()
+      .single();
     if (error) return { ok: false, reason: "contract_insert_failed" };
+    setAgreementDraftContext(insertedContract || {
+      id: "",
+      event_id: eventId,
+      name: `${title} Agreement`,
+    });
   } else if (!existingContract[0].file_path) {
-    const { error } = await client
+    const { data: updatedContract, error } = await client
       .from("contracts")
       .update({ name: `${title} Agreement`, status: "Pending signature" })
       .eq("id", existingContract[0].id);
     if (error) return { ok: false, reason: "contract_update_failed" };
+    setAgreementDraftContext(updatedContract?.[0] || {
+      id: existingContract[0].id,
+      event_id: eventId,
+      name: `${title} Agreement`,
+    });
+  } else {
+    setAgreementDraftContext({
+      id: existingContract[0].id,
+      event_id: eventId,
+      name: existingContract[0].name || `${title} Agreement`,
+    });
   }
 
   saveAgreementSnapshotForContract({
-    id: existingContract?.[0]?.id || "",
+    id: activeDraft.id || existingContract?.[0]?.id || "",
     event_id: eventId,
     name: `${title} Agreement`,
   });

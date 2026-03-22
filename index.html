@@ -330,6 +330,9 @@
             <p id="agreementBookingWarning" class="warning hidden"></p>
             <div id="agreementBookingActions" class="inline-actions hidden"></div>
             <p class="section-total">
+              Discount applied: <span data-fill="friendsFamilyDiscountDisplay"></span>
+            </p>
+            <p class="section-total">
               Event subtotal (before add-ons & travel): <span data-fill="eventSubtotal"></span>
             </p>
           </div>
@@ -515,8 +518,8 @@
                 when not performing.
               </p>
               <p>
-                The fee breakdown is as follows: performance fee
-                <span data-fill="performanceFeeAuto"></span>; additional on-site time fee
+                The fee breakdown is as follows: performance fee from event subtotal
+                <span data-fill="performanceFee"></span>; additional on-site time fee
                 <span data-fill="nonPerformanceFee"></span>; holiday adjustment
                 <span data-fill="holidayFee"></span> (<span data-fill="holidayRateType"></span>);
                 preferred venue / friends &amp; family discount
@@ -602,7 +605,7 @@
                   Performance hours (on stage):
                   <span data-fill="performanceHoursDisplay"></span> hours
                 </p>
-                <p>Performance fee: <span data-fill="performanceFeeAuto"></span></p>
+                <p>Performance fee from event subtotal: <span data-fill="performanceFee"></span></p>
                 <p>Additional on-site time fee: <span data-fill="nonPerformanceFee"></span></p>
                 <p>Holiday adjustment: <span data-fill="holidayFee"></span></p>
                 <p>Preferred venue / friends &amp; family discount: <span data-fill="friendsFamilyDiscountDisplay"></span></p>
