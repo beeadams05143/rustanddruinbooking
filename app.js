@@ -7235,8 +7235,9 @@ async function generatePdf(type, options = {}) {
 
   let canvas = null;
   try {
+    const renderScale = type === "agreement" ? 0.95 : 1.05;
     canvas = await window.html2canvas(target, {
-      scale: 2,
+      scale: renderScale,
       backgroundColor: "#ffffff",
       useCORS: true,
     });
@@ -7247,7 +7248,7 @@ async function generatePdf(type, options = {}) {
   }
   document.body.classList.remove("pdf-export");
 
-  const imgData = canvas.toDataURL("image/png");
+  const imgData = canvas.toDataURL("image/jpeg", 0.58);
   const pdf = new window.jspdf.jsPDF({
     orientation: "portrait",
     unit: "pt",
@@ -7265,7 +7266,7 @@ async function generatePdf(type, options = {}) {
   const xOffset = (pdfWidth - renderWidth) / 2;
   const yOffset = (pdfHeight - renderHeight) / 2;
 
-  pdf.addImage(imgData, "PNG", xOffset, yOffset, renderWidth, renderHeight);
+  pdf.addImage(imgData, "JPEG", xOffset, yOffset, renderWidth, renderHeight, undefined, "FAST");
 
   const fileNameMap = {
     agreement: `RustAndRuin-Agreement-${state.agreement.clientName || "Client"}.pdf`,
