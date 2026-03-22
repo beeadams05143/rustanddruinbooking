@@ -660,6 +660,22 @@ textarea {
   gap: 16px;
 }
 
+.pdf-actions-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 18px;
+  padding: 14px 18px;
+  border: 1px solid var(--stroke);
+  border-radius: 24px;
+  background: rgba(255, 253, 248, 0.96);
+  box-shadow: 0 12px 32px rgba(125, 81, 42, 0.08);
+}
+
+.pdf-actions-bar .tab {
+  margin: 0;
+}
+
 .agreement-actions {
   flex-wrap: wrap;
   justify-content: flex-start;

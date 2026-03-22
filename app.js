@@ -797,18 +797,18 @@ function buildMessage(type) {
 
   if (type === "invoice") {
     const subject = `Rust and Ruin Invoice – ${eventDate}`;
-    const body = `Hello ${state.invoice.clientName || clientName},\n\nAttached is your invoice for ${eventDate}. Please review the details and submit payment at your earliest convenience.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
+    const body = `Hello ${state.invoice.clientName || clientName},\n\nThank you again for the opportunity to work with you. Attached is your invoice for your records. If you have any questions, please feel free to reach out. We truly appreciate your business and look forward to performing for you.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
     return { title: "Invoice Message", subject, body };
   }
 
   if (type === "receipt") {
     const subject = `Rust and Ruin Receipt – ${state.receipt.paymentDate || eventDate}`;
-    const body = `Hello ${state.receipt.clientName || clientName},\n\nAttached is your receipt. Thank you for your payment and for hosting Rust and Ruin.\n\nWe look forward to performing for you.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
+    const body = `Hello ${state.receipt.clientName || clientName},\n\nThank you so much. Attached is your receipt for your records. We enjoyed performing for you and truly appreciate the opportunity to be part of your event. Please keep us in mind for future celebrations.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
     return { title: "Receipt Message", subject, body };
   }
 
   const subject = `Rust and Ruin Performance Agreement – ${eventDate}`;
-  const body = `Hello ${clientName},\n\nAttached is the performance agreement for ${eventDate} at ${venue}. Please review and sign the agreement. You can sign with a finger/stylus on your phone, then send a clear photo or scan, or print and sign, return by mail.\n\nNext steps\n1. Sign and return the agreement.\n2. Submit the deposit.\n\nWe look forward to performing for you.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
+  const body = `Hello ${clientName},\n\nThank you so much for the opportunity to work with you. We're truly excited and really look forward to performing for you.\n\nAttached is your contract for ${eventDate} at ${venue}. To secure your date, please sign the contract and send the signed copy back to us.\n\nYou're welcome to sign in whichever way is easiest for you:\n- sign with your finger or stylus on your phone or tablet and send back a screenshot\n- print it, sign it, and send us a photo or scan\n- sign the hard copy and mail it back to us\n\nPlease let us know if you have any questions at all. We're happy to help and look forward to working with you.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
   return { title: "Agreement Message", subject, body };
 }
 
@@ -964,17 +964,20 @@ function setText(selector, value) {
 
 function getAgreementTotals() {
   const depositEnabled = state.agreement.depositEnabled !== false;
-  const rawDepositAmount = depositEnabled
+  const depositWaived = state.agreement.depositWaived === true;
+  const depositConfigured = depositEnabled || depositWaived;
+  const rawDepositAmount = depositConfigured
     ? state.agreement.depositAmount
       ? toNumber(state.agreement.depositAmount)
       : depositDefault
     : 0;
-  const depositWaived = depositEnabled && state.agreement.depositWaived;
   const depositCredits = depositEnabled && !depositWaived
     ? (state.agreement.promoCredit ? 5 : 0) +
       (state.agreement.liveVideoCredit ? 10 : 0)
     : 0;
   const adjustedDeposit = depositWaived
+    ? 0
+    : !depositEnabled
     ? 0
     : Math.max(0, rawDepositAmount - depositCredits);
   const addonFees = {
@@ -1084,8 +1087,24 @@ function getAgreementTotals() {
   };
 }
 
+function getSelectedAddonSummary(totals) {
+  const labelMap = {
+    addonTent: "Tent",
+    addonLights: "Lights",
+    addonGenerator: "Generator",
+    addonAdditionalSong: "Additional song",
+    addonRecordedSong: "Recorded song beyond first",
+    addonMCing: "MC'ing",
+    addonDJing: "DJ'ing",
+  };
+
+  return Object.entries(totals.addonFees)
+    .filter(([key]) => state.agreement[key])
+    .map(([key]) => labelMap[key]);
+}
+
 function updateFeesAndDepositsFields(totals) {
-  if (totals.depositEnabled && !totals.depositWaived && !state.agreement.depositAmount) {
+  if ((totals.depositEnabled || totals.depositWaived) && !state.agreement.depositAmount) {
     state.agreement.depositAmount = String(depositDefault);
     const depositInput = document.getElementById("depositAmount");
     if (depositInput) depositInput.value = state.agreement.depositAmount;
@@ -1111,7 +1130,9 @@ function updateFeesAndDepositsFields(totals) {
   }
 
   const addonsInput = document.getElementById("feeAddons");
-  if (addonsInput) addonsInput.value = toMoney(totals.addOnTotal);
+  if (addonsInput) {
+    addonsInput.value = toMoney(totals.addOnTotal);
+  }
 
   const depositDueInput = document.getElementById("feeDepositDue");
   if (depositDueInput) depositDueInput.value = toMoney(totals.depositAmount);
@@ -1236,21 +1257,7 @@ function updateAgreementPreview() {
   setText("[data-fill='eventSubtotal']", toMoney(totals.eventSubtotal));
   setText("[data-fill='backlineFee']", toMoney(totals.backlineFee));
   updateMessagePreview();
-  const selectedAddons = Object.entries(totals.addonFees)
-    .filter(([key]) => state.agreement[key])
-    .map(([key, value]) => {
-      const labelMap = {
-        addonTent: "Tent",
-        addonLights: "Lights",
-        addonGenerator: "Generator",
-        addonAdditionalSong: "Additional song",
-        addonRecordedSong: "Recorded song beyond first",
-        addonMCing: "MC'ing",
-        addonDJing: "DJ'ing",
-      };
-      return `${labelMap[key]} (${toMoney(value)})`;
-    })
-    .join(", ");
+  const selectedAddons = getSelectedAddonSummary(totals).join(", ");
   setText("[data-fill='addonsSelected']", selectedAddons || "None");
 
   const lodgingWrap = document.getElementById("lodgingRateWrap");
@@ -1296,12 +1303,12 @@ function updateAgreementPreview() {
 
   const depositAmountInput = document.getElementById("depositAmount");
   if (depositAmountInput) {
-    depositAmountInput.disabled = !totals.depositEnabled || totals.depositWaived;
+    depositAmountInput.disabled = (!totals.depositEnabled && !totals.depositWaived) || totals.depositWaived;
   }
 
   const depositWaivedInput = document.getElementById("depositWaived");
   if (depositWaivedInput) {
-    depositWaivedInput.disabled = !totals.depositEnabled;
+    depositWaivedInput.disabled = false;
   }
 
   const promoCreditInput = document.getElementById("promoCredit");
@@ -1362,12 +1369,23 @@ async function updateAgreementBookingWarning() {
     return index === arr.findIndex((item) => eventIdentityKey(item) === key);
   });
   const activeDraft = getActiveAgreementDraftContract();
+  const activeClientName = normalizeText(state.agreement.clientName || "");
   const filteredMatches = uniqueMatches.filter((event) => {
     if (activeDraft.event_id && event.id === activeDraft.event_id) return false;
     const eventAgreementName = `${event.title || event.type || "Event"} Agreement`
       .trim()
       .toLowerCase();
     if (activeDraft.name && eventAgreementName === String(activeDraft.name).trim().toLowerCase()) {
+      return false;
+    }
+    const eventTitle = normalizeText(event.title || event.type || "");
+    if (
+      activeClientName &&
+      eventTitle &&
+      (activeClientName === eventTitle ||
+        activeClientName.includes(eventTitle) ||
+        eventTitle.includes(activeClientName))
+    ) {
       return false;
     }
     return true;
@@ -2581,6 +2599,40 @@ async function openSupabaseStoragePath(path, statusHandler = updateSupabaseStatu
 
   window.location.assign(data.signedUrl);
   return true;
+}
+
+async function loadSupabaseStoragePdf(path, fileName, statusHandler = updateSupabaseStatus) {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session || !path) {
+    if (statusHandler) statusHandler("Could not load PDF.", true);
+    return false;
+  }
+
+  const { data, error } = await client
+    .storage
+    .from("signed-contracts")
+    .createSignedUrl(path, 300);
+
+  if (error || !data?.signedUrl) {
+    if (statusHandler) {
+      statusHandler(`Could not load PDF: ${error?.message || "Unknown error"}`, true);
+    }
+    return false;
+  }
+
+  try {
+    const response = await fetch(data.signedUrl);
+    if (!response.ok) {
+      if (statusHandler) statusHandler("Could not load PDF file.", true);
+      return false;
+    }
+    const blob = await response.blob();
+    setLastGeneratedPdf(blob, fileName || "RustAndRuin-Agreement.pdf");
+    return true;
+  } catch (fetchError) {
+    if (statusHandler) statusHandler("Could not load PDF file.", true);
+    return false;
+  }
 }
 
 function syncTopAuthTabLabel() {
@@ -4421,11 +4473,14 @@ async function markContractNoLongerNeeded(contract, checked = false) {
   setContractsHubStatus("Marked as no contract needed.");
 }
 
-function editDraftContract(contract) {
+function loadAgreementDraftFromContract(contract, options = {}) {
+  const { switchView = false } = options;
   setAgreementDraftContext(contract);
   const snapshot = getAgreementSnapshotForContract(contract);
   if (snapshot) {
     state.agreement = { ...createInitialAgreementState(), ...snapshot };
+  } else {
+    state.agreement = createInitialAgreementState();
   }
   const linkedEvent = state.calendar.events.find((event) => event.id === contract.event_id);
   if (linkedEvent) {
@@ -4443,11 +4498,59 @@ function editDraftContract(contract) {
   syncAgreementForm();
   updateAgreementPreview();
   saveDraft();
-  if (switchTopView) {
+  if (switchView && switchTopView) {
     state.activeTab = "agreement";
     switchTopView("bookkeeping");
   }
+}
+
+function editDraftContract(contract) {
+  loadAgreementDraftFromContract(contract, { switchView: true });
   setContractsHubStatus("Draft loaded in Agreement. Update details and generate a new contract.");
+}
+
+async function copyPendingContractMessage(contract, triggerButton = null) {
+  loadAgreementDraftFromContract(contract);
+  state.activeTab = "agreement";
+  await copyCurrentMessageToClipboard({
+    statusEl: document.getElementById("contractsHubStatus"),
+    triggerButton,
+    successMessage: "Draft message copied to clipboard.",
+    failureMessage: "Could not copy draft message.",
+  });
+}
+
+async function sharePendingContractPdf(contract, triggerButton = null) {
+  loadAgreementDraftFromContract(contract);
+  state.activeTab = "agreement";
+  const createdAgreement = findCreatedAgreementForPendingContract(contract);
+  if (!createdAgreement?.file_path) {
+    setContractsHubStatus("No saved unsigned agreement PDF found for this draft.", true);
+    return;
+  }
+
+  const loaded = await loadSupabaseStoragePdf(
+    createdAgreement.file_path,
+    `${contract.name || "RustAndRuin-Agreement"}.pdf`,
+    setContractsHubStatus
+  );
+  if (!loaded) return;
+
+  const copied = await copyCurrentMessageToClipboard({
+    statusEl: document.getElementById("contractsHubStatus"),
+    triggerButton,
+    successMessage: "Draft message copied. Opening share options...",
+    failureMessage: "PDF loaded, but the message could not be copied.",
+  });
+
+  if (navigator.share && navigator.canShare) {
+    await shareLastPdf();
+    return;
+  }
+
+  if (copied) {
+    setContractsHubStatus("PDF ready. Open or preview it from this device to send.");
+  }
 }
 
 function renderContractsHub() {
@@ -4517,6 +4620,7 @@ function renderContractsHub() {
       openUnsignedBtn.className = "btn ghost";
       openUnsignedBtn.textContent = "Open unsigned PDF";
       openUnsignedBtn.addEventListener("click", async () => {
+        loadAgreementDraftFromContract(contract);
         const createdAgreement = findCreatedAgreementForPendingContract(contract);
         if (!createdAgreement?.file_path) {
           setContractsHubStatus("No saved unsigned agreement PDF found for this draft.", true);
@@ -4529,6 +4633,18 @@ function renderContractsHub() {
       editBtn.textContent = "Edit Draft";
       editBtn.addEventListener("click", () => {
         editDraftContract(contract);
+      });
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "btn ghost";
+      copyBtn.textContent = "Copy Message";
+      copyBtn.addEventListener("click", async () => {
+        await copyPendingContractMessage(contract, copyBtn);
+      });
+      const shareBtn = document.createElement("button");
+      shareBtn.className = "btn ghost";
+      shareBtn.textContent = "Share PDF";
+      shareBtn.addEventListener("click", async () => {
+        await sharePendingContractPdf(contract, shareBtn);
       });
       fileInput.addEventListener("change", async () => {
         const file = fileInput.files?.[0];
@@ -4549,6 +4665,8 @@ function renderContractsHub() {
       actions.appendChild(noContractWrap);
       actions.appendChild(openUnsignedBtn);
       actions.appendChild(uploadBtn);
+      actions.appendChild(shareBtn);
+      actions.appendChild(copyBtn);
       actions.appendChild(editBtn);
       actions.appendChild(
         createConfirmDeleteButton(async () => {
@@ -4661,11 +4779,11 @@ async function ensureHoldEventForAgreement() {
       .lte("start_time", dayEnd.toISOString())
       .limit(50);
 
-    const autoHold = (existing || []).find((event) =>
-      (event.notes || "").toLowerCase().includes("auto-created from agreement")
-    );
     const exactHold = (existing || []).find((event) => event.title === title);
-    linkedEvent = autoHold || exactHold || null;
+    // Only reuse an existing event when it is an exact title match.
+    // Reusing any generic auto-created hold on the same date can hijack
+    // an unrelated pending contract and make it appear to vanish.
+    linkedEvent = exactHold || null;
     eventId = linkedEvent ? linkedEvent.id : "";
   }
 
@@ -4710,6 +4828,8 @@ async function ensureHoldEventForAgreement() {
     .eq("event_id", eventId)
     .limit(1);
 
+  let resolvedContractContext = null;
+
   if (!existingContract || !existingContract.length) {
     const { data: insertedContract, error } = await client
       .from("contracts")
@@ -4722,32 +4842,35 @@ async function ensureHoldEventForAgreement() {
       .select()
       .single();
     if (error) return { ok: false, reason: "contract_insert_failed" };
-    setAgreementDraftContext(insertedContract || {
+    resolvedContractContext = insertedContract || {
       id: "",
       event_id: eventId,
       name: `${title} Agreement`,
-    });
+    };
+    setAgreementDraftContext(resolvedContractContext);
   } else if (!existingContract[0].file_path) {
     const { data: updatedContract, error } = await client
       .from("contracts")
       .update({ name: `${title} Agreement`, status: "Pending signature" })
       .eq("id", existingContract[0].id);
     if (error) return { ok: false, reason: "contract_update_failed" };
-    setAgreementDraftContext(updatedContract?.[0] || {
+    resolvedContractContext = updatedContract?.[0] || {
       id: existingContract[0].id,
       event_id: eventId,
       name: `${title} Agreement`,
-    });
+    };
+    setAgreementDraftContext(resolvedContractContext);
   } else {
-    setAgreementDraftContext({
+    resolvedContractContext = {
       id: existingContract[0].id,
       event_id: eventId,
       name: existingContract[0].name || `${title} Agreement`,
-    });
+    };
+    setAgreementDraftContext(resolvedContractContext);
   }
 
-  saveAgreementSnapshotForContract({
-    id: activeDraft.id || existingContract?.[0]?.id || "",
+  saveAgreementSnapshotForContract(resolvedContractContext || {
+    id: existingContract?.[0]?.id || "",
     event_id: eventId,
     name: `${title} Agreement`,
   });
@@ -4792,7 +4915,7 @@ async function addAgreementToCalendarPending() {
     return true;
   }
   if (result?.reason === "not_signed_in") {
-    updateSupabaseStatus("Sign in on Calendar tab first, then tap Add to Calendar (Pending).", true);
+    updateSupabaseStatus("Sign in on Calendar tab first, then try Save + Generate/Share or Sync Calendar Only.", true);
     setAgreementCalendarStatus("Sign in on Calendar tab first.", true);
     return false;
   }
@@ -4801,7 +4924,7 @@ async function addAgreementToCalendarPending() {
       ? ` Date: ${result.details.date} | Start: ${result.details.startTime} | End: ${result.details.endTime}`
       : "";
     updateSupabaseStatus(
-      `Set performance date, start time, and end time in Agreement, then tap Add to Calendar (Pending).${details}`,
+      `Set performance date, start time, and end time in Agreement, then try Save + Generate/Share or Sync Calendar Only.${details}`,
       true
     );
     setAgreementCalendarStatus(`Missing/invalid date or time in Agreement.${details}`, true);
@@ -4829,21 +4952,9 @@ function resetAgreementForm() {
 async function submitAgreement() {
   const added = await addAgreementToCalendarPending();
   if (!added) return;
-  await generatePdf("agreement", { openAfterGenerate: true });
+  await generatePdf("agreement");
   setAgreementCalendarStatus(
-    "Submitted. Pending contract saved to calendar and PDF opened for preview. You can keep editing until you tap Done."
-  );
-}
-
-function completeAgreementWorkflow() {
-  prepareAgreementForOutput();
-  const activeContract = getActiveAgreementDraftContract();
-  if (activeContract.id || activeContract.event_id || activeContract.name) {
-    saveAgreementSnapshotForContract(activeContract);
-  }
-  resetAgreementForm();
-  setAgreementCalendarStatus(
-    "Contract setup marked done. Waiting for signature. Agreement form cleared for the next booking."
+    "Saved. The event is on the calendar, the message is copied, and the PDF is ready. Use Share PDF or Print PDF at the top of this screen."
   );
 }
 
@@ -6456,11 +6567,8 @@ function setupListeners() {
       }
       if (field === "depositEnabled") {
         if (!state.agreement.depositEnabled) {
-          state.agreement.depositWaived = false;
           state.agreement.promoCredit = false;
           state.agreement.liveVideoCredit = false;
-          const waived = document.getElementById("depositWaived");
-          if (waived) waived.checked = false;
           const promo = document.getElementById("promoCredit");
           if (promo) promo.checked = false;
           const live = document.getElementById("liveVideoCredit");
@@ -6470,6 +6578,11 @@ function setupListeners() {
           const depositInput = document.getElementById("depositAmount");
           if (depositInput) depositInput.value = state.agreement.depositAmount;
         }
+      }
+      if (field === "depositWaived" && state.agreement.depositWaived && !state.agreement.depositAmount) {
+        state.agreement.depositAmount = String(depositDefault);
+        const depositInput = document.getElementById("depositAmount");
+        if (depositInput) depositInput.value = state.agreement.depositAmount;
       }
       updateAgreementPreview();
       saveDraft();
@@ -6545,6 +6658,7 @@ function setupListeners() {
   const aboutTabs = document.getElementById("aboutTabs");
   const homeTab = document.getElementById("homeTab");
   const messagePreviewWrap = document.getElementById("messagePreviewWrap");
+  const pdfActionsBar = document.getElementById("pdfActionsBar");
   const topOpenPdfBtn = document.getElementById("openPdf");
   const topPrintPdfBtn = document.getElementById("printPdf");
   const sharePdfBtn = document.getElementById("sharePdf");
@@ -6637,6 +6751,7 @@ function setupListeners() {
     const inBookkeeping =
       target === "agreement" || target === "invoice" || target === "receipt";
     if (messagePreviewWrap) messagePreviewWrap.classList.toggle("hidden", !inBookkeeping);
+    if (pdfActionsBar) pdfActionsBar.classList.toggle("hidden", !inBookkeeping);
     if (topOpenPdfBtn) topOpenPdfBtn.classList.toggle("hidden", !inBookkeeping);
     if (topPrintPdfBtn) topPrintPdfBtn.classList.toggle("hidden", !inBookkeeping);
     if (sharePdfBtn) sharePdfBtn.classList.toggle("hidden", !inBookkeeping);
@@ -6758,29 +6873,13 @@ function setupListeners() {
     });
   }
 
-  document.getElementById("agreementPdf").addEventListener("click", () => generatePdf("agreement"));
   const submitAgreementBtn = document.getElementById("submitAgreement");
   if (submitAgreementBtn) {
     submitAgreementBtn.addEventListener("click", submitAgreement);
   }
-  const completeAgreementBtn = document.getElementById("completeAgreement");
-  if (completeAgreementBtn) {
-    completeAgreementBtn.addEventListener("click", completeAgreementWorkflow);
-  }
   const resetAgreementBtn = document.getElementById("resetAgreement");
   if (resetAgreementBtn) {
     resetAgreementBtn.addEventListener("click", resetAgreementForm);
-  }
-  const addPendingHoldBtn = document.getElementById("addPendingHold");
-  if (addPendingHoldBtn) {
-    addPendingHoldBtn.addEventListener("click", addAgreementToCalendarPending);
-  }
-  const agreementCopyMessageBtn = document.getElementById("agreementCopyMessage");
-  if (agreementCopyMessageBtn) {
-    agreementCopyMessageBtn.addEventListener("click", async () => {
-      state.activeTab = "agreement";
-      await copyMessage("agreementCalendarStatus", agreementCopyMessageBtn);
-    });
   }
   document.getElementById("invoicePdf").addEventListener("click", () => generatePdf("invoice"));
   const invoiceCopyMessageBtn = document.getElementById("invoiceCopyMessage");
@@ -7207,14 +7306,26 @@ async function generatePdf(type, options = {}) {
   };
 
   const fileName = fileNameMap[type];
-  pdf.save(fileName);
   setLastGeneratedPdf(pdf.output("blob"), fileName);
   if (openButton) openButton.disabled = !lastPdfUrl;
   if (printButton) printButton.disabled = !lastPdfUrl;
   if (shareButton) {
     shareButton.disabled = !lastPdfBlob;
   }
-  statusEl.textContent = "PDF generated.";
+  const copiedMessage = await copyCurrentMessageToClipboard({
+    statusEl,
+    successMessage: "PDF ready. Message copied to clipboard. Use Share PDF or Print PDF above.",
+    failureMessage: "PDF ready, but the message could not be copied. Use Share PDF or Print PDF above.",
+  });
+  if (!copiedMessage && statusEl) {
+    statusEl.textContent = "PDF ready, but the message could not be copied. Use Share PDF or Print PDF above.";
+  }
+  const actionsBar = document.getElementById("pdfActionsBar");
+  if (actionsBar && typeof actionsBar.scrollIntoView === "function") {
+    actionsBar.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } else if (typeof window.scrollTo === "function") {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
   if (openAfterGenerate) {
     openLastPdfPreview();
   }
@@ -7268,7 +7379,7 @@ function openLastPdfPreview() {
     return false;
   }
   if (statusEl) {
-    statusEl.textContent = "PDF opened in a new tab. Use the browser print/download controls there.";
+    statusEl.textContent = "PDF preview opened in a new tab.";
   }
   return true;
 }
@@ -7324,26 +7435,27 @@ async function shareLastPdf() {
   } else {
     const opened = openLastPdfPreview();
     if (!opened && statusEl) {
-      statusEl.textContent = "Sharing not supported on this device. Use Open PDF or the downloaded file.";
+      statusEl.textContent = "Sharing not supported on this device. Use Open PDF or Print instead.";
     }
   }
 }
 
-async function copyMessage(statusTargetId = "pdfStatus", triggerButton = null) {
-  const statusEl = document.getElementById(statusTargetId) || document.getElementById("pdfStatus");
+async function copyCurrentMessageToClipboard(options = {}) {
+  const {
+    statusEl = document.getElementById("pdfStatus"),
+    triggerButton = null,
+    successMessage = "Message copied to clipboard.",
+    failureMessage = "Could not copy message.",
+  } = options;
+
   if (state.activeTab === "agreement") {
     prepareAgreementForOutput();
   }
   const message = buildMessage(state.activeTab);
   const payload = `${message.subject}\n\n${message.body}`;
 
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(payload);
-    } else {
-      throw new Error("Clipboard API unavailable");
-    }
-    if (statusEl) statusEl.textContent = "Message copied.";
+  const setCopiedState = () => {
+    if (statusEl) statusEl.textContent = successMessage;
     if (triggerButton) {
       const originalText = triggerButton.textContent;
       triggerButton.textContent = "Copied";
@@ -7351,6 +7463,15 @@ async function copyMessage(statusTargetId = "pdfStatus", triggerButton = null) {
         triggerButton.textContent = originalText;
       }, 1500);
     }
+  };
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(payload);
+      setCopiedState();
+      return true;
+    }
+    throw new Error("Clipboard API unavailable");
   } catch (error) {
     try {
       const fallback = document.createElement("textarea");
@@ -7365,18 +7486,27 @@ async function copyMessage(statusTargetId = "pdfStatus", triggerButton = null) {
       fallback.setSelectionRange(0, fallback.value.length);
       const copied = document.execCommand("copy");
       document.body.removeChild(fallback);
-      if (statusEl) statusEl.textContent = copied ? "Message copied." : "Could not copy message.";
-      if (copied && triggerButton) {
-        const originalText = triggerButton.textContent;
-        triggerButton.textContent = "Copied";
-        setTimeout(() => {
-          triggerButton.textContent = originalText;
-        }, 1500);
+      if (copied) {
+        setCopiedState();
+        return true;
       }
     } catch (fallbackError) {
-      if (statusEl) statusEl.textContent = "Could not copy message.";
+      // fall through to shared failure handling below
     }
   }
+
+  if (statusEl) statusEl.textContent = failureMessage;
+  return false;
+}
+
+async function copyMessage(statusTargetId = "pdfStatus", triggerButton = null) {
+  const statusEl = document.getElementById(statusTargetId) || document.getElementById("pdfStatus");
+  await copyCurrentMessageToClipboard({
+    statusEl,
+    triggerButton,
+    successMessage: "Message copied to clipboard.",
+    failureMessage: "Could not copy message.",
+  });
 }
 
 async function init() {

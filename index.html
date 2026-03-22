@@ -34,9 +34,6 @@
         <button class="tab top-tab" data-top="musicians">Musicians + Tech Crew</button>
         <button class="tab top-tab" data-top="troubleshooting">Troubleshooting</button>
         <button class="tab top-tab" data-top="about">About</button>
-        <button class="tab cta" id="openPdf" disabled>Open PDF</button>
-        <button class="tab" id="printPdf" disabled>Print PDF</button>
-        <button class="tab" id="sharePdf" disabled>Share PDF</button>
       </nav>
 
       <nav class="tabs section-tabs hidden" id="bookkeepingTabs">
@@ -213,6 +210,12 @@
           <button class="btn ghost" id="toggleMessage">Show message</button>
         </div>
         <div id="messageBody" class="message-body hidden"></div>
+      </div>
+
+      <div class="pdf-actions-bar hidden" id="pdfActionsBar">
+        <button class="tab cta" id="openPdf" disabled>Preview PDF</button>
+        <button class="tab" id="printPdf" disabled>Print PDF</button>
+        <button class="tab" id="sharePdf" disabled>Share PDF</button>
       </div>
 
       <main class="layout hidden" id="agreementTab">
@@ -482,12 +485,9 @@
 
           <div class="form-footer agreement-actions">
             <p class="inline-help">Client signs on PDF.</p>
-            <button class="btn" id="submitAgreement" type="button">Submit Agreement</button>
-            <button class="btn ghost" id="completeAgreement" type="button">Done</button>
+            <p class="inline-help">When you click Save + Generate/Share, the event is added to the calendar, the message is copied to your clipboard, and the PDF is generated. Then use Share PDF or Print PDF at the top of this screen.</p>
+            <button class="btn" id="submitAgreement" type="button">Save + Generate/Share</button>
             <button class="btn ghost" id="resetAgreement" type="button">Reset Form</button>
-            <button class="btn ghost" id="addPendingHold" type="button">Add to Calendar (Pending)</button>
-            <button class="btn ghost" id="agreementCopyMessage" type="button">Copy Agreement Message</button>
-            <button class="primary" id="agreementPdf" type="button">Generate PDF</button>
           </div>
           <p id="agreementCalendarStatus" class="muted"></p>
         </section>
@@ -529,7 +529,7 @@
                 preferred venue / friends &amp; family discount
                 <span data-fill="friendsFamilyDiscountDisplay"></span>; subtotal after discount
                 <span data-fill="eventSubtotal"></span>; add-ons total
-                <span data-fill="addonTotal"></span>; travel
+                <span data-fill="addonTotal"></span> for <span data-fill="addonsSelected"></span>; travel
                 <span data-fill="travelFee"></span>; and lodging
                 <span data-fill="lodgingFee"></span>.
               </p>
@@ -711,7 +711,7 @@
           </div>
           <div class="form-footer">
             <button class="btn ghost" id="invoiceCopyMessage">Copy Invoice Message</button>
-            <button class="primary" id="invoicePdf">Generate PDF</button>
+            <button class="primary" id="invoicePdf">Generate / Share PDF</button>
           </div>
           <div class="form-section">
             <h3>Saved Invoices</h3>
@@ -812,7 +812,7 @@
           </div>
           <div class="form-footer">
             <button class="btn ghost" id="receiptCopyMessage">Copy Receipt Message</button>
-            <button class="primary" id="receiptPdf">Generate PDF</button>
+            <button class="primary" id="receiptPdf">Generate / Share PDF</button>
           </div>
           <div class="form-section">
             <h3>Saved Receipts</h3>
@@ -1052,7 +1052,7 @@
           <div class="form-section">
             <h3>Created Agreement Archive</h3>
             <p id="createdContractStatus" class="muted">
-              Generate an Agreement PDF from Step 1 and it will be saved here automatically.
+              Generate or share an Agreement PDF from Step 1 and it will be saved here automatically.
             </p>
             <div id="createdContractList" class="event-list"></div>
           </div>
@@ -1260,7 +1260,7 @@
                 <li><strong>Automatic Calculations:</strong> Hours, fees, backline, add-ons, deposit logic, and day-of totals.</li>
                 <li><strong>Calendar Control:</strong> Pending holds, confirmations, and conflict-aware saves with override PIN.</li>
                 <li><strong>Contract Tracking:</strong> Upload signed PDFs and open them directly from date chips on calendar.</li>
-                <li><strong>Messaging + Sharing:</strong> Generate PDFs, share from phone, and copy document-specific messages.</li>
+                <li><strong>Messaging + Sharing:</strong> Generate or share PDFs, send from phone, and keep the matching message ready to paste.</li>
                 <li><strong>Musician Planning:</strong> Roster, assignments, blackouts, and availability visibility.</li>
               </ul>
             </article>
@@ -1305,15 +1305,15 @@
                 <li>Fill client name, date, start time, and end time.</li>
                 <li>Hours, fees, deposit, and day-of amount auto-calculate.</li>
                 <li>Choose add-ons and travel options if needed.</li>
-                <li>Use <strong>Generate PDF</strong> when ready.</li>
+                <li>Use <strong>Save + Generate/Share</strong> when ready.</li>
               </ol>
             </article>
 
             <article class="form-section howto-card">
-              <h3>2. Add Pending Date To Calendar</h3>
+              <h3>2. Save Pending Date To Calendar</h3>
               <ol class="howto-list">
                 <li>Sign in on the Calendar tab first.</li>
-                <li>In Agreement, click <strong>Add to Calendar (Pending)</strong>.</li>
+                <li>In Agreement, click <strong>Save + Generate/Share</strong>.</li>
                 <li>A <strong>Contract Needed</strong> event is created with pending contract status.</li>
                 <li>Calendar date marker: <strong>📎</strong> means contract still needed.</li>
               </ol>
@@ -1352,10 +1352,10 @@
               <h3>6. Share PDFs + Message</h3>
               <ol class="howto-list">
                 <li>Open the tab you need: <strong>Agreement</strong>, <strong>Invoice</strong>, or <strong>Receipt</strong>.</li>
-                <li>Click <strong>Generate PDF</strong> to create and download that document.</li>
-                <li>Click <strong>Share PDF</strong> to send it directly from your phone (if supported).</li>
-                <li>Click <strong>Copy Message</strong> to copy the ready-to-send email/text body.</li>
-                <li>Paste message in email or text, then attach the generated PDF.</li>
+                <li>Click <strong>Generate / Share PDF</strong> to prepare the document.</li>
+                <li>The matching message is copied to your clipboard automatically.</li>
+                <li>Click <strong>Share PDF</strong> to send it directly from your phone if supported.</li>
+                <li>Paste the copied message into your email or text.</li>
               </ol>
             </article>
 
