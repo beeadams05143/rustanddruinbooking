@@ -8132,6 +8132,10 @@ function setupListeners() {
   document.querySelectorAll(".top-tab[data-top]").forEach((tab) => {
     tab.addEventListener("click", () => {
       const target = tab.getAttribute("data-top");
+      if (target === "bookkeeping") {
+        resetAgreementForm();
+        state.activeTab = "agreement";
+      }
       switchTop(target);
     });
   });
