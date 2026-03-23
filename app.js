@@ -949,18 +949,18 @@ function buildMessage(type) {
 
   if (type === "invoice") {
     const subject = `Rust and Ruin Invoice – ${invoiceDate}`;
-    const body = `Hello ${state.invoice.clientName || clientName},\n\nThank you so much again for the opportunity to work with you.\n\nAttached is your invoice for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. Please let us know if you have any questions at all. We're happy to help and really look forward to performing for you.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
+    const body = `Hello ${state.invoice.clientName || clientName},\n\nThank you so much again for the opportunity to work with you.\n\nAttached is your invoice for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. Please let us know if you have any questions at all. We're happy to help and really look forward to performing for you.\n\nThanks,\nBeth and Josh\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
     return { title: "Invoice Message", subject, body };
   }
 
   if (type === "receipt") {
     const subject = `Rust and Ruin Receipt – ${receiptDate}`;
-    const body = `Hello ${state.receipt.clientName || clientName},\n\nThank you so much.\n\nAttached is your receipt for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. We truly enjoyed performing for you and really appreciate the opportunity to be part of your event. Please keep us in mind for future celebrations.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
+    const body = `Hello ${state.receipt.clientName || clientName},\n\nThank you so much.\n\nAttached is your receipt for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. We truly enjoyed performing for you and really appreciate the opportunity to be part of your event. Please keep us in mind for future celebrations.\n\nThanks,\nBeth and Josh\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
     return { title: "Receipt Message", subject, body };
   }
 
   const subject = `Rust and Ruin Performance Agreement – ${eventDate}`;
-  const body = `Hello ${clientName},\n\nThank you so much for the opportunity to work with you. We're truly excited and really look forward to performing for you.\n\nAttached is your contract for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. To secure your date, please sign the contract and send the signed copy back to us.\n\nYou're welcome to sign in whichever way is easiest for you:\n- sign with your finger or stylus on your phone or tablet and send back a screenshot\n- print it, sign it, and send us a photo or scan\n- sign the hard copy and mail it back to us\n\nPlease let us know if you have any questions at all. We're happy to help and look forward to working with you.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
+  const body = `Hello ${clientName},\n\nThank you so much for the opportunity to work with you. We're truly excited and really look forward to performing for you.\n\nAttached is your contract for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. To secure your date, please sign the contract and send the signed copy back to us.\n\nYou're welcome to sign in whichever way is easiest for you:\n- sign with your finger or stylus on your phone or tablet and send back a screenshot\n- print it, sign it, and send us a photo or scan\n- sign the hard copy and mail it back to us\n\nPlease let us know if you have any questions at all. We're happy to help and look forward to working with you.\n\nThanks,\nBeth and Josh\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
   return { title: "Agreement Message", subject, body };
 }
 
@@ -5095,8 +5095,17 @@ async function submitAgreement() {
   const added = await addAgreementToCalendarPending();
   if (!added) return;
   await generatePdf("agreement");
+  state.agreement = createInitialAgreementState();
+  state.agreementDraftContext = {
+    contractId: "",
+    eventId: "",
+    name: "",
+  };
+  syncAgreementForm();
+  updateAgreementPreview();
+  saveDraft();
   setAgreementCalendarStatus(
-    "Saved. The event is on the calendar, the message is copied, and the PDF is ready. Use Share PDF or Print PDF at the top of this screen."
+    "Saved. The event is on the calendar, the message is copied, the PDF is ready, and the form has been cleared for a new agreement."
   );
 }
 
