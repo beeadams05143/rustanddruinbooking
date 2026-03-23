@@ -76,6 +76,95 @@ function createInitialReceiptState() {
   };
 }
 
+function createInitialPromoBuilderState() {
+  return {
+    venueType: "Pub / Brewery",
+    bookingType: "Venue booking",
+    relationship: "First Contact",
+    genre: "",
+    lineup: "",
+    tone: "Warm",
+    goal: "First outreach",
+    contactName: "",
+    venueName: "",
+    city: "",
+    openDates: "",
+    venueConnection: "",
+    customHook: "",
+    message: "",
+    templateTitle: "",
+    selectedOption: 1,
+  };
+}
+
+function createInitialEpkState() {
+  return {
+    bandName: "Rust and Ruin",
+    shortBio: "",
+    longBio: "",
+    genres: "",
+    lineupOptions: "",
+    website: "",
+    instagram: "@Rust and Ruin",
+    facebook: "@rustandruinvt",
+    musicLink: "",
+    videoLink: "",
+    photoLinks: "",
+    contactEmail: "rustandruinvt@gmail.com",
+    contactPhone: "",
+    bookingNotes: "",
+  };
+}
+
+function createInitialBandProfileState() {
+  return {
+    bandName: "Rust & Ruin",
+    hometown: "Vermont",
+    introLine: "retro-inspired acoustic duo (with a full band option)",
+    genreTags: "Americana, retro, classic favorites, original music",
+    genreLine: "classic favorites and originals inspired by the Laurel Canyon / 70s sound",
+    artistReferences: "Brandi Carlile, Fleetwood Mac, The Eagles",
+    vibeLine: "an easygoing, feel-good vibe",
+    eventFitLine: "works really well in relaxed, social settings",
+    originalsCoversLine: "a mix of classic favorites and originals",
+    lineupSummary: "acoustic duo with a full band option",
+    bioStoryLine: "",
+    bioPerformanceSummary: "",
+    bioMemberOneName: "Beth",
+    bioMemberOneRole: "lead vocals",
+    bioMemberOneDetail: "",
+    bioMemberTwoName: "Josh",
+    bioMemberTwoRole: "guitar and vocals",
+    bioMemberTwoDetail: "",
+    bioAdditionalMembers: "",
+    bioShortDraft: "",
+    bioFullDraft: "",
+    proofPointPrimary: "We play over 100 shows a year.",
+    proofPointSecondary: "Our goal is always the same: create a fun, welcoming atmosphere that keeps people engaged and sticking around.",
+    offerLineOne: "Acoustic duo for intimate settings",
+    offerLineTwo: "Full band for higher-energy receptions or larger events",
+    offerLineThree: "Customizable setlists and a professional sound setup",
+    residencyValueLine: "A recurring music night gives guests something to look forward to and helps create a recognizable vibe for the space.",
+    regularsLine: "We love becoming part of the places we play regularly and helping build something people come back for.",
+    signoffName: "Beth (and Josh)",
+    signoffBand: "Rust & Ruin",
+    signoffEmail: "rustandruinvt@gmail.com",
+  };
+}
+
+function createInitialWorkOrderWorkspaceState() {
+  return {
+    section: "tasks",
+    promoChannel: "email",
+    epkSection: "profile",
+    promoBuilder: createInitialPromoBuilderState(),
+    promoTemplates: [],
+    followUps: [],
+    bandProfile: createInitialBandProfileState(),
+    epk: createInitialEpkState(),
+  };
+}
+
 const state = {
   agreement: createInitialAgreementState(),
   invoice: createInitialInvoiceState(),
@@ -109,6 +198,7 @@ const state = {
     focusId: "",
     showCreate: true,
   },
+  workOrderWorkspace: createInitialWorkOrderWorkspaceState(),
   agreementDraftContext: {
     contractId: "",
     eventId: "",
@@ -519,6 +609,7 @@ function saveDraft() {
       invoice: state.invoice,
       receipt: state.receipt,
       workOrders: state.workOrders,
+      workOrderWorkspace: state.workOrderWorkspace,
       musicians: state.musicians,
       assignments: state.calendar.assignments,
       blackouts: state.calendar.blackouts,
@@ -574,6 +665,30 @@ function loadDraft() {
     if (Array.isArray(parsed.workOrders)) {
       state.workOrders = parsed.workOrders;
     }
+    if (parsed.workOrderWorkspace && typeof parsed.workOrderWorkspace === "object") {
+      state.workOrderWorkspace = {
+        ...state.workOrderWorkspace,
+        ...parsed.workOrderWorkspace,
+        promoBuilder: {
+          ...state.workOrderWorkspace.promoBuilder,
+          ...(parsed.workOrderWorkspace.promoBuilder || {}),
+        },
+        bandProfile: {
+          ...state.workOrderWorkspace.bandProfile,
+          ...(parsed.workOrderWorkspace.bandProfile || {}),
+        },
+        epk: {
+          ...state.workOrderWorkspace.epk,
+          ...(parsed.workOrderWorkspace.epk || {}),
+        },
+        promoTemplates: Array.isArray(parsed.workOrderWorkspace.promoTemplates)
+          ? parsed.workOrderWorkspace.promoTemplates
+          : state.workOrderWorkspace.promoTemplates,
+        followUps: Array.isArray(parsed.workOrderWorkspace.followUps)
+          ? parsed.workOrderWorkspace.followUps
+          : state.workOrderWorkspace.followUps,
+      };
+    }
     if (Array.isArray(parsed.musicians)) {
       state.musicians = parsed.musicians;
     }
@@ -611,6 +726,31 @@ function saveContractDraftSnapshots(snapshots) {
   } catch (error) {
     // ignore storage failures
   }
+}
+
+function hydrateBandProfileFromLegacyData() {
+  const profile = state.workOrderWorkspace.bandProfile;
+  const epk = state.workOrderWorkspace.epk;
+
+  if (!profile.bandName && epk.bandName) profile.bandName = epk.bandName;
+  if (!profile.signoffBand && epk.bandName) profile.signoffBand = epk.bandName;
+  if (!profile.signoffEmail && epk.contactEmail) profile.signoffEmail = epk.contactEmail;
+  if (!profile.genreLine && epk.genres) profile.genreLine = epk.genres;
+  if (!profile.genreTags && epk.genres) profile.genreTags = epk.genres;
+  if (!profile.lineupSummary && epk.lineupOptions) profile.lineupSummary = epk.lineupOptions;
+  if (!profile.introLine && epk.lineupOptions) profile.introLine = epk.lineupOptions;
+  if (!profile.eventFitLine && epk.bookingNotes) profile.eventFitLine = epk.bookingNotes;
+  if (!profile.bioShortDraft && epk.shortBio) profile.bioShortDraft = epk.shortBio;
+  if (!profile.bioFullDraft && epk.longBio) profile.bioFullDraft = epk.longBio;
+}
+
+function applyBandProfileToPromoBuilder(force = false) {
+  const builder = state.workOrderWorkspace.promoBuilder;
+  const profile = state.workOrderWorkspace.bandProfile;
+
+  if (force || !builder.genre) builder.genre = profile.genreTags || profile.genreLine || "";
+  if (force || !builder.lineup) builder.lineup = profile.lineupSummary || "";
+  if (force || !builder.contactName) builder.contactName = builder.contactName || "";
 }
 
 function getContractDraftSnapshotKey(contract = {}) {
@@ -790,25 +930,37 @@ function formatShortDateTime(value) {
   });
 }
 
+function formatMessageDate(value) {
+  if (!value) return "your event date";
+  const formatted = formatDate(value);
+  if (!formatted) return value;
+  const match = formatted.match(/^([A-Za-z]+)(.*)$/);
+  if (!match) return formatted;
+  return `${match[1].toUpperCase()}${match[2]}`;
+}
+
 function buildMessage(type) {
   const clientName = state.agreement.clientName || "there";
-  const eventDate = state.agreement.performanceDate || "your event date";
+  const eventDate = formatMessageDate(state.agreement.performanceDate);
+  const invoiceDate = formatMessageDate(state.invoice.issueDate || state.agreement.performanceDate);
+  const receiptDate = formatMessageDate(state.receipt.paymentDate || state.agreement.performanceDate);
   const venue = state.agreement.venueAddress || "your venue";
+  const venueLabel = venue === "your venue" ? venue : venue.replace(/\s+/g, " ").trim();
 
   if (type === "invoice") {
-    const subject = `Rust and Ruin Invoice – ${eventDate}`;
-    const body = `Hello ${state.invoice.clientName || clientName},\n\nThank you again for the opportunity to work with you. Attached is your invoice for your records. If you have any questions, please feel free to reach out. We truly appreciate your business and look forward to performing for you.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
+    const subject = `Rust and Ruin Invoice – ${invoiceDate}`;
+    const body = `Hello ${state.invoice.clientName || clientName},\n\nThank you so much again for the opportunity to work with you.\n\nAttached is your invoice for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. Please let us know if you have any questions at all. We're happy to help and really look forward to performing for you.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
     return { title: "Invoice Message", subject, body };
   }
 
   if (type === "receipt") {
-    const subject = `Rust and Ruin Receipt – ${state.receipt.paymentDate || eventDate}`;
-    const body = `Hello ${state.receipt.clientName || clientName},\n\nThank you so much. Attached is your receipt for your records. We enjoyed performing for you and truly appreciate the opportunity to be part of your event. Please keep us in mind for future celebrations.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
+    const subject = `Rust and Ruin Receipt – ${receiptDate}`;
+    const body = `Hello ${state.receipt.clientName || clientName},\n\nThank you so much.\n\nAttached is your receipt for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. We truly enjoyed performing for you and really appreciate the opportunity to be part of your event. Please keep us in mind for future celebrations.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
     return { title: "Receipt Message", subject, body };
   }
 
   const subject = `Rust and Ruin Performance Agreement – ${eventDate}`;
-  const body = `Hello ${clientName},\n\nThank you so much for the opportunity to work with you. We're truly excited and really look forward to performing for you.\n\nAttached is your contract for ${eventDate} at ${venue}. To secure your date, please sign the contract and send the signed copy back to us.\n\nYou're welcome to sign in whichever way is easiest for you:\n- sign with your finger or stylus on your phone or tablet and send back a screenshot\n- print it, sign it, and send us a photo or scan\n- sign the hard copy and mail it back to us\n\nPlease let us know if you have any questions at all. We're happy to help and look forward to working with you.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
+  const body = `Hello ${clientName},\n\nThank you so much for the opportunity to work with you. We're truly excited and really look forward to performing for you.\n\nAttached is your contract for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. To secure your date, please sign the contract and send the signed copy back to us.\n\nYou're welcome to sign in whichever way is easiest for you:\n- sign with your finger or stylus on your phone or tablet and send back a screenshot\n- print it, sign it, and send us a photo or scan\n- sign the hard copy and mail it back to us\n\nPlease let us know if you have any questions at all. We're happy to help and look forward to working with you.\n\nThanks,\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
   return { title: "Agreement Message", subject, body };
 }
 
@@ -5168,6 +5320,973 @@ function resetWorkOrderForm() {
   if (followUp) followUp.value = "";
 }
 
+function setPromoStatus(message, isError = false) {
+  const el = document.getElementById("promoStatus");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("warning", isError);
+}
+
+function setFollowUpStatus(message, isError = false) {
+  const el = document.getElementById("followUpStatus");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("warning", isError);
+}
+
+function setEpkStatus(message, isError = false) {
+  const el = document.getElementById("epkStatus");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("warning", isError);
+}
+
+function setProfileStatus(message, isError = false) {
+  const el = document.getElementById("profileStatus");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("warning", isError);
+}
+
+function copyTextToClipboard(text, options = {}) {
+  const {
+    statusEl = null,
+    successMessage = "Copied to clipboard.",
+    failureMessage = "Could not copy.",
+  } = options;
+
+  const markSuccess = () => {
+    if (statusEl) statusEl.textContent = successMessage;
+    if (statusEl) statusEl.classList.remove("warning");
+  };
+
+  const markFailure = () => {
+    if (statusEl) {
+      statusEl.textContent = failureMessage;
+      statusEl.classList.add("warning");
+    }
+  };
+
+  return navigator.clipboard?.writeText
+    ? navigator.clipboard.writeText(text).then(() => {
+        markSuccess();
+        return true;
+      }).catch(() => {
+        markFailure();
+        return false;
+      })
+    : Promise.resolve().then(() => {
+        try {
+          const fallback = document.createElement("textarea");
+          fallback.value = text;
+          fallback.style.position = "fixed";
+          fallback.style.top = "0";
+          fallback.style.left = "-9999px";
+          fallback.style.width = "1px";
+          fallback.style.height = "1px";
+          fallback.style.opacity = "0.01";
+          document.body.appendChild(fallback);
+          fallback.focus();
+          fallback.select();
+          fallback.setSelectionRange(0, fallback.value.length);
+          const copied = document.execCommand("copy");
+          document.body.removeChild(fallback);
+          if (copied) {
+            markSuccess();
+            return true;
+          }
+        } catch (error) {
+          // fall through
+        }
+        markFailure();
+        return false;
+      });
+}
+
+function getPromoDraftPayload() {
+  syncPromoBuilderStateFromForm();
+  const raw = (document.getElementById("promoGeneratedMessage")?.value || "").trim();
+  if (!raw) {
+    return { subject: "", body: "", raw: "" };
+  }
+  const lines = raw.split("\n");
+  const firstLine = lines[0]?.trim() || "";
+  if (/^subject:/i.test(firstLine)) {
+    return {
+      subject: firstLine.replace(/^subject:\s*/i, "").trim(),
+      body: lines.slice(1).join("\n").trim(),
+      raw,
+    };
+  }
+  return {
+    subject: "",
+    body: raw,
+    raw,
+  };
+}
+
+async function sharePromoMessage() {
+  const statusEl = document.getElementById("promoStatus");
+  const payload = getPromoDraftPayload();
+  if (!payload.raw) {
+    setPromoStatus("Write or generate a message first.", true);
+    return;
+  }
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: payload.subject || "GigOS promo draft",
+        text: payload.subject ? `${payload.subject}\n\n${payload.body}` : payload.body,
+      });
+      setPromoStatus("Message shared.");
+      return;
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        setPromoStatus("Could not open the share sheet. Try Email Draft or Text Draft.", true);
+      }
+      return;
+    }
+  }
+  await copyTextToClipboard(payload.subject ? `${payload.subject}\n\n${payload.body}` : payload.body, {
+    statusEl,
+    successMessage: "Sharing is not supported here, so the message was copied instead.",
+    failureMessage: "Could not share or copy the message.",
+  });
+}
+
+function openPromoEmailDraft() {
+  const payload = getPromoDraftPayload();
+  if (!payload.raw) {
+    setPromoStatus("Write or generate a message first.", true);
+    return;
+  }
+  const subject = encodeURIComponent(payload.subject || "GigOS promo draft");
+  const body = encodeURIComponent(payload.body || payload.raw);
+  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  setPromoStatus("Email draft opened.");
+}
+
+function openPromoTextDraft() {
+  const payload = getPromoDraftPayload();
+  if (!payload.raw) {
+    setPromoStatus("Write or generate a message first.", true);
+    return;
+  }
+  const text = encodeURIComponent(payload.subject ? `${payload.subject}\n\n${payload.body}` : payload.body);
+  window.location.href = `sms:&body=${text}`;
+  setPromoStatus("Text draft opened.");
+}
+
+function syncPromoBuilderStateFromForm() {
+  const builder = state.workOrderWorkspace.promoBuilder;
+  builder.venueType = document.getElementById("promoVenueType")?.value || builder.venueType;
+  builder.bookingType = document.getElementById("promoBookingType")?.value || builder.bookingType;
+  builder.relationship = document.getElementById("promoRelationship")?.value || builder.relationship;
+  builder.genre = document.getElementById("promoGenre")?.value || "";
+  builder.lineup = document.getElementById("promoLineup")?.value || builder.lineup;
+  builder.tone = document.getElementById("promoTone")?.value || builder.tone;
+  builder.goal = document.getElementById("promoGoal")?.value || builder.goal;
+  builder.contactName = document.getElementById("promoContactName")?.value.trim() || "";
+  builder.venueName = document.getElementById("promoVenueName")?.value.trim() || "";
+  builder.city = document.getElementById("promoCity")?.value.trim() || "";
+  builder.openDates = document.getElementById("promoOpenDates")?.value.trim() || "";
+  builder.venueConnection = document.getElementById("promoVenueConnection")?.value.trim() || "";
+  builder.customHook = document.getElementById("promoCustomHook")?.value.trim() || "";
+  builder.templateTitle = document.getElementById("promoTemplateTitle")?.value.trim() || "";
+  builder.message = document.getElementById("promoGeneratedMessage")?.value || builder.message;
+}
+
+function syncEpkStateFromForm() {
+  const epk = state.workOrderWorkspace.epk;
+  epk.bandName = document.getElementById("epkBandName")?.value.trim() || epk.bandName;
+  epk.shortBio = document.getElementById("epkShortBio")?.value.trim() || "";
+  epk.longBio = document.getElementById("epkLongBio")?.value.trim() || "";
+  epk.genres = document.getElementById("epkGenres")?.value.trim() || "";
+  epk.lineupOptions = document.getElementById("epkLineupOptions")?.value.trim() || "";
+  epk.website = document.getElementById("epkWebsite")?.value.trim() || "";
+  epk.instagram = document.getElementById("epkInstagram")?.value.trim() || "";
+  epk.facebook = document.getElementById("epkFacebook")?.value.trim() || "";
+  epk.musicLink = document.getElementById("epkMusicLink")?.value.trim() || "";
+  epk.videoLink = document.getElementById("epkVideoLink")?.value.trim() || "";
+  epk.photoLinks = document.getElementById("epkPhotoLinks")?.value.trim() || "";
+  epk.contactEmail = document.getElementById("epkContactEmail")?.value.trim() || "";
+  epk.contactPhone = document.getElementById("epkContactPhone")?.value.trim() || "";
+  epk.bookingNotes = document.getElementById("epkBookingNotes")?.value.trim() || "";
+}
+
+function syncBandProfileStateFromForm() {
+  const profile = state.workOrderWorkspace.bandProfile;
+  profile.bandName = document.getElementById("profileBandName")?.value.trim() || profile.bandName;
+  profile.hometown = document.getElementById("profileHometown")?.value.trim() || "";
+  profile.introLine = document.getElementById("profileIntroLine")?.value.trim() || "";
+  profile.genreTags = document.getElementById("profileGenreTags")?.value.trim() || "";
+  profile.genreLine = document.getElementById("profileGenreLine")?.value.trim() || "";
+  profile.artistReferences = document.getElementById("profileArtistReferences")?.value.trim() || "";
+  profile.vibeLine = document.getElementById("profileVibeLine")?.value.trim() || "";
+  profile.eventFitLine = document.getElementById("profileEventFitLine")?.value.trim() || "";
+  profile.originalsCoversLine = document.getElementById("profileOriginalsCoversLine")?.value.trim() || "";
+  profile.lineupSummary = document.getElementById("profileLineupSummary")?.value.trim() || "";
+  profile.proofPointPrimary = document.getElementById("profileProofPrimary")?.value.trim() || "";
+  profile.proofPointSecondary = document.getElementById("profileProofSecondary")?.value.trim() || "";
+  profile.offerLineOne = document.getElementById("profileOfferOne")?.value.trim() || "";
+  profile.offerLineTwo = document.getElementById("profileOfferTwo")?.value.trim() || "";
+  profile.offerLineThree = document.getElementById("profileOfferThree")?.value.trim() || "";
+  profile.residencyValueLine = document.getElementById("profileResidencyValue")?.value.trim() || "";
+  profile.regularsLine = document.getElementById("profileRegularsLine")?.value.trim() || "";
+  profile.signoffName = document.getElementById("profileSignoffName")?.value.trim() || "";
+  profile.signoffBand = document.getElementById("profileSignoffBand")?.value.trim() || "";
+  profile.signoffEmail = document.getElementById("profileSignoffEmail")?.value.trim() || "";
+  profile.bioStoryLine = document.getElementById("profileBioStoryLine")?.value.trim() || "";
+  profile.bioPerformanceSummary = document.getElementById("profileBioPerformanceSummary")?.value.trim() || "";
+  profile.bioMemberOneName = document.getElementById("profileBioMemberOneName")?.value.trim() || "";
+  profile.bioMemberOneRole = document.getElementById("profileBioMemberOneRole")?.value.trim() || "";
+  profile.bioMemberOneDetail = document.getElementById("profileBioMemberOneDetail")?.value.trim() || "";
+  profile.bioMemberTwoName = document.getElementById("profileBioMemberTwoName")?.value.trim() || "";
+  profile.bioMemberTwoRole = document.getElementById("profileBioMemberTwoRole")?.value.trim() || "";
+  profile.bioMemberTwoDetail = document.getElementById("profileBioMemberTwoDetail")?.value.trim() || "";
+  profile.bioAdditionalMembers = document.getElementById("profileBioAdditionalMembers")?.value.trim() || "";
+  profile.bioShortDraft = document.getElementById("profileBioShortDraft")?.value.trim() || "";
+  profile.bioFullDraft = document.getElementById("profileBioFullDraft")?.value.trim() || "";
+}
+
+function buildPromoScript(channel = "email", option = 1) {
+  const builder = state.workOrderWorkspace.promoBuilder;
+  const epk = state.workOrderWorkspace.epk;
+  const profile = state.workOrderWorkspace.bandProfile;
+  const contactName = builder.contactName || "there";
+  const venueName = builder.venueName || "your venue";
+  const city = builder.city ? ` in ${builder.city}` : "";
+  const bookingType = builder.bookingType || "Venue booking";
+  const relationship = builder.relationship || "First Contact";
+  const bandName = profile.bandName || epk.bandName || "Rust and Ruin";
+  const genreText = builder.genre || profile.genreTags || profile.genreLine || "";
+  const lineupText = builder.lineup || profile.lineupSummary || "";
+  const openDatesText = builder.openDates || "a few open dates coming up";
+  const venueConnectionText = builder.venueConnection || "";
+  const hook = builder.customHook ? `${builder.customHook}\n\n` : "";
+  const hasGenre = Boolean(genreText.trim());
+  const hasLineup = Boolean(lineupText.trim());
+  const hasCity = Boolean(builder.city.trim());
+
+  const lineupLower = lineupText.toLowerCase();
+  const isPrivateEventBooking = bookingType !== "Venue booking";
+  const targetLabel = isPrivateEventBooking ? "event" : "venue";
+  const bookingPhrase = isPrivateEventBooking ? bookingType.toLowerCase() : `${builder.venueType.toLowerCase()} bookings`;
+  const atPhrase = isPrivateEventBooking ? `for ${venueName}${city}` : `at ${venueName}${city}`;
+  const relationshipLead = {
+    "First Contact": "",
+    "Played Here Before": option === 2
+      ? `We've always enjoyed playing at ${venueName}, and I wanted to reach out about upcoming dates.`
+      : option === 3
+        ? `Since we've played with you before, I thought I'd send over a quick note about future openings.`
+        : `We've loved playing at ${venueName} and wanted to reach out about upcoming dates.`,
+    "Preferred Venue": option === 2
+      ? `Because ${venueName} is one of our favorite rooms to work with, I wanted to send a quick note.`
+      : option === 3
+        ? `Since ${venueName} has been such a great fit for us over the years, I wanted to send a quick note.`
+        : `${venueName} has been a great fit for us, so I wanted to send a quick note.`,
+    "Warm Lead": option === 2
+      ? `I wanted to send a quick note since this already feels like a strong fit.`
+      : option === 3
+        ? `I thought I'd send a more personal note because this already feels like a natural fit.`
+        : `I wanted to send a quick note because this already feels like a good fit.`,
+  }[relationship] || "";
+
+  const detailSentence = (() => {
+    if (hasGenre && hasLineup) {
+      if (option === 2) return `We play ${genreText}, and our ${lineupLower} setup tends to fit rooms that want live music with a strong draw and an easy footprint.`;
+      if (option === 3) return `Our sets lean ${genreText}, and we can come in as a ${lineupLower} setup depending on what fits the room best.`;
+      return `We play ${genreText} and can offer a ${lineupLower} setup that works well for rooms that want live music with a strong draw and an easy footprint.`;
+    }
+    if (hasGenre) {
+      if (option === 2) return `We play ${genreText} and would love to be considered if that feels like a fit for your room.`;
+      if (option === 3) return `Our music leans ${genreText}, and we'd be glad to be considered when you're filling dates.`;
+      return `We play ${genreText} and would love to be considered whenever you're filling dates.`;
+    }
+    if (hasLineup) {
+      if (option === 2) return `We can offer a ${lineupLower} setup that works well for rooms like yours.`;
+      if (option === 3) return `We can come in with a ${lineupLower} setup depending on what works best for the room.`;
+      return `We can offer a ${lineupLower} setup that works well for rooms that want live music without a complicated footprint.`;
+    }
+    return "";
+  })();
+
+  const followUpSentence = hasGenre
+    ? `${bandName} plays ${genreText} and we'd love to be considered whenever you're filling upcoming dates.`
+    : `We'd love to be considered whenever you're filling upcoming dates.`;
+
+  const residencySentence = hasLineup || hasGenre
+    ? option === 3
+      ? `We'd love to build something reliable and easy for your room${hasLineup ? ` with a ${lineupLower} setup` : ""}${hasGenre ? ` and a ${genreText} feel` : ""}.`
+      : `Our${hasLineup ? ` ${lineupLower}` : ""} setup${hasGenre ? ` with ${genreText}` : ""} makes it easy to create a reliable live music night.`
+    : "";
+
+  const privateEventSentence = hasGenre || hasLineup
+    ? `We${hasGenre ? ` perform ${genreText}` : ""}${hasGenre && hasLineup ? " and" : ""}${hasLineup ? ` can tailor the setup from a ${lineupLower} format upward` : ""} depending on what fits the event best.`
+    : "";
+  const connectionSentence = relationship === "First Contact" && venueConnectionText
+    ? /[.!?]$/.test(venueConnectionText) ? venueConnectionText : `${venueConnectionText}.`
+    : "";
+  const introSentence = relationship === "First Contact"
+    ? ""
+    : relationshipLead;
+
+  const goalMap = {
+    "First outreach": [
+      connectionSentence,
+      introSentence,
+      `We'd love to be considered for ${bookingPhrase} ${atPhrase}.`,
+      detailSentence,
+    ].filter(Boolean).join(" "),
+    "Follow-up": [
+      introSentence,
+      `I wanted to follow up and see if you might be looking for live music ${isPrivateEventBooking ? `for ${venueName}${city}` : `at ${venueName}${city}`}.`,
+      followUpSentence,
+    ].filter(Boolean).join(" "),
+    "Open dates": [
+      introSentence,
+      `We're reaching out because we have fresh open dates available and would love to ${isPrivateEventBooking ? `be part of ${venueName}${city}` : `get on the calendar at ${venueName}${city}`}. Right now we're looking at ${openDatesText}.`,
+    ].filter(Boolean).join(" "),
+    "Residency pitch": [
+      connectionSentence,
+      introSentence,
+      `We'd love to explore a recurring booking or residency with ${venueName}${city}.`,
+      residencySentence,
+    ].filter(Boolean).join(" "),
+    "Private event pitch": [
+      connectionSentence,
+      introSentence,
+      isPrivateEventBooking
+        ? `We'd love to be considered for ${bookingType.toLowerCase()} music for ${venueName}${city}.`
+        : `We'd love to be considered for private events connected to ${venueName}${city}.`,
+      privateEventSentence,
+    ].filter(Boolean).join(" "),
+    "Seasonal booking": [
+      connectionSentence,
+      introSentence,
+      `As you're planning upcoming seasonal entertainment, we'd love to be considered for dates at ${venueName}${city}.`,
+      hasGenre || hasLineup
+        ? `We can support a range of rooms and event styles${hasGenre ? ` with ${genreText}` : ""}${hasLineup ? `${hasGenre ? " in" : " with"} a ${lineupLower} or larger format.` : "."}`
+        : "",
+    ].filter(Boolean).join(" "),
+    "Thank you / keep us in mind": [
+      introSentence,
+      `Thank you again for having ${bandName}. We loved playing for you and wanted to stay on your radar for future dates at ${venueName}${city}. If you have more openings coming up, we'd be glad to be part of them.`,
+    ].filter(Boolean).join(" "),
+  };
+
+  const proofLines = relationship === "First Contact"
+    ? [
+        epk.shortBio || `${bandName} is a Vermont-based live act offering flexible sets for venues, private events, and community gatherings.`,
+        epk.website ? `Website: ${epk.website}` : "",
+        epk.musicLink ? `Music: ${epk.musicLink}` : "",
+        epk.videoLink ? `Video: ${epk.videoLink}` : "",
+        epk.instagram ? `Instagram: ${epk.instagram}` : "",
+        epk.facebook ? `Facebook: ${epk.facebook}` : "",
+      ].filter(Boolean)
+    : [
+        epk.musicLink ? `Music: ${epk.musicLink}` : "",
+        epk.website ? `Website: ${epk.website}` : "",
+        epk.instagram ? `Instagram: ${epk.instagram}` : "",
+      ].filter(Boolean);
+
+  const returningVenuePhrase = relationship === "Preferred Venue"
+    ? `${venueName} has become one of our favorite regular spots`
+    : `we always love playing at ${venueName}`;
+  const returningGreeting = builder.tone === "Professional"
+    ? `Hi ${contactName},`
+    : `Hi ${contactName}!`;
+  const returningCheckIn = builder.tone === "Professional"
+    ? `Hope you're doing well.`
+    : `Hope you're doing well!`;
+  const returningSignoff = builder.tone === "Professional" ? "Thanks so much," : "Talk soon!";
+  const openDatesLabel = openDatesText && openDatesText !== "a few open dates coming up"
+    ? openDatesText
+    : "some upcoming dates";
+  const returningBodyMap = {
+    "Open dates": [
+      `We're starting to lock in our schedule for ${bandName}, and since ${returningVenuePhrase}, we wanted to reach out before everything fills up.`,
+      `We still have ${openDatesLabel} open and would love to get something back on the calendar with you if it lines up on your end.`,
+      `Let us know what dates you're thinking, and we'll do our best to line things up on our side.`,
+      profile.regularsLine || `Always a great time playing for your crowd, and we really appreciate you having us back.`,
+    ],
+    "Seasonal booking": [
+      `We're starting to map out our upcoming season for ${bandName}, and since ${returningVenuePhrase}, we wanted to reach out early before everything fills up.`,
+      `We'd love to get some dates on the schedule with you again while we're still locking things in on our end.`,
+      openDatesText && openDatesText !== "a few open dates coming up"
+        ? `Right now we still have ${openDatesText} open if any of those help as a starting point.`
+        : `If you already have dates in mind, send them our way and we'll do our best to make them work.`,
+      profile.regularsLine || `It's always such a fun room for us, and we'd love to be back again.`,
+    ],
+    "Residency pitch": [
+      `We're starting to look ahead at the calendar for ${bandName}, and since ${returningVenuePhrase}, we wanted to see if you'd like to lock in some recurring dates.`,
+      `We'd love to keep building on what already feels like such a good fit and get some regular nights on the books before the calendar gets too crowded.`,
+      openDatesText && openDatesText !== "a few open dates coming up"
+        ? `We still have ${openDatesText} available right now if any of those are helpful to start with.`
+        : `We still have some room on the calendar if you want to start looking at dates.`,
+      profile.regularsLine || `Let us know what you're thinking and we'll line things up on our end.`,
+    ],
+    "Private event pitch": [
+      `Since ${returningVenuePhrase}, we wanted to mention that we'd also love to be considered for any private events or special bookings you may have coming up.`,
+      `If anything comes up where live music would make sense, we'd be glad to talk it through with you.`,
+      openDatesText && openDatesText !== "a few open dates coming up"
+        ? `We do still have ${openDatesText} open right now as well.`
+        : "",
+    ],
+    "Follow-up": [
+      `Just wanted to follow up since ${returningVenuePhrase}. We'd love to get something back on the calendar with you.`,
+      openDatesText && openDatesText !== "a few open dates coming up"
+        ? `Right now we still have ${openDatesText} open if any of those could work.`
+        : `We still have a few dates open if you happen to be booking right now.`,
+      `Let us know what you're thinking and we'll do our best to make it work.`,
+    ],
+    "Thank you / keep us in mind": [
+      `We always appreciate playing at ${venueName} and just wanted to stay on your radar for future dates.`,
+      `If anything opens up down the road, we'd love to come back.`,
+    ],
+    "First outreach": [
+      `We've had ${venueName} on our radar for a while and wanted to reach out.`,
+      venueConnectionText ? venueConnectionText : "",
+      `If it feels like a fit, we'd love to be considered for a date sometime.`,
+    ],
+  };
+
+  const contactBlock = [
+    `Thanks,`,
+    profile.signoffBand || bandName,
+    profile.signoffEmail || epk.contactEmail || "rustandruinvt@gmail.com",
+    epk.contactPhone || "",
+  ].filter(Boolean).join("\n");
+  const returningContactBlock = [
+    profile.signoffName || `Beth (and Josh)`,
+    profile.signoffBand || bandName,
+    profile.signoffEmail || epk.contactEmail || "rustandruinvt@gmail.com",
+  ].filter(Boolean).join("\n");
+
+  const toneLead = {
+    Warm: `Hi ${contactName},`,
+    Professional: `Hello ${contactName},`,
+    Upbeat: `Hi ${contactName}!`,
+  }[builder.tone] || `Hi ${contactName},`;
+  const firstContactGreeting = builder.tone === "Professional"
+    ? `Hi ${contactName},`
+    : `Hi ${contactName}!`;
+  const firstContactCheckIn = builder.tone === "Professional"
+    ? `I hope you're doing well.`
+    : `Hope you're doing well!`;
+  const firstContactIntro = [
+    `My name is Beth, and I'm one half of ${bandName}${profile.hometown ? `, based in ${profile.hometown}` : ""}.`,
+    profile.introLine || profile.originalsCoversLine || profile.vibeLine
+      ? `${bandName} is ${profile.introLine || profile.lineupSummary || (hasLineup ? `${lineupText.toLowerCase()}` : "a live act")}${profile.originalsCoversLine ? ` playing ${profile.originalsCoversLine}` : ""}${profile.vibeLine ? ` with ${profile.vibeLine}` : ""}.`
+      : epk.shortBio || `${bandName} is a live act with a laid-back, feel-good vibe.`,
+  ].filter(Boolean).join(" ");
+  const firstContactConnection = (() => {
+    if (venueConnectionText) {
+      return /[.!?]$/.test(venueConnectionText) ? venueConnectionText : `${venueConnectionText}.`;
+    }
+    if (bookingType === "Wedding") {
+      return `Thanks so much for considering ${bandName} for your wedding music. We’d be happy to be part of such a special day.`;
+    }
+    if (isPrivateEventBooking) {
+      return `Thanks so much for considering ${bandName} for your event. We’d love the chance to be part of it.`;
+    }
+    return `We've had ${venueName} on our radar for a while, so I wanted to reach out and introduce ourselves.`;
+  })();
+  const firstContactFit = (() => {
+    if (builder.goal === "Residency pitch") {
+      return [
+        `We'd love to talk with you about a recurring live music residency at ${venueName}.`,
+        profile.residencyValueLine || `What we've found is that when venues move from one-off bookings to a set monthly or biweekly experience, it gives guests something to look forward to and helps create a recognizable vibe for the space.`,
+        hasGenre || hasLineup
+          ? `Our style${hasGenre ? ` leans ${genreText}` : ""}${hasLineup ? `${hasGenre ? ", and" : " and"} we can come in as ${/^[aeiou]/i.test(lineupLower) ? "an" : "a"} ${lineupLower} setup` : ""}${profile.eventFitLine ? ` and ${profile.eventFitLine}` : ""}.`
+          : profile.eventFitLine || `Our sets tend to work really well in relaxed, social spaces where you want music that adds energy without overpowering the room.`,
+      ].filter(Boolean).join("\n\n");
+    }
+    if (builder.goal === "Private event pitch") {
+      return [
+        bookingType === "Wedding"
+          ? `We'd be so happy to be considered for live music for ${venueName}.`
+          : isPrivateEventBooking
+            ? `We'd love to be considered for live music for ${venueName}.`
+            : `We'd love to be considered for private events connected to ${venueName}.`,
+        hasGenre || hasLineup
+          ? `We can tailor the music${hasGenre ? ` with a ${genreText} feel` : ""}${hasLineup ? ` and a ${lineupLower} format or larger depending on what the event needs` : ""}.`
+          : `We can tailor the music and overall feel depending on what the event needs.`,
+      ].filter(Boolean).join("\n\n");
+    }
+    if (builder.goal === "Seasonal booking") {
+      return [
+        isPrivateEventBooking
+          ? `We're currently mapping out our upcoming season and would love the chance to be part of ${venueName}.`
+          : `We're currently mapping out our upcoming season, and we'd love the chance to play at ${venueName}.`,
+        `If you're open to live music this season, we'd be glad to see if we can find something that fits your calendar.`,
+      ].join("\n\n");
+    }
+    if (bookingType === "Wedding") {
+      return [
+        `We'd love the chance to be part of ${venueName}.`,
+        hasGenre || hasLineup
+          ? `We can shape the music${hasGenre ? ` with a ${genreText} feel` : ""}${hasLineup ? ` and a ${lineupLower} setup or larger depending on what fits the day best` : ""}.`
+          : `We can shape the music around the tone of the day, from something relaxed and intimate to a more celebratory feel later on.`,
+      ].filter(Boolean).join("\n\n");
+    }
+    return [
+      `We're currently booking out our schedule, and we'd love the chance to ${isPrivateEventBooking ? `play for ${venueName}` : `play at ${venueName}`}.`,
+      hasGenre || hasLineup
+        ? `Our style${hasGenre ? ` leans ${genreText}` : ""}${hasLineup ? `${hasGenre ? ", and" : " and"} we can come in as ${/^[aeiou]/i.test(lineupLower) ? "an" : "a"} ${lineupLower} setup` : ""}${profile.eventFitLine ? ` and ${profile.eventFitLine}` : ""}.`
+        : profile.eventFitLine || `Our sets are built for relaxed, social spaces where you want music that feels warm and fun without taking over the room.`,
+    ].filter(Boolean).join("\n\n");
+  })();
+  const firstContactAsk = builder.goal === "Residency pitch"
+    ? `If this sounds like something you'd be open to exploring, I'd love to connect and talk through what would work best for your space.`
+    : builder.goal === "Seasonal booking"
+      ? `If you're open to live music this season, I'd love to see if we can find a date that works for you.`
+      : builder.goal === "Private event pitch"
+        ? bookingType === "Wedding"
+          ? `If you'd like, we're happy to send over videos, song ideas, or anything else that would help as you decide on your wedding music.`
+          : `If anything comes up that feels like a fit, we'd love to be part of it and are happy to send anything else you'd like to see.`
+        : `If you're open to live music, I'd love to see if we can find a date that works for you.`;
+  const firstContactExtras = [
+    profile.proofPointPrimary || "",
+    profile.proofPointSecondary || "",
+    profile.artistReferences ? `Artists / references: ${profile.artistReferences}` : "",
+    builder.goal === "Private event pitch" || isPrivateEventBooking
+      ? [profile.offerLineOne, profile.offerLineTwo, profile.offerLineThree].filter(Boolean).map((line) => `• ${line}`).join("\n")
+      : "",
+    epk.musicLink ? `Music: ${epk.musicLink}` : "",
+    epk.website ? `Website: ${epk.website}` : "",
+    epk.instagram ? `Instagram: ${epk.instagram}` : "",
+  ].filter(Boolean);
+
+  const goalText = goalMap[builder.goal] || goalMap["First outreach"];
+
+  if (channel === "coldcall") {
+    return [
+      `Cold Call Script`,
+      "",
+      `Hi, this is ${bandName}. I was hoping to speak with whoever handles entertainment for ${venueName || "the venue"}.`,
+      "",
+      `Quick pitch: ${goalText}`.trim(),
+      "",
+      `If this sounds like a fit, what's the best email or person to send our info and open dates to?`,
+      hook ? `\nCustom note: ${builder.customHook}` : "",
+    ].filter(Boolean).join("\n");
+  }
+
+  if (channel === "text") {
+    return [
+      `Hi ${contactName}, this is ${bandName}. ${goalText}`,
+      hook.trim(),
+      epk.website ? `Website: ${epk.website}` : "",
+      epk.musicLink ? `Music: ${epk.musicLink}` : "",
+      `Thanks, ${bandName}`,
+    ].filter(Boolean).join("\n");
+  }
+
+  if (channel === "dm") {
+    return [
+      toneLead,
+      "",
+      hook + goalText,
+      "",
+      !hasGenre && !hasLineup
+        ? `${bandName} would love to be considered whenever you're booking.`
+        : `${bandName}${hasGenre ? ` performs ${genreText}` : ""}${hasLineup ? `${hasGenre ? " and" : ""} can offer a ${lineupLower} setup` : ""}.`,
+      epk.musicLink ? `Music: ${epk.musicLink}` : "",
+      epk.website ? `Website: ${epk.website}` : "",
+      "",
+      `Thanks so much,`,
+      bandName,
+    ].filter(Boolean).join("\n");
+  }
+
+  if (channel === "email" && relationship !== "First Contact") {
+    const returningLines = returningBodyMap[builder.goal] || returningBodyMap["Open dates"];
+    return [
+      `Subject: ${builder.goal === "Seasonal booking" ? "Season dates" : "Open dates"} for ${venueName || "your venue"}`,
+      "",
+      returningGreeting,
+      "",
+      returningCheckIn,
+      "",
+      hook.trim(),
+      ...returningLines,
+      "",
+      returningSignoff,
+      returningContactBlock,
+    ].filter(Boolean).join("\n");
+  }
+
+  if (channel === "email" && relationship === "First Contact") {
+    return [
+      `Subject: ${builder.goal === "Residency pitch"
+        ? `Let's Build Something at ${venueName}`
+        : bookingType === "Wedding"
+          ? `Wedding Music for ${venueName}`
+          : `${bandName} at ${venueName}`}`,
+      "",
+      firstContactGreeting,
+      "",
+      firstContactCheckIn,
+      "",
+      firstContactIntro,
+      "",
+      hook.trim(),
+      firstContactConnection,
+      "",
+      firstContactFit,
+      "",
+      firstContactAsk,
+      firstContactExtras.length ? "" : null,
+      ...firstContactExtras,
+      "",
+      builder.tone === "Professional" ? "Warmly," : "Warmly,",
+      profile.signoffName || "Beth (and Josh)",
+      profile.signoffBand || bandName,
+      profile.signoffEmail || epk.contactEmail || "rustandruinvt@gmail.com",
+    ].filter(Boolean).join("\n");
+  }
+
+  return [
+    `Subject: ${bandName} booking inquiry for ${venueName || builder.venueType}`,
+    "",
+    toneLead,
+    "",
+    hook + goalText,
+    "",
+    ...proofLines,
+    "",
+    contactBlock,
+  ].filter(Boolean).join("\n");
+}
+
+function buildPromoScriptOptions(channel = "email") {
+  return [1, 2, 3].map((option) => buildPromoScript(channel, option));
+}
+
+function updatePromoGeneratedMessage(force = false) {
+  syncPromoBuilderStateFromForm();
+  const textarea = document.getElementById("promoGeneratedMessage");
+  if (!textarea) return;
+  const channel = state.workOrderWorkspace.promoChannel;
+  const options = buildPromoScriptOptions(channel);
+  const currentOption = Number(state.workOrderWorkspace.promoBuilder.selectedOption || 1);
+  const generated = options[currentOption - 1] || options[0] || "";
+  document.querySelectorAll("[data-promo-option]").forEach((btn) => {
+    btn.classList.toggle("active", Number(btn.getAttribute("data-promo-option")) === currentOption);
+  });
+  if (force || !textarea.value.trim() || textarea.value === state.workOrderWorkspace.promoBuilder.message) {
+    textarea.value = generated;
+  }
+  state.workOrderWorkspace.promoBuilder.message = textarea.value;
+  saveDraft();
+}
+
+function switchWorkOrderSection(section = "tasks") {
+  state.workOrderWorkspace.section = section;
+  document.querySelectorAll("[data-work-section]").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-work-section") === section);
+  });
+  document.querySelectorAll("[data-work-panel]").forEach((panel) => {
+    panel.classList.toggle("hidden", panel.getAttribute("data-work-panel") !== section);
+  });
+  saveDraft();
+}
+
+function switchPromoChannel(channel = "email") {
+  state.workOrderWorkspace.promoChannel = channel;
+  document.querySelectorAll("[data-promo-channel]").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-promo-channel") === channel);
+  });
+  const builderWrap = document.getElementById("promoBuilderWrap");
+  const followUpWrap = document.getElementById("followUpsWrap");
+  if (builderWrap) builderWrap.classList.toggle("hidden", channel === "followups");
+  if (followUpWrap) followUpWrap.classList.toggle("hidden", channel !== "followups");
+  if (channel !== "followups") {
+    updatePromoGeneratedMessage(true);
+  }
+  saveDraft();
+}
+
+function switchEpkSection(section = "profile") {
+  state.workOrderWorkspace.epkSection = section;
+  document.querySelectorAll("[data-epk-section]").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-epk-section") === section);
+  });
+  document.querySelectorAll("[data-epk-panel]").forEach((panel) => {
+    panel.classList.toggle("hidden", panel.getAttribute("data-epk-panel") !== section);
+  });
+  saveDraft();
+}
+
+function renderPromoTemplates() {
+  const list = document.getElementById("promoTemplateList");
+  if (!list) return;
+  const templates = state.workOrderWorkspace.promoTemplates || [];
+  list.innerHTML = "";
+  if (!templates.length) {
+    list.innerHTML = "<p class=\"muted\">No saved promo templates yet.</p>";
+    return;
+  }
+
+  templates.forEach((template) => {
+    const card = document.createElement("article");
+    card.className = "work-order-card";
+    card.innerHTML = `
+      <div class="work-order-head">
+        <div>
+          <h4>${template.title || "Untitled Template"}</h4>
+          <p class="work-order-meta">${template.channelLabel || "Email"} • ${template.goal || "General outreach"} • ${template.lineup || "Lineup not set"}</p>
+        </div>
+        <span class="priority-tag normal">${template.venueType || "General"}</span>
+      </div>
+      <p class="work-order-note">${template.message || ""}</p>
+      <div class="work-order-actions">
+        <button class="btn ghost" type="button" data-promo-template-action="load" data-id="${template.id}">Open in Editor</button>
+        <button class="btn ghost" type="button" data-promo-template-action="copy" data-id="${template.id}">Copy</button>
+        <button class="btn ghost" type="button" data-promo-template-action="delete" data-id="${template.id}">Delete</button>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function focusPromoMessageEditor() {
+  const editor = document.getElementById("promoGeneratedMessage");
+  if (!editor) return;
+  editor.scrollIntoView({ behavior: "smooth", block: "center" });
+  editor.focus();
+  const end = editor.value.length;
+  editor.setSelectionRange(end, end);
+}
+
+function renderFollowUps() {
+  const list = document.getElementById("followUpList");
+  if (!list) return;
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const entries = [...(state.workOrderWorkspace.followUps || [])].sort((a, b) => {
+    return String(a.nextFollowUp || "").localeCompare(String(b.nextFollowUp || ""));
+  });
+  list.innerHTML = "";
+  if (!entries.length) {
+    list.innerHTML = "<p class=\"muted\">No follow-up venues yet.</p>";
+    return;
+  }
+
+  entries.forEach((entry) => {
+    const dueLabel = entry.nextFollowUp ? formatDate(entry.nextFollowUp) : "No next follow-up";
+    const card = document.createElement("article");
+    card.className = "work-order-card";
+    card.innerHTML = `
+      <div class="work-order-head">
+        <div>
+          <h4>${entry.venueName || "Venue"}</h4>
+          <p class="work-order-meta">${entry.contactName || "No contact"}${entry.city ? ` • ${entry.city}` : ""}</p>
+        </div>
+        <span class="priority-tag ${entry.nextFollowUp && entry.nextFollowUp <= todayKey ? "urgent" : "normal"}">${dueLabel}</span>
+      </div>
+      <p class="work-order-note"><strong>Best follow-up:</strong> ${entry.bestChannel || "Email"}${entry.lastPlayed ? ` • Last played ${formatDate(entry.lastPlayed)}` : ""}${entry.lastContacted ? ` • Last contacted ${formatDate(entry.lastContacted)}` : ""}</p>
+      ${entry.notes ? `<p class="work-order-note"><strong>Notes:</strong> ${entry.notes}</p>` : ""}
+      <div class="work-order-actions">
+        <button class="btn ghost" type="button" data-followup-action="load" data-id="${entry.id}">Load Into Builder</button>
+        <button class="btn ghost" type="button" data-followup-action="copy" data-id="${entry.id}">Copy Pitch</button>
+        <button class="btn ghost" type="button" data-followup-action="delete" data-id="${entry.id}">Delete</button>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function renderEpkSummary() {
+  const summary = document.getElementById("epkSummary");
+  if (!summary) return;
+  const profile = state.workOrderWorkspace.bandProfile;
+  const epk = state.workOrderWorkspace.epk;
+  summary.innerHTML = `
+    <p><strong>EPK Draft Preview</strong></p>
+    <p><strong>${epk.bandName || profile.bandName || "Band name"}</strong></p>
+    <p><strong>Short bio:</strong> ${epk.shortBio || profile.bioShortDraft || "Use the Bio Generator to create a short bio for outreach and EPK use."}</p>
+    <p><strong>Full bio:</strong> ${epk.longBio || profile.bioFullDraft || "Use the Bio Generator to create a fuller bio with more story and member detail."}</p>
+    <p><strong>Genres:</strong> ${epk.genres || profile.genreTags || "Not set yet"}</p>
+    <p><strong>Artists / references:</strong> ${profile.artistReferences || "Not set yet"}</p>
+    <p><strong>Lineup options:</strong> ${epk.lineupOptions || profile.lineupSummary || "Not set yet"}</p>
+    <p><strong>Website:</strong> ${epk.website || "Not set yet"}</p>
+    <p><strong>Music:</strong> ${epk.musicLink || "Not set yet"}</p>
+    <p><strong>Video:</strong> ${epk.videoLink || "Not set yet"}</p>
+    <p><strong>Photo assets:</strong> ${epk.photoLinks || "Add photo links or asset locations"}</p>
+  `;
+}
+
+function renderBandProfile() {
+  const profile = state.workOrderWorkspace.bandProfile;
+  const setValue = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.value = value || "";
+  };
+
+  setValue("profileBandName", profile.bandName);
+  setValue("profileHometown", profile.hometown);
+  setValue("profileIntroLine", profile.introLine);
+  setValue("profileGenreTags", profile.genreTags);
+  setValue("profileGenreLine", profile.genreLine);
+  setValue("profileArtistReferences", profile.artistReferences);
+  setValue("profileVibeLine", profile.vibeLine);
+  setValue("profileEventFitLine", profile.eventFitLine);
+  setValue("profileOriginalsCoversLine", profile.originalsCoversLine);
+  setValue("profileLineupSummary", profile.lineupSummary);
+  setValue("profileProofPrimary", profile.proofPointPrimary);
+  setValue("profileProofSecondary", profile.proofPointSecondary);
+  setValue("profileOfferOne", profile.offerLineOne);
+  setValue("profileOfferTwo", profile.offerLineTwo);
+  setValue("profileOfferThree", profile.offerLineThree);
+  setValue("profileResidencyValue", profile.residencyValueLine);
+  setValue("profileRegularsLine", profile.regularsLine);
+  setValue("profileSignoffName", profile.signoffName);
+  setValue("profileSignoffBand", profile.signoffBand);
+  setValue("profileSignoffEmail", profile.signoffEmail);
+  setValue("profileBioStoryLine", profile.bioStoryLine);
+  setValue("profileBioPerformanceSummary", profile.bioPerformanceSummary);
+  setValue("profileBioMemberOneName", profile.bioMemberOneName);
+  setValue("profileBioMemberOneRole", profile.bioMemberOneRole);
+  setValue("profileBioMemberOneDetail", profile.bioMemberOneDetail);
+  setValue("profileBioMemberTwoName", profile.bioMemberTwoName);
+  setValue("profileBioMemberTwoRole", profile.bioMemberTwoRole);
+  setValue("profileBioMemberTwoDetail", profile.bioMemberTwoDetail);
+  setValue("profileBioAdditionalMembers", profile.bioAdditionalMembers);
+  setValue("profileBioShortDraft", profile.bioShortDraft);
+  setValue("profileBioFullDraft", profile.bioFullDraft);
+}
+
+function buildBioDrafts() {
+  const profile = state.workOrderWorkspace.bandProfile;
+  const bandName = profile.bandName || "Your Band";
+  const intro = profile.introLine || "a live act";
+  const sound = profile.genreLine || profile.genreTags || "";
+  const originals = profile.originalsCoversLine || "";
+  const vibe = profile.vibeLine || "";
+  const fit = profile.eventFitLine || "";
+  const story = profile.bioStoryLine || "";
+  const performance = profile.bioPerformanceSummary || profile.proofPointPrimary || "";
+
+  const memberLines = [
+    profile.bioMemberOneName
+      ? `${profile.bioMemberOneName}${profile.bioMemberOneRole ? ` handles ${profile.bioMemberOneRole}` : ""}${profile.bioMemberOneDetail ? ` and ${profile.bioMemberOneDetail}` : ""}.`
+      : "",
+    profile.bioMemberTwoName
+      ? `${profile.bioMemberTwoName}${profile.bioMemberTwoRole ? ` handles ${profile.bioMemberTwoRole}` : ""}${profile.bioMemberTwoDetail ? ` and ${profile.bioMemberTwoDetail}` : ""}.`
+      : "",
+    profile.bioAdditionalMembers || "",
+  ].filter(Boolean);
+
+  const shortBio = [
+    `${bandName} is ${intro}${sound ? ` playing ${sound}` : ""}${originals ? `, blending ${originals}` : ""}${vibe ? ` with ${vibe}` : ""}.`,
+    fit || performance || story,
+  ].filter(Boolean).join(" ");
+
+  const fullBio = [
+    `${bandName} is ${intro}${sound ? ` known for ${sound}` : ""}${originals ? ` and ${originals}` : ""}${vibe ? ` with ${vibe}` : ""}.`,
+    story || fit,
+    performance,
+    memberLines.length ? memberLines.join(" ") : "",
+  ].filter(Boolean).join("\n\n");
+
+  return { shortBio, fullBio };
+}
+
+function generateBioDrafts() {
+  syncBandProfileStateFromForm();
+  const { shortBio, fullBio } = buildBioDrafts();
+  state.workOrderWorkspace.bandProfile.bioShortDraft = shortBio;
+  state.workOrderWorkspace.bandProfile.bioFullDraft = fullBio;
+  saveDraft();
+  renderBandProfile();
+  setProfileStatus("Bio drafts generated.");
+}
+
+function useBioDraft(target = "short") {
+  syncBandProfileStateFromForm();
+  syncEpkStateFromForm();
+  const profile = state.workOrderWorkspace.bandProfile;
+  if (target === "short") {
+    state.workOrderWorkspace.epk.shortBio = profile.bioShortDraft || state.workOrderWorkspace.epk.shortBio;
+    setEpkStatus("Short bio updated from Bio Generator.");
+  } else {
+    state.workOrderWorkspace.epk.longBio = profile.bioFullDraft || state.workOrderWorkspace.epk.longBio;
+    setEpkStatus("Full bio updated from Bio Generator.");
+  }
+  saveDraft();
+  renderWorkOrderWorkspace();
+}
+
+function saveBandProfile() {
+  syncBandProfileStateFromForm();
+  saveDraft();
+  renderBandProfile();
+  updatePromoGeneratedMessage(true);
+  setProfileStatus("Band profile saved.");
+}
+
+function useBandProfileInBuilder() {
+  syncBandProfileStateFromForm();
+  applyBandProfileToPromoBuilder(true);
+  saveDraft();
+  renderWorkOrderWorkspace();
+  setProfileStatus("Band profile defaults loaded into the builder.");
+  setPromoStatus("Band profile defaults loaded into the builder.");
+}
+
+function renderWorkOrderWorkspace() {
+  switchWorkOrderSection(state.workOrderWorkspace.section || "tasks");
+  switchPromoChannel(state.workOrderWorkspace.promoChannel || "email");
+  switchEpkSection(state.workOrderWorkspace.epkSection || "profile");
+  hydrateBandProfileFromLegacyData();
+
+  const builder = state.workOrderWorkspace.promoBuilder;
+  const setValue = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.value = value || "";
+  };
+  setValue("promoVenueType", builder.venueType);
+  setValue("promoBookingType", builder.bookingType);
+  setValue("promoRelationship", builder.relationship);
+  setValue("promoGenre", builder.genre);
+  setValue("promoLineup", builder.lineup);
+  setValue("promoTone", builder.tone);
+  setValue("promoGoal", builder.goal);
+  setValue("promoContactName", builder.contactName);
+  setValue("promoVenueName", builder.venueName);
+  setValue("promoCity", builder.city);
+  setValue("promoOpenDates", builder.openDates);
+  setValue("promoVenueConnection", builder.venueConnection);
+  setValue("promoCustomHook", builder.customHook);
+  setValue("promoTemplateTitle", builder.templateTitle);
+  updatePromoGeneratedMessage(!builder.message);
+  if (builder.message && document.getElementById("promoGeneratedMessage")) {
+    document.getElementById("promoGeneratedMessage").value = builder.message;
+  }
+
+  const epk = state.workOrderWorkspace.epk;
+  setValue("epkBandName", epk.bandName);
+  setValue("epkShortBio", epk.shortBio);
+  setValue("epkLongBio", epk.longBio);
+  setValue("epkGenres", epk.genres);
+  setValue("epkLineupOptions", epk.lineupOptions);
+  setValue("epkWebsite", epk.website);
+  setValue("epkInstagram", epk.instagram);
+  setValue("epkFacebook", epk.facebook);
+  setValue("epkMusicLink", epk.musicLink);
+  setValue("epkVideoLink", epk.videoLink);
+  setValue("epkPhotoLinks", epk.photoLinks);
+  setValue("epkContactEmail", epk.contactEmail);
+  setValue("epkContactPhone", epk.contactPhone);
+  setValue("epkBookingNotes", epk.bookingNotes);
+
+  renderBandProfile();
+  renderPromoTemplates();
+  renderFollowUps();
+  renderEpkSummary();
+}
+
 function renderWorkOrders() {
   const list = document.getElementById("workOrderList");
   if (!list) return;
@@ -5255,6 +6374,13 @@ function renderWorkOrders() {
     toggle.setAttribute("data-id", order.id);
     toggle.textContent = taskStatus === "Completed" ? "Mark Open" : "Mark Completed";
 
+    const open = document.createElement("button");
+    open.className = "btn ghost";
+    open.setAttribute("type", "button");
+    open.setAttribute("data-action", hasFocus ? "close" : "open");
+    open.setAttribute("data-id", order.id);
+    open.textContent = hasFocus ? "Back to All Tasks" : "Open";
+
     const remove = document.createElement("button");
     remove.className = "btn ghost";
     remove.setAttribute("type", "button");
@@ -5262,6 +6388,7 @@ function renderWorkOrders() {
     remove.setAttribute("data-id", order.id);
     remove.textContent = "Delete";
 
+    actions.appendChild(open);
     actions.appendChild(toggle);
     actions.appendChild(remove);
     card.appendChild(actions);
@@ -5326,6 +6453,149 @@ async function submitWorkOrder() {
       ? "Work order saved on this device only. Sign in and add the Supabase table to sync it everywhere."
       : "Work order submitted and synced."
   );
+}
+
+function resetPromoBuilder() {
+  state.workOrderWorkspace.promoBuilder = createInitialPromoBuilderState();
+  renderWorkOrderWorkspace();
+  setPromoStatus("Promo builder reset.");
+  saveDraft();
+}
+
+function savePromoTemplate() {
+  syncPromoBuilderStateFromForm();
+  const builder = state.workOrderWorkspace.promoBuilder;
+  const message = document.getElementById("promoGeneratedMessage")?.value.trim() || "";
+  const title = builder.templateTitle || `${builder.goal} - ${builder.venueType}`;
+  if (!message) {
+    setPromoStatus("Generate or write a message before saving a template.", true);
+    return;
+  }
+  const template = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    title,
+    channel: state.workOrderWorkspace.promoChannel,
+    channelLabel: state.workOrderWorkspace.promoChannel === "dm"
+      ? "DM"
+      : state.workOrderWorkspace.promoChannel === "coldcall"
+        ? "Cold Call"
+        : state.workOrderWorkspace.promoChannel === "text"
+          ? "Text"
+          : "Email",
+    venueType: builder.venueType,
+    goal: builder.goal,
+    lineup: builder.lineup,
+    genre: builder.genre,
+    message,
+    builderSnapshot: { ...builder },
+    createdAt: new Date().toISOString(),
+  };
+  state.workOrderWorkspace.promoTemplates.unshift(template);
+  builder.templateTitle = "";
+  saveDraft();
+  renderWorkOrderWorkspace();
+  setPromoStatus("Promo template saved.");
+}
+
+function saveFollowUpEntry() {
+  const venueName = document.getElementById("followUpVenueName")?.value.trim() || "";
+  if (!venueName) {
+    setFollowUpStatus("Venue name is required.", true);
+    return;
+  }
+  const entry = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    venueName,
+    contactName: document.getElementById("followUpContactName")?.value.trim() || "",
+    contactInfo: document.getElementById("followUpContactInfo")?.value.trim() || "",
+    city: document.getElementById("followUpCity")?.value.trim() || "",
+    bestChannel: document.getElementById("followUpBestChannel")?.value || "Email",
+    lastPlayed: document.getElementById("followUpLastPlayed")?.value || "",
+    lastContacted: document.getElementById("followUpLastContacted")?.value || "",
+    nextFollowUp: document.getElementById("followUpNextDate")?.value || "",
+    notes: document.getElementById("followUpNotes")?.value.trim() || "",
+    createdAt: new Date().toISOString(),
+  };
+  state.workOrderWorkspace.followUps.unshift(entry);
+  saveDraft();
+  renderFollowUps();
+  resetFollowUpForm();
+  setFollowUpStatus("Follow-up venue saved.");
+}
+
+function resetFollowUpForm() {
+  [
+    "followUpVenueName",
+    "followUpContactName",
+    "followUpContactInfo",
+    "followUpCity",
+    "followUpLastPlayed",
+    "followUpLastContacted",
+    "followUpNextDate",
+    "followUpNotes",
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  const bestChannel = document.getElementById("followUpBestChannel");
+  if (bestChannel) bestChannel.value = "Email";
+}
+
+function loadFollowUpIntoBuilder(entry) {
+  if (!entry) return;
+  state.workOrderWorkspace.section = "promo";
+  state.workOrderWorkspace.promoChannel = String(entry.bestChannel || "").toLowerCase() === "phone" ? "coldcall" : String(entry.bestChannel || "").toLowerCase();
+  if (!["email", "text", "dm", "coldcall"].includes(state.workOrderWorkspace.promoChannel)) {
+    state.workOrderWorkspace.promoChannel = "email";
+  }
+  state.workOrderWorkspace.promoBuilder = {
+    ...state.workOrderWorkspace.promoBuilder,
+    goal: "Open dates",
+    contactName: entry.contactName || "",
+    venueName: entry.venueName || "",
+    city: entry.city || "",
+    customHook: entry.notes || "",
+  };
+  saveDraft();
+  renderWorkOrderWorkspace();
+  setFollowUpStatus("Loaded into outreach builder.");
+}
+
+function saveEpkProfile() {
+  syncEpkStateFromForm();
+  hydrateBandProfileFromLegacyData();
+  saveDraft();
+  renderBandProfile();
+  renderEpkSummary();
+  updatePromoGeneratedMessage(true);
+  setEpkStatus("EPK saved.");
+}
+
+function buildEpkSummaryText() {
+  syncEpkStateFromForm();
+  syncBandProfileStateFromForm();
+  const profile = state.workOrderWorkspace.bandProfile;
+  const epk = state.workOrderWorkspace.epk;
+  return [
+    epk.bandName || profile.bandName || "Band",
+    "",
+    "SHORT BIO",
+    epk.shortBio || profile.bioShortDraft || "",
+    "",
+    "FULL BIO",
+    epk.longBio || profile.bioFullDraft || "",
+    "",
+    epk.genres || profile.genreTags ? `Genres: ${epk.genres || profile.genreTags}` : "",
+    profile.artistReferences ? `Artists / references: ${profile.artistReferences}` : "",
+    epk.lineupOptions || profile.lineupSummary ? `Lineup options: ${epk.lineupOptions || profile.lineupSummary}` : "",
+    epk.website ? `Website: ${epk.website}` : "",
+    epk.musicLink ? `Music: ${epk.musicLink}` : "",
+    epk.videoLink ? `Video: ${epk.videoLink}` : "",
+    epk.photoLinks ? `Photo assets: ${epk.photoLinks}` : "",
+    epk.contactEmail ? `Email: ${epk.contactEmail}` : "",
+    epk.contactPhone ? `Phone: ${epk.contactPhone}` : "",
+    epk.bookingNotes ? `Booking notes: ${epk.bookingNotes}` : "",
+  ].filter(Boolean).join("\n");
 }
 
 function updateMusicianStatus(message, isError = false) {
@@ -6738,6 +8008,10 @@ function setupListeners() {
     document.getElementById("workOrdersTab").classList.toggle("hidden", target !== "workorders");
     document.getElementById("allaboutTab").classList.toggle("hidden", target !== "allabout");
     document.getElementById("howtoTab").classList.toggle("hidden", target !== "howto");
+    if (target === "workorders") {
+      renderWorkOrders();
+      renderWorkOrderWorkspace();
+    }
     const inBookkeeping =
       target === "agreement" || target === "invoice" || target === "receipt";
     if (messagePreviewWrap) messagePreviewWrap.classList.toggle("hidden", !inBookkeeping);
@@ -6990,6 +8264,22 @@ function setupListeners() {
       const { action, id } = button.dataset;
       const idx = state.workOrders.findIndex((item) => item.id === id);
       if (idx === -1) return;
+      if (action === "open") {
+        state.workOrderView.focusId = id;
+        state.workOrderView.showCreate = false;
+        saveDraft();
+        renderWorkOrders();
+        setWorkOrderStatus("Opened task details.");
+        return;
+      }
+      if (action === "close") {
+        state.workOrderView.focusId = "";
+        state.workOrderView.showCreate = true;
+        saveDraft();
+        renderWorkOrders();
+        setWorkOrderStatus("");
+        return;
+      }
       if (action === "toggle") {
         const current = state.workOrders[idx];
         const nowDone =
@@ -7041,6 +8331,289 @@ function setupListeners() {
       state.workOrderView.focusId = "";
       state.workOrderView.showCreate = true;
       renderWorkOrders();
+    });
+  }
+
+  document.querySelectorAll("[data-work-section]").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      switchWorkOrderSection(tab.getAttribute("data-work-section"));
+    });
+  });
+
+  document.querySelectorAll("[data-promo-channel]").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      switchPromoChannel(tab.getAttribute("data-promo-channel"));
+    });
+  });
+
+  document.querySelectorAll("[data-epk-section]").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      switchEpkSection(tab.getAttribute("data-epk-section"));
+    });
+  });
+
+  [
+    "promoVenueType",
+    "promoBookingType",
+    "promoRelationship",
+    "promoGenre",
+    "promoLineup",
+    "promoTone",
+    "promoGoal",
+    "promoContactName",
+    "promoVenueName",
+    "promoCity",
+    "promoOpenDates",
+    "promoVenueConnection",
+    "promoCustomHook",
+    "promoTemplateTitle",
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", () => updatePromoGeneratedMessage(true));
+    el.addEventListener("change", () => updatePromoGeneratedMessage(true));
+  });
+
+  document.querySelectorAll("[data-promo-option]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.workOrderWorkspace.promoBuilder.selectedOption = Number(button.getAttribute("data-promo-option")) || 1;
+      updatePromoGeneratedMessage(true);
+      setPromoStatus(`Loaded ${button.textContent}.`);
+    });
+  });
+
+  const promoGeneratedMessage = document.getElementById("promoGeneratedMessage");
+  if (promoGeneratedMessage) {
+    promoGeneratedMessage.addEventListener("input", () => {
+      state.workOrderWorkspace.promoBuilder.message = promoGeneratedMessage.value;
+      saveDraft();
+    });
+  }
+
+  const promoCopyBtn = document.getElementById("promoCopy");
+  if (promoCopyBtn) {
+    promoCopyBtn.addEventListener("click", async () => {
+      syncPromoBuilderStateFromForm();
+      await copyTextToClipboard(document.getElementById("promoGeneratedMessage")?.value || "", {
+        statusEl: document.getElementById("promoStatus"),
+        successMessage: "Promo message copied.",
+        failureMessage: "Could not copy promo message.",
+      });
+    });
+  }
+  const promoShareBtn = document.getElementById("promoShareMessage");
+  if (promoShareBtn) {
+    promoShareBtn.addEventListener("click", sharePromoMessage);
+  }
+  const promoEmailBtn = document.getElementById("promoEmailDraft");
+  if (promoEmailBtn) {
+    promoEmailBtn.addEventListener("click", openPromoEmailDraft);
+  }
+  const promoTextBtn = document.getElementById("promoTextDraft");
+  if (promoTextBtn) {
+    promoTextBtn.addEventListener("click", openPromoTextDraft);
+  }
+
+  const promoSaveTemplateBtn = document.getElementById("promoSaveTemplate");
+  if (promoSaveTemplateBtn) {
+    promoSaveTemplateBtn.addEventListener("click", savePromoTemplate);
+  }
+  const promoEditMessageBtn = document.getElementById("promoEditMessage");
+  if (promoEditMessageBtn) {
+    promoEditMessageBtn.addEventListener("click", () => {
+      focusPromoMessageEditor();
+      setPromoStatus("Draft ready to edit.");
+    });
+  }
+
+  const promoResetBuilderBtn = document.getElementById("promoResetBuilder");
+  if (promoResetBuilderBtn) {
+    promoResetBuilderBtn.addEventListener("click", resetPromoBuilder);
+  }
+
+  const promoTemplateList = document.getElementById("promoTemplateList");
+  if (promoTemplateList) {
+    promoTemplateList.addEventListener("click", async (event) => {
+      const button = event.target.closest("button[data-promo-template-action][data-id]");
+      if (!button) return;
+      const template = state.workOrderWorkspace.promoTemplates.find((item) => item.id === button.dataset.id);
+      if (!template) return;
+      if (button.dataset.promoTemplateAction === "load") {
+        state.workOrderWorkspace.promoChannel = template.channel || "email";
+        state.workOrderWorkspace.promoBuilder = {
+          ...createInitialPromoBuilderState(),
+          ...(template.builderSnapshot || {}),
+          message: template.message || "",
+          templateTitle: template.title || "",
+        };
+        renderWorkOrderWorkspace();
+        setPromoStatus("Template loaded.");
+        setTimeout(() => focusPromoMessageEditor(), 80);
+        return;
+      }
+      if (button.dataset.promoTemplateAction === "copy") {
+        await copyTextToClipboard(template.message || "", {
+          statusEl: document.getElementById("promoStatus"),
+          successMessage: "Saved template copied.",
+          failureMessage: "Could not copy saved template.",
+        });
+        return;
+      }
+      state.workOrderWorkspace.promoTemplates = state.workOrderWorkspace.promoTemplates.filter((item) => item.id !== template.id);
+      saveDraft();
+      renderPromoTemplates();
+      setPromoStatus("Template deleted.");
+    });
+  }
+
+  const followUpSaveBtn = document.getElementById("followUpSave");
+  if (followUpSaveBtn) {
+    followUpSaveBtn.addEventListener("click", saveFollowUpEntry);
+  }
+  const followUpResetBtn = document.getElementById("followUpReset");
+  if (followUpResetBtn) {
+    followUpResetBtn.addEventListener("click", () => {
+      resetFollowUpForm();
+      setFollowUpStatus("");
+    });
+  }
+  const followUpList = document.getElementById("followUpList");
+  if (followUpList) {
+    followUpList.addEventListener("click", async (event) => {
+      const button = event.target.closest("button[data-followup-action][data-id]");
+      if (!button) return;
+      const entry = state.workOrderWorkspace.followUps.find((item) => item.id === button.dataset.id);
+      if (!entry) return;
+      if (button.dataset.followupAction === "load") {
+        loadFollowUpIntoBuilder(entry);
+        return;
+      }
+      if (button.dataset.followupAction === "copy") {
+        loadFollowUpIntoBuilder(entry);
+        await copyTextToClipboard(buildPromoScript(state.workOrderWorkspace.promoChannel), {
+          statusEl: document.getElementById("followUpStatus"),
+          successMessage: "Follow-up pitch copied.",
+          failureMessage: "Could not copy follow-up pitch.",
+        });
+        return;
+      }
+      state.workOrderWorkspace.followUps = state.workOrderWorkspace.followUps.filter((item) => item.id !== entry.id);
+      saveDraft();
+      renderFollowUps();
+      setFollowUpStatus("Follow-up venue deleted.");
+    });
+  }
+
+  [
+    "profileBandName",
+    "profileHometown",
+    "profileIntroLine",
+    "profileGenreTags",
+    "profileGenreLine",
+    "profileArtistReferences",
+    "profileVibeLine",
+    "profileEventFitLine",
+    "profileOriginalsCoversLine",
+    "profileLineupSummary",
+    "profileProofPrimary",
+    "profileProofSecondary",
+    "profileOfferOne",
+    "profileOfferTwo",
+    "profileOfferThree",
+    "profileResidencyValue",
+    "profileRegularsLine",
+    "profileBioStoryLine",
+    "profileBioPerformanceSummary",
+    "profileBioMemberOneName",
+    "profileBioMemberOneRole",
+    "profileBioMemberOneDetail",
+    "profileBioMemberTwoName",
+    "profileBioMemberTwoRole",
+    "profileBioMemberTwoDetail",
+    "profileBioAdditionalMembers",
+    "profileBioShortDraft",
+    "profileBioFullDraft",
+    "profileSignoffName",
+    "profileSignoffBand",
+    "profileSignoffEmail",
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", () => {
+      syncBandProfileStateFromForm();
+      saveDraft();
+    });
+  });
+
+  const profileSaveBtn = document.getElementById("profileSave");
+  if (profileSaveBtn) {
+    profileSaveBtn.addEventListener("click", saveBandProfile);
+  }
+  const profileApplyBtn = document.getElementById("profileApplyToBuilder");
+  if (profileApplyBtn) {
+    profileApplyBtn.addEventListener("click", useBandProfileInBuilder);
+  }
+  const bioGenerateBtn = document.getElementById("bioGenerate");
+  if (bioGenerateBtn) {
+    bioGenerateBtn.addEventListener("click", generateBioDrafts);
+  }
+  const bioUseShortBtn = document.getElementById("bioUseShort");
+  if (bioUseShortBtn) {
+    bioUseShortBtn.addEventListener("click", () => useBioDraft("short"));
+  }
+  const bioUseFullBtn = document.getElementById("bioUseFull");
+  if (bioUseFullBtn) {
+    bioUseFullBtn.addEventListener("click", () => useBioDraft("full"));
+  }
+
+  [
+    "epkBandName",
+    "epkShortBio",
+    "epkLongBio",
+    "epkGenres",
+    "epkLineupOptions",
+    "epkWebsite",
+    "epkInstagram",
+    "epkFacebook",
+    "epkMusicLink",
+    "epkVideoLink",
+    "epkPhotoLinks",
+    "epkContactEmail",
+    "epkContactPhone",
+    "epkBookingNotes",
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", () => {
+      syncEpkStateFromForm();
+      renderEpkSummary();
+      saveDraft();
+    });
+  });
+
+  const epkSaveBtn = document.getElementById("epkSave");
+  if (epkSaveBtn) {
+    epkSaveBtn.addEventListener("click", saveEpkProfile);
+  }
+  const epkCopyShortBioBtn = document.getElementById("epkCopyShortBio");
+  if (epkCopyShortBioBtn) {
+    epkCopyShortBioBtn.addEventListener("click", async () => {
+      syncEpkStateFromForm();
+      await copyTextToClipboard(state.workOrderWorkspace.epk.shortBio || "", {
+        statusEl: document.getElementById("epkStatus"),
+        successMessage: "Short bio copied.",
+        failureMessage: "Could not copy short bio.",
+      });
+    });
+  }
+  const epkCopyFullBtn = document.getElementById("epkCopyFull");
+  if (epkCopyFullBtn) {
+    epkCopyFullBtn.addEventListener("click", async () => {
+      await copyTextToClipboard(buildEpkSummaryText(), {
+        statusEl: document.getElementById("epkStatus"),
+        successMessage: "EPK summary copied.",
+        failureMessage: "Could not copy EPK summary.",
+      });
     });
   }
 
@@ -7518,6 +9091,8 @@ async function copyMessage(statusTargetId = "pdfStatus", triggerButton = null) {
 
 async function init() {
   loadDraft();
+  hydrateBandProfileFromLegacyData();
+  applyBandProfileToPromoBuilder(false);
   loadCalendarSettings();
   ensureToddSeededShowFiles();
   ensureDanSeededShowFiles();
@@ -7556,6 +9131,7 @@ async function init() {
   updateReceiptPreview();
   updateMessagePreview();
   renderCalendar();
+  renderWorkOrderWorkspace();
   fetchEventsForMonth();
   fetchContracts();
   fetchMusicianAssignments();

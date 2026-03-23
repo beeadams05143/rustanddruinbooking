@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Yeseva+One&family=Nunito:wght@300;400;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Calistoga&family=Nunito:wght@300;400;600;700&display=swap");
 
 :root {
   --bg-deep: #1d1a16;
@@ -14,7 +14,7 @@
   --shadow: 0 24px 60px rgba(29, 26, 22, 0.18);
   --radius: 18px;
   --radius-sm: 12px;
-  --font-display: "Yeseva One", serif;
+  --font-display: "Calistoga", serif;
   --font-body: "Nunito", system-ui, sans-serif;
 }
 
@@ -58,10 +58,11 @@ body {
 }
 
 .logo {
-  width: min(220px, 70vw);
+  width: min(260px, 68vw);
   height: auto;
   display: block;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  border-radius: 24px;
 }
 
 .subhead {
@@ -381,6 +382,92 @@ body {
   flex-wrap: wrap;
 }
 
+.workspace-subtabs {
+  margin-bottom: 20px;
+}
+
+.promo-channel-tabs {
+  margin-top: 8px;
+}
+
+.epk-subtabs {
+  margin-top: 8px;
+  margin-bottom: 20px;
+}
+
+.epk-status-row {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.epk-status-row .muted {
+  margin: 0;
+}
+
+.compact-textarea {
+  min-height: 116px;
+  resize: vertical;
+}
+
+.bio-draft-box {
+  min-height: 260px;
+}
+
+.epk-photo-helper {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: end;
+}
+
+.promo-preview-field {
+  display: block;
+  margin-top: 16px;
+  width: 100%;
+}
+
+.promo-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.promo-option-tabs {
+  margin-bottom: 10px;
+}
+
+.promo-editor-note {
+  margin: 0 0 10px;
+}
+
+.promo-message-box {
+  min-height: 440px;
+  width: 100%;
+  max-width: none;
+  font-family: "Work Sans", sans-serif;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.promo-saved-section {
+  margin-top: 20px;
+}
+
+.epk-summary-card {
+  margin-top: 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--stroke);
+  border-radius: 14px;
+  background: #fff9ee;
+}
+
+.epk-summary-card p {
+  margin: 0 0 10px;
+}
+
 .priority-tag {
   display: inline-flex;
   padding: 2px 8px;
@@ -529,6 +616,14 @@ body {
   font-family: var(--font-display);
 }
 
+.workspace-mini-path {
+  margin: -4px 0 8px;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
 .form-section {
   border: 1px solid var(--stroke);
   border-radius: var(--radius-sm);
@@ -624,6 +719,8 @@ label {
 input,
 select,
 textarea {
+  width: 100%;
+  box-sizing: border-box;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--stroke);
