@@ -4559,50 +4559,17 @@ async function uploadSignedFromPendingContract(contract, file, signedChecked = f
     setContractsHubStatus("Upload failed.", true);
     return;
   }
-  // Keep original draft pending row for future reuse, and create/update a signed record.
-  const signedName = contract.name || "Contract";
-  let existingSignedQuery = client
+  const { error: signedSaveError } = await client
     .from("contracts")
-    .select("id")
-    .eq("name", signedName)
-    .not("file_path", "is", null)
-    .order("uploaded_at", { ascending: false })
-    .limit(1);
-  if (contract.event_id) {
-    existingSignedQuery = existingSignedQuery.eq("event_id", contract.event_id);
-  } else {
-    existingSignedQuery = existingSignedQuery.is("event_id", null);
-  }
-  const { data: existingSigned, error: existingSignedError } = await existingSignedQuery;
-  if (existingSignedError) {
-    setContractsHubStatus("File uploaded, but signed lookup failed.", true);
-    return;
-  }
-
-  let signedSaveError = null;
-  if (existingSigned && existingSigned.length) {
-    const { error } = await client
-      .from("contracts")
-      .update({
-        file_path: path,
-        status: "Signed",
-        uploaded_at: new Date().toISOString(),
-      })
-      .eq("id", existingSigned[0].id);
-    signedSaveError = error;
-  } else {
-    const { error } = await client
-      .from("contracts")
-      .insert({
-        name: signedName,
-        file_path: path,
-        event_id: contract.event_id || null,
-        status: "Signed",
-      });
-    signedSaveError = error;
-  }
+    .update({
+      file_path: path,
+      status: "Signed",
+      uploaded_at: new Date().toISOString(),
+      name: contract.name || "Contract",
+    })
+    .eq("id", contract.id);
   if (signedSaveError) {
-    setContractsHubStatus("File uploaded, but signed contract save failed.", true);
+    setContractsHubStatus("File uploaded, but the contract could not be marked signed.", true);
     return;
   }
   if (contract.event_id) {
@@ -4610,7 +4577,21 @@ async function uploadSignedFromPendingContract(contract, file, signedChecked = f
   }
   await fetchContracts();
   await fetchEventsForMonth();
-  setContractsHubStatus("Signed contract uploaded. Draft kept for reuse.");
+  setContractsHubStatus("Signed contract uploaded and moved to Signed Contracts.");
+}
+
+function contractHasSignedVersion(contract) {
+  if (!contract) return false;
+  const contractName = normalizeText(contract.name || "");
+  return state.calendar.contracts.some((item) => {
+    if (!item || item.id === contract.id || !item.file_path) return false;
+    const status = String(item.status || "").toLowerCase();
+    const path = String(item.file_path || "");
+    if (status.includes("created") || path.startsWith("created-contracts/")) return false;
+    if (contract.event_id && item.event_id && item.event_id === contract.event_id) return true;
+    const itemName = normalizeText(item.name || "");
+    return Boolean(contractName && itemName && contractName === itemName);
+  });
 }
 
 async function markContractNoLongerNeeded(contract, checked = false) {
@@ -4690,7 +4671,10 @@ function renderContractsHub() {
     .filter((contract) => {
       if (contract?.file_path) return false;
       const status = String(contract.status || "").toLowerCase();
-      return !status.includes("created") && !status.includes("no contract needed");
+      return !status.includes("created")
+        && !status.includes("no contract needed")
+        && !status.includes("signed")
+        && !contractHasSignedVersion(contract);
     })
     .sort((a, b) => new Date(b.uploaded_at || b.created_at || 0) - new Date(a.uploaded_at || a.created_at || 0));
 
