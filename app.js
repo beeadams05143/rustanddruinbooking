@@ -5101,6 +5101,16 @@ function syncAgreementForm() {
       el.value = state.agreement[field];
     }
   });
+
+  const savedAmount = state.agreement.friendsFamilyDiscountAmount;
+  if (savedAmount && savedAmount !== "0") {
+    const wrap = document.getElementById("friendsFamilyDiscountButtons");
+    if (wrap) {
+      wrap.querySelectorAll("button[data-discount]").forEach((button) => {
+        button.classList.toggle("active", button.getAttribute("data-discount") === savedAmount);
+      });
+    }
+  }
 }
 
 function syncAgreementFeeOverrideFromForm() {
@@ -5113,31 +5123,16 @@ function syncAgreementFeeOverrideFromForm() {
 
 function syncFriendsFamilyDiscountFromForm() {
   const discountToggle = document.getElementById("friendsFamilyDiscount");
-  const discountField = document.getElementById("friendsFamilyDiscountAmount");
   const discountEnabled = discountToggle ? discountToggle.checked : Boolean(state.agreement.friendsFamilyDiscount);
 
   state.agreement.friendsFamilyDiscount = discountEnabled;
-  if (!discountField) {
-    if (!discountEnabled) state.agreement.friendsFamilyDiscountAmount = "";
-    return;
+  const discountField = document.getElementById("friendsFamilyDiscountAmount");
+  if (discountField) {
+    discountField.value = state.agreement.friendsFamilyDiscountAmount || "0";
   }
-
-  discountField.disabled = !discountEnabled;
-  if (!discountEnabled) {
-    discountField.value = "";
-    state.agreement.friendsFamilyDiscountAmount = "";
-    return;
-  }
-
-  state.agreement.friendsFamilyDiscountAmount = discountField.value;
 }
 
 function syncAgreementStateFromForm() {
-  const savedDiscountAmount =
-    document.getElementById("friendsFamilyDiscountAmount")?.value ||
-    state.agreement.friendsFamilyDiscountAmount ||
-    "";
-
   agreementFields.forEach((field) => {
     const el = document.getElementById(field);
     if (!el) return;
@@ -5155,11 +5150,6 @@ function syncAgreementStateFromForm() {
   });
   syncAgreementFeeOverrideFromForm();
   syncFriendsFamilyDiscountFromForm();
-  if (state.agreement.friendsFamilyDiscount && savedDiscountAmount) {
-    state.agreement.friendsFamilyDiscountAmount = savedDiscountAmount;
-    const discountField = document.getElementById("friendsFamilyDiscountAmount");
-    if (discountField) discountField.value = savedDiscountAmount;
-  }
 }
 
 function prepareAgreementForOutput() {
@@ -7852,9 +7842,6 @@ function setupListeners() {
         const nonPerformanceField = document.getElementById("nonPerformanceHours");
         if (nonPerformanceField) nonPerformanceField.value = "";
       }
-      if (field === "friendsFamilyDiscount") {
-        updateAgreementPreview();
-      }
       if (field === "depositEnabled") {
         if (!state.agreement.depositEnabled) {
           state.agreement.promoCredit = false;
@@ -7881,6 +7868,29 @@ function setupListeners() {
     el.addEventListener("input", handler);
     el.addEventListener("change", handler);
   });
+
+  const discountButtonsWrap = document.getElementById("friendsFamilyDiscountButtons");
+  if (discountButtonsWrap) {
+    discountButtonsWrap.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-discount]");
+      if (!btn) return;
+      const amount = btn.getAttribute("data-discount");
+      state.agreement.friendsFamilyDiscountAmount = amount;
+      const hiddenInput = document.getElementById("friendsFamilyDiscountAmount");
+      if (hiddenInput) hiddenInput.value = amount;
+      discountButtonsWrap.querySelectorAll("button").forEach((button) => button.classList.remove("active"));
+      if (amount !== "0") btn.classList.add("active");
+      if (state.workspace.bookingSaved) {
+        state.workspace.bookingSaved = false;
+        state.workspace.contractWizardOpen = false;
+        setAgreementCalendarStatus("Changes made — please re-save before generating contract.");
+      }
+      updateAgreementPreview();
+      renderAgreementStepUI();
+      saveDraft();
+      persistAgreementDraftSnapshot();
+    });
+  }
 
   invoiceFields.forEach((id) => {
     const el = document.getElementById(id);

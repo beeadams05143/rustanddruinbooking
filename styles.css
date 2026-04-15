@@ -593,6 +593,19 @@ body {
   color: #fff;
 }
 
+.discount-preset-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.discount-preset-buttons .btn.active {
+  background: #e9a767;
+  border-color: #a05a2d;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(76, 43, 21, 0.16);
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.1fr);

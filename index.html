@@ -760,10 +760,16 @@
                   <input id="friendsFamilyDiscount" type="checkbox" />
                   Friends &amp; family / preferred venue discount
                 </label>
-                <label>
-                  Discount amount
-                  <input id="friendsFamilyDiscountAmount" placeholder="Enter amount" disabled />
-                </label>
+                <label>Discount amount</label>
+                <div id="friendsFamilyDiscountButtons" class="discount-preset-buttons">
+                  <button type="button" class="btn ghost" data-discount="50">$50</button>
+                  <button type="button" class="btn ghost" data-discount="75">$75</button>
+                  <button type="button" class="btn ghost" data-discount="100">$100</button>
+                  <button type="button" class="btn ghost" data-discount="200">$200</button>
+                  <button type="button" class="btn ghost" data-discount="300">$300</button>
+                  <button type="button" class="btn ghost" data-discount="0">Clear</button>
+                </div>
+                <input type="hidden" id="friendsFamilyDiscountAmount" />
               </div>
               <label>
                 Venue address (GPS)
