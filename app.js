@@ -5105,6 +5105,35 @@ function syncAgreementForm() {
   });
 }
 
+function syncAgreementFeeOverrideFromForm() {
+  const feeTotalInput = document.getElementById("feeTotal");
+  if (!feeTotalInput) return;
+  const rawValue = feeTotalInput.value.trim();
+  state.agreement.feeTotal = rawValue;
+  state.agreement.feeManualOverride = rawValue !== "";
+}
+
+function syncFriendsFamilyDiscountFromForm() {
+  const discountToggle = document.getElementById("friendsFamilyDiscount");
+  const discountField = document.getElementById("friendsFamilyDiscountAmount");
+  const discountEnabled = discountToggle ? discountToggle.checked : Boolean(state.agreement.friendsFamilyDiscount);
+
+  state.agreement.friendsFamilyDiscount = discountEnabled;
+  if (!discountField) {
+    if (!discountEnabled) state.agreement.friendsFamilyDiscountAmount = "";
+    return;
+  }
+
+  discountField.disabled = !discountEnabled;
+  if (!discountEnabled) {
+    discountField.value = "";
+    state.agreement.friendsFamilyDiscountAmount = "";
+    return;
+  }
+
+  state.agreement.friendsFamilyDiscountAmount = discountField.value;
+}
+
 function syncAgreementStateFromForm() {
   agreementFields.forEach((field) => {
     const el = document.getElementById(field);
@@ -5121,6 +5150,8 @@ function syncAgreementStateFromForm() {
       }
     }
   });
+  syncAgreementFeeOverrideFromForm();
+  syncFriendsFamilyDiscountFromForm();
 }
 
 function prepareAgreementForOutput() {
@@ -7813,10 +7844,15 @@ function setupListeners() {
         const nonPerformanceField = document.getElementById("nonPerformanceHours");
         if (nonPerformanceField) nonPerformanceField.value = "";
       }
-      if (field === "friendsFamilyDiscount" && !state.agreement.friendsFamilyDiscount) {
-        state.agreement.friendsFamilyDiscountAmount = "";
+      if (field === "friendsFamilyDiscount") {
         const discountField = document.getElementById("friendsFamilyDiscountAmount");
-        if (discountField) discountField.value = "";
+        if (discountField) {
+          discountField.disabled = !state.agreement.friendsFamilyDiscount;
+        }
+        if (!state.agreement.friendsFamilyDiscount) {
+          state.agreement.friendsFamilyDiscountAmount = "";
+          if (discountField) discountField.value = "";
+        }
       }
       if (field === "depositEnabled") {
         if (!state.agreement.depositEnabled) {
