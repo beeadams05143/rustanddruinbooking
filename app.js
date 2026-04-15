@@ -1186,8 +1186,11 @@ function getAgreementTotals() {
     ? (performanceFeeAuto + onsiteFee) * (holidayMultiplier - 1)
     : 0;
   const performanceFeeEffective = performanceFeeAuto + onsiteFee + holidayFee + backlineFee;
+  const discountInputEl = document.getElementById("friendsFamilyDiscountAmount");
+  const discountRawValue =
+    discountInputEl?.value || state.agreement.friendsFamilyDiscountAmount || "0";
   const friendsFamilyDiscountAmount = state.agreement.friendsFamilyDiscount
-    ? Math.max(0, toNumber(state.agreement.friendsFamilyDiscountAmount))
+    ? Math.max(0, toNumber(discountRawValue))
     : 0;
   const cappedFriendsFamilyDiscount = Math.min(
     friendsFamilyDiscountAmount,
@@ -5150,6 +5153,11 @@ function syncAgreementStateFromForm() {
       }
     }
   });
+  const discountField = document.getElementById("friendsFamilyDiscountAmount");
+  if (discountField) {
+    state.agreement.friendsFamilyDiscountAmount =
+      discountField.value || state.agreement.friendsFamilyDiscountAmount;
+  }
   syncAgreementFeeOverrideFromForm();
   syncFriendsFamilyDiscountFromForm();
 }
@@ -7847,7 +7855,11 @@ function setupListeners() {
       if (field === "friendsFamilyDiscount") {
         const discountField = document.getElementById("friendsFamilyDiscountAmount");
         if (discountField) {
-          discountField.disabled = !state.agreement.friendsFamilyDiscount;
+          if (state.agreement.friendsFamilyDiscount) {
+            discountField.disabled = false;
+          } else {
+            discountField.disabled = true;
+          }
         }
         if (!state.agreement.friendsFamilyDiscount) {
           state.agreement.friendsFamilyDiscountAmount = "";
