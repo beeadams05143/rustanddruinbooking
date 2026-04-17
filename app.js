@@ -223,6 +223,7 @@ const state = {
       { name: "Duo", rate: "", rateType: "hourly" },
       { name: "Full Band", rate: "", rateType: "hourly" },
     ],
+    musicianHourlyRate: "50",
     defaultSetLength: "",
     defaultDeposit: "50",
     depositEnabled: true,
@@ -427,6 +428,7 @@ function migrateLegacyToBandDNA() {
     bestFitEvents: bandProfile.eventFitLine || "",
     proofPoint: bandProfile.proofPointPrimary || "",
     tone: promoBuilder.tone || "Warm",
+    musicianHourlyRate: pricingProfile.musicianHourlyRate || "50",
     defaultDeposit: pricingProfile.defaultDepositAmount || "50",
     depositEnabled: pricingProfile.defaultDepositEnabled !== false,
     defaultSetLength: pricingProfile.defaultPerformanceHours || "",
@@ -478,6 +480,18 @@ function renderOnboardingGenreChips() {
       </button>
     `).join("")
     : `<span class="muted">No genre tags added yet.</span>`;
+}
+
+function getLineupMusicianCount(lineupName = "") {
+  const normalized = String(lineupName || "").trim().toLowerCase();
+  if (normalized.includes("duo")) return 2;
+  if (normalized.includes("trio")) return 3;
+  if (normalized.includes("full") || normalized.includes("band")) return 4;
+  return 1;
+}
+
+function getAutoCalculatedLineupRate(lineupName = "", musicianHourlyRate = "50") {
+  return String(toNumber(musicianHourlyRate || "50") * getLineupMusicianCount(lineupName));
 }
 
 function renderOnboardingWizard() {
@@ -556,12 +570,16 @@ function renderOnboardingWizard() {
     const lineups = Array.isArray(dna.lineups) && dna.lineups.length
       ? dna.lineups
       : [{ name: "Duo", rate: "", rateType: "hourly" }];
+    const musicianHourlyRate = dna.musicianHourlyRate || "50";
     step2.innerHTML = `
       <section class="panel form-panel">
         <h2>What do you offer?</h2>
         <p class="muted">Set up your default lineups, rates, and deposit settings once so new bookings start pre-filled.</p>
         <div id="onboardingLineupList">
           ${lineups.map((lineup, index) => `
+            ${(() => {
+              const computedRate = lineup.rate || getAutoCalculatedLineupRate(lineup.name, musicianHourlyRate);
+              return `
             <div class="form-grid onboarding-lineup-row" data-lineup-row="${index}">
               <label>
                 Lineup name
@@ -570,7 +588,7 @@ function renderOnboardingWizard() {
               </label>
               <label>
                 Hourly rate
-                <input type="number" min="0" step="1" data-lineup-rate value="${escapeHtml(lineup.rate || "")}" />
+                <input type="number" min="0" step="1" data-lineup-rate value="${escapeHtml(computedRate)}" />
                 <span class="inline-help">Used as the starting point for booking pricing.</span>
               </label>
               <label>
@@ -579,9 +597,12 @@ function renderOnboardingWizard() {
                 <span class="inline-help">This setup uses hourly pricing.</span>
               </label>
               <div>
+                <button class="btn ghost" type="button" data-auto-lineup-rate="${index}">Auto-calculate from musician rate</button>
                 <button class="btn ghost" type="button" data-remove-lineup="${index}">Remove</button>
               </div>
             </div>
+          `;
+            })()}
           `).join("")}
         </div>
         <p><button class="btn ghost" id="onboardingAddLineup" type="button">Add lineup</button></p>
@@ -590,6 +611,14 @@ function renderOnboardingWizard() {
             Default set length (hours)
             <input id="onboardingDefaultSetLength" type="number" min="0" step="0.25" value="${escapeHtml(dna.defaultSetLength || "")}" />
             <span class="inline-help">Used to pre-fill booking durations.</span>
+          </label>
+          <label>
+            Rate per musician per hour
+            <input id="onboardingMusicianHourlyRate" type="number" min="0" step="1" value="${escapeHtml(dna.musicianHourlyRate || "50")}" />
+            <span class="inline-help">
+              Used to auto-calculate lineup totals.
+              e.g. $50/hr × 2 musicians = $100/hr for a duo.
+            </span>
           </label>
           <label>
             Default deposit amount
@@ -768,6 +797,7 @@ function saveOnboardingStep(stepNumber) {
     updateBandDNA({
       lineups: lineups.length ? lineups : [{ name: "Duo", rate: "", rateType: "hourly" }],
       defaultSetLength: document.getElementById("onboardingDefaultSetLength")?.value.trim() || "",
+      musicianHourlyRate: document.getElementById("onboardingMusicianHourlyRate")?.value.trim() || "50",
       defaultDeposit: document.getElementById("onboardingDefaultDeposit")?.value.trim() || "",
       depositEnabled: Boolean(document.getElementById("onboardingDepositEnabled")?.checked),
     });
@@ -1353,9 +1383,14 @@ function hydrateBookingProfilesFromLegacyData() {
 function applyAgreementDefaultsFromProfiles(force = false) {
   const business = state.workOrderWorkspace.businessProfile;
   const pricing = state.workOrderWorkspace.pricingProfile;
-  if (force || !state.agreement.bandConfig) {
+  if (force) {
+    state.agreement.bandConfig = state.agreement.bandConfig || "";
+  } else if (state.agreement.bandConfig) {
     state.agreement.bandConfig =
-      pricing.defaultBandConfig || business.defaultLineup || state.agreement.bandConfig || "";
+      state.agreement.bandConfig
+      || pricing.defaultBandConfig
+      || business.defaultLineup
+      || "";
   }
   if (force || !state.agreement.eventType) {
     state.agreement.eventType = pricing.defaultEventType || state.agreement.eventType || "";
@@ -2323,14 +2358,21 @@ function formatQuoteStatusLabel(status = "") {
 
 function buildDefaultQuoteOptionsFromBandDNA() {
   const lineups = Array.isArray(state.bandDNA.lineups) ? state.bandDNA.lineups : [];
-  const defaultHours = state.bandDNA.defaultSetLength || state.agreement.hours || "";
-  const defaultDeposit = state.bandDNA.defaultDeposit || "";
+  const hours = parseFloat(state.bandDNA.defaultSetLength)
+    || parseFloat(state.agreement.hours)
+    || 2;
+  const defaultDeposit = state.bandDNA.defaultDeposit || 50;
   return lineups.slice(0, 2).map((lineup) => ({
-    label: [lineup?.name || "", defaultHours ? `· ${defaultHours} hrs` : ""].filter(Boolean).join(" "),
-    sets: defaultHours ? `${defaultHours} hrs` : "",
-    price: lineup?.rate || "",
-    deposit: defaultDeposit,
-    detail: "",
+    label: [lineup?.name || "", `${hours} hrs`].filter(Boolean).join(" · "),
+    sets: `${hours} hrs`,
+    price: String(
+      (parseFloat(lineup?.rate) || (
+        parseFloat(state.bandDNA.musicianHourlyRate || 50)
+        * getLineupMusicianCount(lineup?.name || "")
+      )) * hours
+    ),
+    deposit: String(defaultDeposit),
+    detail: `${hours} hrs · Sound included · $${defaultDeposit} deposit`,
     featured: false,
   }));
 }
@@ -2408,12 +2450,16 @@ function collectQuoteOptionsFromDom() {
 }
 
 function renderQuoteLinkDisplay(link = "") {
-  const wrap = document.getElementById("quoteLinkWrap");
+  const wrap = document.getElementById("quoteSendWrap");
   const display = document.getElementById("quoteLinkDisplay");
   const copyBtn = document.getElementById("copyQuoteLinkBtn");
+  const openBtn = document.getElementById("openQuoteLinkBtn");
+  const shareBtn = document.getElementById("shareQuoteLinkBtn");
   if (display) display.value = link || "";
   if (wrap) wrap.classList.toggle("hidden", !link);
   if (copyBtn) copyBtn.disabled = !link;
+  if (openBtn) openBtn.disabled = !link;
+  if (shareBtn) shareBtn.disabled = !link;
 }
 
 function renderQuoteAcceptedBanner(message = "", showConvert = false) {
@@ -2619,6 +2665,7 @@ async function saveQuoteToSupabase() {
     });
     saveDraft();
     await checkQuoteStatus(quoteId);
+    setQuoteBuilderStatus("Quote ready to send. Waiting for client response.");
     pollQuoteStatus();
   } catch (error) {
     setQuoteBuilderStatus(formatSupabaseError(error, "Could not save quote."), true);
@@ -9775,6 +9822,18 @@ function setupListeners() {
         return;
       }
 
+      const autoRateBtn = event.target.closest("[data-auto-lineup-rate]");
+      if (autoRateBtn) {
+        const row = autoRateBtn.closest("[data-lineup-row]");
+        const lineupName = row?.querySelector("[data-lineup-name]")?.value.trim() || "";
+        const rateInput = row?.querySelector("[data-lineup-rate]");
+        const musicianHourlyRate = document.getElementById("onboardingMusicianHourlyRate")?.value.trim() || "50";
+        if (rateInput) {
+          rateInput.value = getAutoCalculatedLineupRate(lineupName, musicianHourlyRate);
+        }
+        return;
+      }
+
       const travelTypeBtn = event.target.closest("[data-travel-type]");
       if (travelTypeBtn) {
         const travelType = travelTypeBtn.getAttribute("data-travel-type")
@@ -9878,6 +9937,45 @@ function setupListeners() {
         statusEl: getQuoteBuilderStatusEl(),
         successMessage: "Quote link copied to clipboard.",
         failureMessage: "Could not copy quote link.",
+      });
+    });
+  }
+  const openQuoteLinkBtn = document.getElementById("openQuoteLinkBtn");
+  if (openQuoteLinkBtn) {
+    openQuoteLinkBtn.addEventListener("click", () => {
+      const link = document.getElementById("quoteLinkDisplay")?.value.trim() || "";
+      if (!link) {
+        setQuoteBuilderStatus("Generate a quote link first.", true);
+        return;
+      }
+      window.open(link, "_blank");
+    });
+  }
+  const shareQuoteLinkBtn = document.getElementById("shareQuoteLinkBtn");
+  if (shareQuoteLinkBtn) {
+    shareQuoteLinkBtn.addEventListener("click", async () => {
+      const link = document.getElementById("quoteLinkDisplay")?.value.trim() || "";
+      if (!link) {
+        setQuoteBuilderStatus("Generate a quote link first.", true);
+        return;
+      }
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "Performance quote from Rust & Ruin",
+            text: "Hi! Here's your performance quote:",
+            url: link,
+          });
+          setQuoteBuilderStatus("Quote share sheet opened.");
+          return;
+        } catch (error) {
+          if (error?.name === "AbortError") return;
+        }
+      }
+      copyTextToClipboard(link, {
+        statusEl: getQuoteBuilderStatusEl(),
+        successMessage: "Share not available here, so the quote link was copied instead.",
+        failureMessage: "Could not share or copy quote link.",
       });
     });
   }

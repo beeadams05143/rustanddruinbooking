@@ -1342,17 +1342,25 @@
             </div>
           </div>
 
-          <div class="form-section hidden" id="quoteLinkWrap">
-            <h3>Quote link</h3>
-            <div class="form-grid">
-              <label>
-                Public URL
-                <input id="quoteLinkDisplay" readonly />
-              </label>
+          <div class="form-section hidden" id="quoteSendWrap">
+            <h3>Send to client</h3>
+            <p class="muted">
+              Copy the link below and paste it into a text or email
+              to your client. When they pick an option, you'll see
+              it update here automatically.
+            </p>
+            <div class="quote-send-actions">
+              <button class="btn" id="copyQuoteLinkBtn" type="button">
+                Copy link
+              </button>
+              <button class="btn ghost" id="openQuoteLinkBtn" type="button">
+                Preview link
+              </button>
+              <button class="btn ghost" id="shareQuoteLinkBtn" type="button">
+                Share
+              </button>
             </div>
-            <div class="inline-actions">
-              <button class="btn ghost" id="copyQuoteLinkBtn" type="button">Copy link</button>
-            </div>
+            <input id="quoteLinkDisplay" readonly style="margin-top: 8px;" />
           </div>
 
           <div class="form-section">
