@@ -281,7 +281,7 @@
     <script>
       const SUPABASE_URL = 'https://ipxjalcgiaqcyubrxqxu.supabase.co';
       const SUPABASE_ANON_KEY = 'sb_publishable_-XW9I_e7OR4TUMq0B4SG-Q_el-7vKPJ';
-      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       const params = new URLSearchParams(window.location.search);
       const quoteId = params.get('id');
@@ -433,7 +433,7 @@
         }
 
         modalStatus.textContent = 'Confirming your selection...';
-        const { error } = await supabase.from('quotes').update({
+        const { error } = await supabaseClient.from('quotes').update({
           status: 'accepted',
           chosen_option_index: selectedIndex,
           chosen_by_name: clientName,
@@ -478,7 +478,7 @@
         }
 
         try {
-          const { data: quote } = await supabase
+          const { data: quote } = await supabaseClient
             .from('quotes')
             .select('*')
             .eq('id', quoteId)
