@@ -397,6 +397,57 @@ function getBandDNA() {
 function updateBandDNA(updates = {}) {
   state.bandDNA = { ...state.bandDNA, ...updates };
   saveDraft();
+  saveBandDNAToSupabase();
+}
+
+async function saveBandDNAToSupabase() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) return;
+  try {
+    const { error } = await client
+      .from("app_settings")
+      .upsert(
+        {
+          key: "band_dna",
+          value: JSON.stringify(state.bandDNA),
+        },
+        { onConflict: "key" }
+      );
+    if (error) console.error("Could not save bandDNA:", error);
+  } catch (e) {
+    console.error("bandDNA save failed:", e);
+  }
+}
+
+async function loadBandDNAFromSupabase() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) return false;
+  try {
+    const { data, error } = await client
+      .from("app_settings")
+      .select("value")
+      .eq("key", "band_dna")
+      .maybeSingle();
+    if (error || !data?.value) return false;
+    const parsed = JSON.parse(data.value);
+    if (parsed && typeof parsed === "object") {
+      state.bandDNA = { ...state.bandDNA, ...parsed };
+      if (Array.isArray(parsed.lineups)) {
+        state.bandDNA.lineups = parsed.lineups;
+      }
+      if (Array.isArray(parsed.genreTags)) {
+        state.bandDNA.genreTags = parsed.genreTags;
+      }
+      if (Array.isArray(parsed.addons)) {
+        state.bandDNA.addons = parsed.addons;
+      }
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.error("bandDNA load failed:", e);
+    return false;
+  }
 }
 
 function migrateLegacyToBandDNA() {
@@ -1473,42 +1524,56 @@ function normalizeLineupName(value = "") {
   return String(value).trim().toLowerCase();
 }
 
-function getDefaultRateForLineup(lineup = "") {
-  const pricing = state.workOrderWorkspace.pricingProfile;
-  const normalized = normalizeLineupName(lineup);
-
-  if (normalized) {
-    const match = (pricing.lineupRates || []).find(
-      (entry) => normalizeLineupName(entry.lineup) === normalized
-    );
-    if (match?.rate) return match.rate;
-  }
-
-  if (pricing.baseRate) return pricing.baseRate;
-
-  if (normalized && Array.isArray(state.bandDNA.lineups)) {
-    const dnaMatch = state.bandDNA.lineups.find((entry) => {
-      const entryName = normalizeLineupName(entry.name || "");
-      return entryName === normalized
-        || entryName.includes(normalized)
-        || normalized.includes(entryName);
-    });
-    if (dnaMatch?.rate && parseFloat(dnaMatch.rate) > 0) {
-      return dnaMatch.rate;
+function repairLineupRates() {
+  const musicianRate = parseFloat(
+    state.bandDNA.musicianHourlyRate || 50);
+  if (!Array.isArray(state.bandDNA.lineups)) return;
+  let changed = false;
+  state.bandDNA.lineups = state.bandDNA.lineups.map((lineup) => {
+    const rate = parseFloat(lineup.rate || 0);
+    if (rate > 0) return lineup;
+    const count = parseFloat(lineup.count || 0) ||
+      getLineupMusicianCount(lineup.name || "");
+    if (musicianRate > 0 && count > 0) {
+      changed = true;
+      return { ...lineup, rate: String(musicianRate * count), count };
     }
-    const musicianRate = parseFloat(state.bandDNA.musicianHourlyRate || 0);
+    return lineup;
+  });
+  if (changed) saveDraft();
+}
+
+function getDefaultRateForLineup(lineup = "") {
+  const normalized = normalizeLineupName(lineup);
+  const musicianRate = parseFloat(
+    state.bandDNA.musicianHourlyRate || 50);
+  if (Array.isArray(state.bandDNA.lineups)) {
+    for (const entry of state.bandDNA.lineups) {
+      const entryNorm = normalizeLineupName(entry.name || "");
+      if (entryNorm === normalized ||
+          entryNorm.includes(normalized) ||
+          normalized.includes(entryNorm)) {
+        const rate = parseFloat(entry.rate || 0);
+        if (rate > 0) return String(rate);
+        const count = parseFloat(entry.count || 0) ||
+          getLineupMusicianCount(entry.name || "");
+        if (musicianRate > 0 && count > 0) {
+          return String(musicianRate * count);
+        }
+      }
+    }
     if (musicianRate > 0) {
       const count = getLineupMusicianCount(lineup);
-      return String(musicianRate * count);
+      if (count > 0) return String(musicianRate * count);
     }
   }
-
-  if (Array.isArray(state.bandDNA.lineups) && state.bandDNA.lineups.length) {
-    const firstRate = state.bandDNA.lineups[0]?.rate;
-    if (firstRate) return firstRate;
+  const pricing = state.workOrderWorkspace.pricingProfile;
+  if (normalized) {
+    const match = (pricing.lineupRates || []).find(
+      (e) => normalizeLineupName(e.lineup) === normalized);
+    if (match?.rate) return match.rate;
   }
-
-  return "";
+  return pricing.baseRate || "";
 }
 
 function applyLineupRateToAgreement() {
@@ -2388,7 +2453,22 @@ function updateAgreementStepSummary() {
   if (typeLabel) typeLabel.textContent = state.agreement.eventType || "Not set yet";
   if (pricingLabel) {
     const totals = getAgreementTotals();
-    pricingLabel.textContent = toMoney(totals.eventSubtotal || 0);
+    const fee = totals.performanceFeeEffective || 0;
+    const bandConfig = state.agreement.bandConfig || "";
+    const hours = parseFloat(state.agreement.hours || 0);
+    if (fee > 0) {
+      pricingLabel.textContent = toMoney(fee);
+    } else if (!bandConfig) {
+      pricingLabel.textContent = "Select lineup";
+    } else if (hours <= 0) {
+      pricingLabel.textContent = "Set show times";
+    } else {
+      const rate = getDefaultRateForLineup(bandConfig);
+      const rateNum = parseFloat(rate || 0);
+      pricingLabel.textContent = rateNum > 0
+        ? toMoney(rateNum * hours)
+        : "Select lineup to calculate";
+    }
   }
 }
 
@@ -4347,6 +4427,8 @@ async function signInWithCredentials(email, password) {
   await fetchMusicianBlackouts();
   await fetchInvoices();
   await fetchReceipts();
+  await loadBandDNAFromSupabase();
+  repairLineupRates();
   return true;
 }
 
@@ -4460,6 +4542,8 @@ async function refreshAuthState() {
     await fetchWorkOrders();
     await fetchInvoices();
     await fetchReceipts();
+    await loadBandDNAFromSupabase();
+    repairLineupRates();
   } else {
     stopSupabaseSync();
     state.calendar.events = [];
@@ -9444,6 +9528,12 @@ function setupListeners() {
       if (field === "bandConfig") {
         applyLineupRateToAgreement();
       }
+      if (field === "bandConfig" ||
+          field === "performanceTime" ||
+          field === "performanceEndTime" ||
+          field === "hours") {
+        updateAgreementStepSummary();
+      }
       if (field === "performanceTime" || field === "performanceEndTime") {
         updatePerformanceHoursFromTimes();
       }
@@ -11100,6 +11190,7 @@ async function copyMessage(statusTargetId = "pdfStatus", triggerButton = null) {
 
 async function init() {
   loadDraft();
+  repairLineupRates();
   if (!state.bandDNA.migratedFromLegacy) {
     migrateLegacyToBandDNA();
     saveDraft();
