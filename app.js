@@ -1465,9 +1465,29 @@ function normalizeLineupName(value = "") {
 function getDefaultRateForLineup(lineup = "") {
   const pricing = state.workOrderWorkspace.pricingProfile;
   const normalized = normalizeLineupName(lineup);
-  if (!normalized) return pricing.baseRate || "";
-  const match = (pricing.lineupRates || []).find((entry) => normalizeLineupName(entry.lineup) === normalized);
-  return match?.rate || pricing.baseRate || "";
+
+  if (normalized) {
+    const match = (pricing.lineupRates || []).find(
+      (entry) => normalizeLineupName(entry.lineup) === normalized
+    );
+    if (match?.rate) return match.rate;
+  }
+
+  if (pricing.baseRate) return pricing.baseRate;
+
+  if (normalized && Array.isArray(state.bandDNA.lineups)) {
+    const dnaMatch = state.bandDNA.lineups.find(
+      (entry) => normalizeLineupName(entry.name) === normalized
+    );
+    if (dnaMatch?.rate) return dnaMatch.rate;
+  }
+
+  if (Array.isArray(state.bandDNA.lineups) && state.bandDNA.lineups.length) {
+    const firstRate = state.bandDNA.lineups[0]?.rate;
+    if (firstRate) return firstRate;
+  }
+
+  return "";
 }
 
 function applyLineupRateToAgreement() {
