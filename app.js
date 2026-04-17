@@ -1544,33 +1544,19 @@ function repairLineupRates() {
 }
 
 function getDefaultRateForLineup(lineup = "") {
-  const normalized = normalizeLineupName(lineup);
   const musicianRate = parseFloat(
-    state.bandDNA.musicianHourlyRate || 50);
-  if (Array.isArray(state.bandDNA.lineups)) {
-    for (const entry of state.bandDNA.lineups) {
-      const entryNorm = normalizeLineupName(entry.name || "");
-      if (entryNorm === normalized ||
-          entryNorm.includes(normalized) ||
-          normalized.includes(entryNorm)) {
-        const rate = parseFloat(entry.rate || 0);
-        if (rate > 0) return String(rate);
-        const count = parseFloat(entry.count || 0) ||
-          getLineupMusicianCount(entry.name || "");
-        if (musicianRate > 0 && count > 0) {
-          return String(musicianRate * count);
-        }
-      }
-    }
-    if (musicianRate > 0) {
-      const count = getLineupMusicianCount(lineup);
-      if (count > 0) return String(musicianRate * count);
-    }
+    state.bandDNA.musicianHourlyRate || 50
+  );
+  const count = getLineupMusicianCount(lineup);
+  if (musicianRate > 0 && count > 0) {
+    return String(musicianRate * count);
   }
+  const normalized = normalizeLineupName(lineup);
   const pricing = state.workOrderWorkspace.pricingProfile;
   if (normalized) {
     const match = (pricing.lineupRates || []).find(
-      (e) => normalizeLineupName(e.lineup) === normalized);
+      (e) => normalizeLineupName(e.lineup) === normalized
+    );
     if (match?.rate) return match.rate;
   }
   return pricing.baseRate || "";
