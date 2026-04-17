@@ -1207,6 +1207,17 @@ function safeStorageGet(key) {
 
 function saveDraft() {
   try {
+    if (Array.isArray(state.bandDNA.lineups)) {
+      const musicianRate = parseFloat(state.bandDNA.musicianHourlyRate || 50);
+      state.bandDNA.lineups = state.bandDNA.lineups.map((lineup) => {
+        if (!lineup.rate || lineup.rate === "" || parseFloat(lineup.rate) === 0) {
+          const count = lineup.count || getLineupMusicianCount(lineup.name);
+          return { ...lineup, rate: String(musicianRate * count) };
+        }
+        return lineup;
+      });
+    }
+
     const payload = {
       bandDNA: state.bandDNA,
       agreement: state.agreement,
@@ -1476,10 +1487,20 @@ function getDefaultRateForLineup(lineup = "") {
   if (pricing.baseRate) return pricing.baseRate;
 
   if (normalized && Array.isArray(state.bandDNA.lineups)) {
-    const dnaMatch = state.bandDNA.lineups.find(
-      (entry) => normalizeLineupName(entry.name) === normalized
-    );
-    if (dnaMatch?.rate) return dnaMatch.rate;
+    const dnaMatch = state.bandDNA.lineups.find((entry) => {
+      const entryName = normalizeLineupName(entry.name || "");
+      return entryName === normalized
+        || entryName.includes(normalized)
+        || normalized.includes(entryName);
+    });
+    if (dnaMatch?.rate && parseFloat(dnaMatch.rate) > 0) {
+      return dnaMatch.rate;
+    }
+    const musicianRate = parseFloat(state.bandDNA.musicianHourlyRate || 0);
+    if (musicianRate > 0) {
+      const count = getLineupMusicianCount(lineup);
+      return String(musicianRate * count);
+    }
   }
 
   if (Array.isArray(state.bandDNA.lineups) && state.bandDNA.lineups.length) {
@@ -11082,6 +11103,22 @@ async function init() {
   if (!state.bandDNA.migratedFromLegacy) {
     migrateLegacyToBandDNA();
     saveDraft();
+  }
+  if (state.bandDNA.migratedFromLegacy &&
+      Array.isArray(state.bandDNA.lineups)) {
+    const musicianRate = parseFloat(
+      state.bandDNA.musicianHourlyRate || 50);
+    let repaired = false;
+    state.bandDNA.lineups = state.bandDNA.lineups.map((lineup) => {
+      if (!lineup.rate || parseFloat(lineup.rate) === 0) {
+        const count = lineup.count ||
+          getLineupMusicianCount(lineup.name);
+        repaired = true;
+        return { ...lineup, rate: String(musicianRate * count) };
+      }
+      return lineup;
+    });
+    if (repaired) saveDraft();
   }
   if (!state.bandDNA.onboardingComplete) {
     if (switchTopView) switchTopView("onboarding");
