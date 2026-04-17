@@ -220,9 +220,10 @@ const state = {
     proofPoint: "",
     tone: "Warm",
     lineups: [
-      { name: "Duo", rate: "", rateType: "hourly" },
-      { name: "Full Band", rate: "", rateType: "hourly" },
+      { name: "Duo", rate: "", count: 2, rateType: "hourly" },
+      { name: "Full Band", rate: "", count: 4, rateType: "hourly" },
     ],
+    minimumHours: "2",
     musicianHourlyRate: "50",
     defaultSetLength: "",
     defaultDeposit: "50",
@@ -428,6 +429,7 @@ function migrateLegacyToBandDNA() {
     bestFitEvents: bandProfile.eventFitLine || "",
     proofPoint: bandProfile.proofPointPrimary || "",
     tone: promoBuilder.tone || "Warm",
+    minimumHours: pricingProfile.minimumHours || "2",
     musicianHourlyRate: pricingProfile.musicianHourlyRate || "50",
     defaultDeposit: pricingProfile.defaultDepositAmount || "50",
     depositEnabled: pricingProfile.defaultDepositEnabled !== false,
@@ -441,11 +443,12 @@ function migrateLegacyToBandDNA() {
       ? lineupRates.map((entry) => ({
           name: entry?.lineup || "",
           rate: entry?.rate || "",
+          count: getLineupMusicianCount(entry?.lineup || ""),
           rateType: "hourly",
         }))
       : [
-          { name: "Duo", rate: pricingProfile.baseRate || "", rateType: "hourly" },
-          { name: "Full Band", rate: pricingProfile.baseRate || "", rateType: "hourly" },
+          { name: "Duo", rate: "", count: 2, rateType: "hourly" },
+          { name: "Full Band", rate: "", count: 4, rateType: "hourly" },
         ],
     migratedFromLegacy: true,
     onboardingComplete: true,
@@ -482,16 +485,36 @@ function renderOnboardingGenreChips() {
     : `<span class="muted">No genre tags added yet.</span>`;
 }
 
-function getLineupMusicianCount(lineupName = "") {
-  const normalized = String(lineupName || "").trim().toLowerCase();
+function getLineupMusicianCount(lineupName = "", lineup = null) {
+  if (lineup?.count && Number(lineup.count) > 0) {
+    return Number(lineup.count);
+  }
+  const normalized = String(lineupName || "").toLowerCase();
   if (normalized.includes("duo")) return 2;
   if (normalized.includes("trio")) return 3;
   if (normalized.includes("full") || normalized.includes("band")) return 4;
+  if (normalized.includes("solo")) return 1;
   return 1;
 }
 
 function getAutoCalculatedLineupRate(lineupName = "", musicianHourlyRate = "50") {
   return String(toNumber(musicianHourlyRate || "50") * getLineupMusicianCount(lineupName));
+}
+
+function updateOnboardingLineupRatePreviews() {
+  const musicianHourlyRate = toNumber(
+    document.getElementById("onboardingMusicianHourlyRate")?.value.trim() || "50"
+  );
+  document.querySelectorAll("#onboardingLineupList [data-lineup-row]").forEach((row) => {
+    const name = row.querySelector("[data-lineup-name]")?.value.trim() || "";
+    const countValue = row.querySelector("[data-lineup-count]")?.value.trim() || "";
+    const count = Math.max(1, Number(countValue) || getLineupMusicianCount(name));
+    const total = musicianHourlyRate * count;
+    const preview = row.querySelector(".lineup-rate-preview");
+    if (preview) {
+      preview.textContent = `$${formatNumberInput(total)}/hr total (${count} musicians × $${formatNumberInput(musicianHourlyRate)}/hr)`;
+    }
+  });
 }
 
 function renderOnboardingWizard() {
@@ -569,67 +592,75 @@ function renderOnboardingWizard() {
   if (step2) {
     const lineups = Array.isArray(dna.lineups) && dna.lineups.length
       ? dna.lineups
-      : [{ name: "Duo", rate: "", rateType: "hourly" }];
+      : [
+          { name: "Duo", rate: "", count: 2, rateType: "hourly" },
+          { name: "Full Band", rate: "", count: 4, rateType: "hourly" },
+        ];
     const musicianHourlyRate = dna.musicianHourlyRate || "50";
     step2.innerHTML = `
       <section class="panel form-panel">
         <h2>What do you offer?</h2>
-        <p class="muted">Set up your default lineups, rates, and deposit settings once so new bookings start pre-filled.</p>
-        <div id="onboardingLineupList">
-          ${lineups.map((lineup, index) => `
-            ${(() => {
-              const computedRate = lineup.rate || getAutoCalculatedLineupRate(lineup.name, musicianHourlyRate);
-              return `
-            <div class="form-grid onboarding-lineup-row" data-lineup-row="${index}">
-              <label>
-                Lineup name
-                <input type="text" data-lineup-name value="${escapeHtml(lineup.name || "")}" />
-                <span class="inline-help">Used in proposals and booking defaults.</span>
-              </label>
-              <label>
-                Hourly rate
-                <input type="number" min="0" step="1" data-lineup-rate value="${escapeHtml(computedRate)}" />
-                <span class="inline-help">Used as the starting point for booking pricing.</span>
-              </label>
-              <label>
-                Rate type
-                <input type="text" value="${escapeHtml(lineup.rateType || "hourly")}" disabled />
-                <span class="inline-help">This setup uses hourly pricing.</span>
-              </label>
-              <div>
-                <button class="btn ghost" type="button" data-auto-lineup-rate="${index}">Auto-calculate from musician rate</button>
-                <button class="btn ghost" type="button" data-remove-lineup="${index}">Remove</button>
-              </div>
-            </div>
-          `;
-            })()}
-          `).join("")}
+        <p class="muted">Set up your base musician rate, minimum hours, and lineups so new quotes are calculated automatically.</p>
+
+        <div class="form-section booking-nested-section">
+          <h3>Your base rate</h3>
+          <div class="form-grid">
+            <label>
+              Rate per musician per hour
+              <input id="onboardingMusicianHourlyRate" type="number" min="0" step="1" value="${escapeHtml(dna.musicianHourlyRate || "50")}" />
+              <span class="inline-help">This is what each musician earns per hour. We'll calculate lineup totals automatically.</span>
+            </label>
+            <label>
+              Minimum hours per show
+              <input id="onboardingMinimumHours" type="number" min="0" step="0.5" value="${escapeHtml(dna.minimumHours || "2")}" />
+              <span class="inline-help">Most shows have a 2-hour minimum.</span>
+            </label>
+          </div>
         </div>
-        <p><button class="btn ghost" id="onboardingAddLineup" type="button">Add lineup</button></p>
-        <div class="form-grid">
-          <label>
-            Default set length (hours)
-            <input id="onboardingDefaultSetLength" type="number" min="0" step="0.25" value="${escapeHtml(dna.defaultSetLength || "")}" />
-            <span class="inline-help">Used to pre-fill booking durations.</span>
-          </label>
-          <label>
-            Rate per musician per hour
-            <input id="onboardingMusicianHourlyRate" type="number" min="0" step="1" value="${escapeHtml(dna.musicianHourlyRate || "50")}" />
-            <span class="inline-help">
-              Used to auto-calculate lineup totals.
-              e.g. $50/hr × 2 musicians = $100/hr for a duo.
-            </span>
-          </label>
-          <label>
-            Default deposit amount
-            <input id="onboardingDefaultDeposit" type="number" min="0" step="1" value="${escapeHtml(dna.defaultDeposit || "")}" />
-            <span class="inline-help">Used as the default booking deposit.</span>
-          </label>
-          <label class="checkbox inline-note">
-            <input id="onboardingDepositEnabled" type="checkbox" ${dna.depositEnabled !== false ? "checked" : ""} />
-            Deposit enabled
-            <span class="inline-help">Turns deposit defaults on for new bookings.</span>
-          </label>
+
+        <div class="form-section booking-nested-section">
+          <h3>Your lineups</h3>
+          <div id="onboardingLineupList">
+            ${lineups.map((lineup, index) => {
+              const count = getLineupMusicianCount(lineup.name, lineup);
+              const totalRate = toNumber(musicianHourlyRate) * count;
+              return `
+                <div class="form-section booking-nested-section onboarding-lineup-row" data-lineup-row="${index}">
+                  <div class="form-grid">
+                    <label>
+                      Lineup name
+                      <input type="text" data-lineup-name value="${escapeHtml(lineup.name || "")}" />
+                    </label>
+                    <label>
+                      Musician count
+                      <input type="number" min="1" step="1" data-lineup-count value="${escapeHtml(count)}" />
+                    </label>
+                  </div>
+                  <p class="lineup-rate-preview">$${formatNumberInput(totalRate)}/hr total (${count} musicians × $${formatNumberInput(toNumber(musicianHourlyRate))}/hr)</p>
+                  <div class="inline-actions">
+                    <button class="btn ghost" type="button" data-remove-lineup="${index}">Remove</button>
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+          <p><button class="btn ghost" id="onboardingAddLineup" type="button">Add lineup</button></p>
+        </div>
+
+        <div class="form-section booking-nested-section">
+          <h3>Deposit</h3>
+          <div class="form-grid">
+            <label>
+              Default deposit amount
+              <input id="onboardingDefaultDeposit" type="number" min="0" step="1" value="${escapeHtml(dna.defaultDeposit || "")}" />
+              <span class="inline-help">Used as the default booking deposit.</span>
+            </label>
+            <label class="checkbox inline-note">
+              <input id="onboardingDepositEnabled" type="checkbox" ${dna.depositEnabled !== false ? "checked" : ""} />
+              Deposit enabled
+              <span class="inline-help">Turns deposit defaults on for new bookings.</span>
+            </label>
+          </div>
         </div>
       </section>
     `;
@@ -787,17 +818,26 @@ function saveOnboardingStep(stepNumber) {
   }
 
   if (step === 2) {
+    const musicianHourlyRate = document.getElementById("onboardingMusicianHourlyRate")?.value.trim() || "50";
     const lineups = Array.from(document.querySelectorAll("#onboardingLineupList [data-lineup-row]"))
       .map((row) => ({
         name: row.querySelector("[data-lineup-name]")?.value.trim() || "",
-        rate: row.querySelector("[data-lineup-rate]")?.value.trim() || "",
+        count: Math.max(1, Number(row.querySelector("[data-lineup-count]")?.value.trim() || 1)),
+      }))
+      .map((entry) => ({
+        name: entry.name,
+        rate: String(toNumber(musicianHourlyRate) * entry.count),
+        count: entry.count,
         rateType: "hourly",
       }))
-      .filter((entry) => entry.name || entry.rate);
+      .filter((entry) => entry.name || entry.count);
     updateBandDNA({
-      lineups: lineups.length ? lineups : [{ name: "Duo", rate: "", rateType: "hourly" }],
-      defaultSetLength: document.getElementById("onboardingDefaultSetLength")?.value.trim() || "",
-      musicianHourlyRate: document.getElementById("onboardingMusicianHourlyRate")?.value.trim() || "50",
+      lineups: lineups.length ? lineups : [
+        { name: "Duo", rate: String(toNumber(musicianHourlyRate) * 2), count: 2, rateType: "hourly" },
+        { name: "Full Band", rate: String(toNumber(musicianHourlyRate) * 4), count: 4, rateType: "hourly" },
+      ],
+      musicianHourlyRate,
+      minimumHours: document.getElementById("onboardingMinimumHours")?.value.trim() || "2",
       defaultDeposit: document.getElementById("onboardingDefaultDeposit")?.value.trim() || "",
       depositEnabled: Boolean(document.getElementById("onboardingDepositEnabled")?.checked),
     });
@@ -2358,23 +2398,35 @@ function formatQuoteStatusLabel(status = "") {
 
 function buildDefaultQuoteOptionsFromBandDNA() {
   const lineups = Array.isArray(state.bandDNA.lineups) ? state.bandDNA.lineups : [];
-  const hours = parseFloat(state.bandDNA.defaultSetLength)
-    || parseFloat(state.agreement.hours)
-    || 2;
-  const defaultDeposit = state.bandDNA.defaultDeposit || 50;
-  return lineups.slice(0, 2).map((lineup) => ({
-    label: [lineup?.name || "", `${hours} hrs`].filter(Boolean).join(" · "),
-    sets: `${hours} hrs`,
-    price: String(
-      (parseFloat(lineup?.rate) || (
-        parseFloat(state.bandDNA.musicianHourlyRate || 50)
-        * getLineupMusicianCount(lineup?.name || "")
-      )) * hours
-    ),
-    deposit: String(defaultDeposit),
-    detail: `${hours} hrs · Sound included · $${defaultDeposit} deposit`,
-    featured: false,
-  }));
+  const minimumHours = parseFloat(state.bandDNA.minimumHours) || 2;
+  const agreementHours = parseFloat(state.agreement.hours) || 0;
+  const hours = agreementHours > 0 ? agreementHours : minimumHours;
+  const discountAmount = state.agreement.friendsFamilyDiscount
+    ? Math.max(0, toNumber(state.agreement.friendsFamilyDiscountAmount))
+    : 0;
+  const depositRequired = state.agreement.depositEnabled !== false && state.agreement.depositWaived !== true;
+  const depositValue = depositRequired ? (state.bandDNA.defaultDeposit || 50) : 0;
+
+  return lineups.slice(0, 2).map((lineup) => {
+    const count = getLineupMusicianCount(lineup.name, lineup);
+    const ratePerHour = parseFloat(lineup.rate)
+      || (parseFloat(state.bandDNA.musicianHourlyRate || 50) * count);
+    const basePrice = ratePerHour * hours;
+    const price = Math.max(0, basePrice - discountAmount);
+    const depositText = depositRequired
+      ? `$${state.bandDNA.defaultDeposit || 50} deposit to hold your date`
+      : "No deposit required";
+    const discountText = discountAmount > 0 ? ` · $${formatNumberInput(discountAmount)} discount applied` : "";
+
+    return {
+      label: `${lineup.name} · ${hours} hrs`,
+      sets: `${hours} hrs`,
+      price: String(price),
+      deposit: String(depositValue),
+      detail: `${hours} hrs · Sound system included · ${depositText}${discountText}`,
+      featured: false,
+    };
+  });
 }
 
 function getQuoteBuilderOptionsForRender() {
@@ -9804,7 +9856,7 @@ function setupListeners() {
         const removeIndex = Number(removeLineupBtn.getAttribute("data-remove-lineup"));
         state.bandDNA.lineups = (state.bandDNA.lineups || []).filter((_, index) => index !== removeIndex);
         if (!state.bandDNA.lineups.length) {
-          state.bandDNA.lineups = [{ name: "Duo", rate: "", rateType: "hourly" }];
+          state.bandDNA.lineups = [{ name: "Duo", rate: "", count: 2, rateType: "hourly" }];
         }
         saveDraft();
         renderOnboardingWizard();
@@ -9815,22 +9867,11 @@ function setupListeners() {
         saveOnboardingStep(2);
         state.bandDNA.lineups = [
           ...(Array.isArray(state.bandDNA.lineups) ? state.bandDNA.lineups : []),
-          { name: "", rate: "", rateType: "hourly" },
+          { name: "", rate: "", count: 1, rateType: "hourly" },
         ];
         saveDraft();
         renderOnboardingWizard();
-        return;
-      }
-
-      const autoRateBtn = event.target.closest("[data-auto-lineup-rate]");
-      if (autoRateBtn) {
-        const row = autoRateBtn.closest("[data-lineup-row]");
-        const lineupName = row?.querySelector("[data-lineup-name]")?.value.trim() || "";
-        const rateInput = row?.querySelector("[data-lineup-rate]");
-        const musicianHourlyRate = document.getElementById("onboardingMusicianHourlyRate")?.value.trim() || "50";
-        if (rateInput) {
-          rateInput.value = getAutoCalculatedLineupRate(lineupName, musicianHourlyRate);
-        }
+        updateOnboardingLineupRatePreviews();
         return;
       }
 
@@ -10063,6 +10104,15 @@ function setupListeners() {
       saveDraft();
     });
   }
+  onboardingWizard?.addEventListener("input", (event) => {
+    if (
+      event.target.matches("#onboardingMusicianHourlyRate")
+      || event.target.matches("[data-lineup-name]")
+      || event.target.matches("[data-lineup-count]")
+    ) {
+      updateOnboardingLineupRatePreviews();
+    }
+  });
   document.getElementById("invoicePdf").addEventListener("click", () => generatePdf("invoice"));
   const invoiceCopyMessageBtn = document.getElementById("invoiceCopyMessage");
   if (invoiceCopyMessageBtn) {
