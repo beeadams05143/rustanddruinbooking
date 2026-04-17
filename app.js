@@ -257,6 +257,7 @@ const state = {
     bookingSaved: false,
     bookingEventId: "",
     contractWizardOpen: false,
+    contractShareId: "",
   },
   calendar: {
     overridePin: "",
@@ -2241,7 +2242,7 @@ function updateFeesAndDepositsFields(totals) {
   const depositDueInput = document.getElementById("feeDepositDue");
   if (depositDueInput) depositDueInput.value = toMoney(totals.depositAmount);
 
-  const dayOfDue = Math.max(0, totals.totalWithDeposit - totals.depositAmount);
+  const dayOfDue = Math.max(0, totals.performanceFee - totals.depositAmount);
   const dayOfValue = toMoney(dayOfDue);
   state.agreement.amountDueDayOf = dayOfValue;
   const dayOfInput = document.getElementById("amountDueDayOf");
@@ -2353,7 +2354,7 @@ function updateAgreementPreview() {
       : "$0.00"
   );
   setText("[data-fill='feesSubtotal']", toMoney(totals.feeSubtotal));
-  setText("[data-fill='totalWithDeposit']", toMoney(totals.totalWithDeposit));
+  setText("[data-fill='totalWithDeposit']", toMoney(totals.performanceFee));
   setText("[data-fill='travelHours']", state.agreement.travelHours || "__");
   setText("[data-fill='travelBandMembers']", String(totals.travelBandMembers || 0));
   setText(
@@ -2990,6 +2991,11 @@ function renderAgreementStepUI() {
     if (pdfActionsBar) {
       pdfActionsBar.classList.toggle("hidden", !state.workspace.contractWizardOpen);
     }
+  }
+
+  const shareContractLinkBtn = document.getElementById("shareContractLink");
+  if (shareContractLinkBtn) {
+    shareContractLinkBtn.disabled = !state.workspace.contractShareId;
   }
 }
 
@@ -4125,6 +4131,29 @@ function setCreatedContractStatus(message, isError = false) {
   el.classList.toggle("warning", isError);
 }
 
+/** Fields for digital signing (contract.html); extend the Supabase contracts table to match. */
+function buildAgreementContractDigitalPayload() {
+  const totals = getAgreementTotals();
+  const previewEl = document.getElementById("agreementPreview");
+  return {
+    band_name: state.bandDNA.bandName || "Rust and Ruin",
+    client_name: state.agreement.clientName || "",
+    contract_text: previewEl ? previewEl.innerHTML : "",
+    venue_name: state.agreement.venueAddress || "",
+    event_date: state.agreement.performanceDate || "",
+    event_type: state.agreement.eventType || "",
+    performance_time: state.agreement.performanceTime || "",
+    performance_end_time: state.agreement.performanceEndTime || "",
+    hours: state.agreement.hours || "",
+    lineup: state.agreement.bandConfig || "",
+    performance_fee: totals.performanceFee,
+    deposit_amount: totals.depositAmount,
+    amount_due_day_of: Math.max(0, totals.performanceFee - totals.depositAmount),
+    payment_methods:
+      "cash, check to Rust and Ruin, Venmo @rustandruinvt, or PayPal @rustandruin",
+  };
+}
+
 async function autoSaveCreatedAgreementPdf(blob, fileName) {
   const client = state.calendar.client;
   if (!client || !state.calendar.session || !blob) return;
@@ -4143,6 +4172,7 @@ async function autoSaveCreatedAgreementPdf(blob, fileName) {
   const contractName = `${state.agreement.clientName || "Client"} Agreement ${
     state.agreement.performanceDate || ""
   }`.trim();
+  const digitalPayload = buildAgreementContractDigitalPayload();
   const { data: existing } = await client
     .from("contracts")
     .select("id")
@@ -4151,36 +4181,48 @@ async function autoSaveCreatedAgreementPdf(blob, fileName) {
     .order("uploaded_at", { ascending: false })
     .limit(1);
 
+  let savedContractId = "";
+
   if (existing && existing.length) {
-    const { error: updateError } = await client
+    const { data: updatedRow, error: updateError } = await client
       .from("contracts")
       .update({
         file_path: path,
         status: "Created",
         event_id: null,
+        ...digitalPayload,
       })
-      .eq("id", existing[0].id);
+      .eq("id", existing[0].id)
+      .select("id")
+      .single();
     if (updateError) {
       setCreatedContractStatus("Saved PDF, but could not update created contract row.", true);
       return;
     }
+    savedContractId = updatedRow?.id || existing[0].id || "";
   } else {
-    const { error: insertError } = await client
+    const { data: insertedRow, error: insertError } = await client
       .from("contracts")
       .insert({
         name: contractName,
         file_path: path,
         event_id: null,
         status: "Created",
-      });
+        ...digitalPayload,
+      })
+      .select("id")
+      .single();
     if (insertError) {
       setCreatedContractStatus("Saved PDF, but could not store created contract metadata.", true);
       return;
     }
+    savedContractId = insertedRow?.id || "";
   }
 
+  state.workspace.contractShareId = savedContractId || "";
   setCreatedContractStatus("Created contract saved.");
   await fetchContracts();
+  renderAgreementStepUI();
 }
 
 function initSupabaseClient() {
@@ -6684,6 +6726,7 @@ async function submitAgreement() {
     setAgreementCalendarStatus("Save the booking first, then generate the contract.", true);
     return;
   }
+  state.workspace.contractShareId = "";
   state.workspace.contractWizardOpen = true;
   prepareAgreementForOutput();
   renderAgreementStepUI();
@@ -9786,6 +9829,12 @@ function setupListeners() {
     if (topOpenPdfBtn) topOpenPdfBtn.classList.toggle("hidden", !inBookkeeping);
     if (topPrintPdfBtn) topPrintPdfBtn.classList.toggle("hidden", !inBookkeeping);
     if (sharePdfBtn) sharePdfBtn.classList.toggle("hidden", !inBookkeeping);
+    const shareContractLinkBtn = document.getElementById("shareContractLink");
+    if (shareContractLinkBtn) {
+      const showContractShare =
+        target === "agreement" && state.workspace.contractWizardOpen;
+      shareContractLinkBtn.classList.toggle("hidden", !showContractShare);
+    }
     document.querySelectorAll(".section-tab[data-panel]").forEach((btn) => {
       btn.classList.toggle("active", btn.getAttribute("data-panel") === target);
     });
@@ -10251,6 +10300,21 @@ function setupListeners() {
     });
   }
   document.getElementById("sharePdf").addEventListener("click", shareLastPdf);
+  const shareContractLinkBtn = document.getElementById("shareContractLink");
+  if (shareContractLinkBtn) {
+    shareContractLinkBtn.addEventListener("click", async () => {
+      const id = state.workspace.contractShareId;
+      if (!id) return;
+      const url = `https://gigos.netlify.app/contract.html?id=${id}`;
+      const clientName = state.agreement.clientName?.trim() || "the client";
+      const statusEl = document.getElementById("pdfStatus");
+      await copyTextToClipboard(url, {
+        statusEl,
+        successMessage: `Contract link copied! Send this to ${clientName} to sign digitally.`,
+        failureMessage: "Could not copy contract link.",
+      });
+    });
+  }
 
   const signInBtn = document.getElementById("signIn");
   if (signInBtn) {
@@ -10908,6 +10972,9 @@ async function generatePdf(type, options = {}) {
   if (!target) return;
 
   if (type === "agreement") {
+    state.workspace.contractShareId = "";
+    const shareContractBtn = document.getElementById("shareContractLink");
+    if (shareContractBtn) shareContractBtn.disabled = true;
     prepareAgreementForOutput();
     refreshAgreementCreatedDate();
     updateAgreementPreview();
