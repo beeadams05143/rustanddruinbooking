@@ -2320,6 +2320,10 @@ function updateAgreementPreview() {
   }
 
   setText("[data-fill='performanceFee']", toMoney(totals.performanceFee));
+  setText(
+    "[data-fill='openingPerformanceFee']",
+    toMoney(totals.performanceFee)
+  );
   setText("[data-fill='performanceFeeAuto']", toMoney(totals.performanceFeeAuto));
   setText("[data-fill='nonPerformanceFee']", toMoney(totals.onsiteFee));
   setText("[data-fill='hourlyRate']", toMoney(totals.hourlyRate));
