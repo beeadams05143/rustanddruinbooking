@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Performance Quote</title>
+    <style>
+      :root {
+        --bg: #F5EDD8;
+        --surface: rgba(255, 252, 245, 0.92);
+        --border: rgba(91, 56, 31, 0.16);
+        --text: #3F2A1D;
+        --muted: #6D5647;
+        --accent: #C17A3A;
+        --accent-dark: #8B4A1A;
+        --shadow: 0 18px 40px rgba(91, 56, 31, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.5;
+      }
+
+      .page {
+        width: min(100%, 480px);
+        margin: 0 auto;
+        padding: 20px 16px 40px;
+      }
+
+      .shell,
+      .modal-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+      }
+
+      .shell {
+        padding: 20px;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        font-weight: 700;
+        line-height: 1.1;
+      }
+
+      h1 {
+        font-size: 2rem;
+      }
+
+      h2 {
+        font-size: 1.45rem;
+      }
+
+      p {
+        margin: 0;
+      }
+
+      .eyebrow,
+      .badge,
+      .detail-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        width: fit-content;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .eyebrow {
+        margin-bottom: 12px;
+        padding: 8px 12px;
+        background: rgba(193, 122, 58, 0.12);
+        color: var(--accent-dark);
+      }
+
+      .badge {
+        padding: 6px 10px;
+        background: rgba(193, 122, 58, 0.18);
+        color: var(--accent-dark);
+      }
+
+      .hero {
+        display: grid;
+        gap: 12px;
+      }
+
+      .hero p,
+      .meta p {
+        color: var(--muted);
+      }
+
+      .meta {
+        display: grid;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .notice,
+      .success,
+      .status-card {
+        margin-top: 18px;
+        padding: 16px;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+      }
+
+      .notice {
+        background: rgba(255, 255, 255, 0.45);
+      }
+
+      .success {
+        background: rgba(139, 74, 26, 0.08);
+      }
+
+      .status-card {
+        background: rgba(193, 122, 58, 0.08);
+      }
+
+      .options {
+        display: grid;
+        gap: 14px;
+        margin-top: 22px;
+      }
+
+      .card {
+        padding: 18px;
+        border-radius: 22px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .card-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .price {
+        margin-top: 14px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 2rem;
+        font-weight: 700;
+      }
+
+      .detail {
+        margin-top: 10px;
+        color: var(--muted);
+      }
+
+      .deposit {
+        margin-top: 12px;
+        color: var(--accent-dark);
+        font-weight: 600;
+      }
+
+      button {
+        border: 0;
+        border-radius: 14px;
+        padding: 13px 16px;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .primary-btn {
+        width: 100%;
+        margin-top: 16px;
+        background: var(--accent-dark);
+        color: #fff;
+        font-weight: 700;
+      }
+
+      .secondary-btn {
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+      }
+
+      .ghost-btn {
+        background: transparent;
+        color: var(--muted);
+        border: 1px solid var(--border);
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        background: rgba(63, 42, 29, 0.36);
+      }
+
+      .modal.open {
+        display: flex;
+      }
+
+      .modal-card {
+        width: min(100%, 440px);
+        padding: 20px;
+      }
+
+      .modal-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 16px;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      input {
+        width: 100%;
+        padding: 13px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(91, 56, 31, 0.18);
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--text);
+        font: inherit;
+      }
+
+      .stack {
+        display: grid;
+        gap: 14px;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <main class="shell stack" id="app">
+        <div class="status-card">
+          <p>Loading your quote...</p>
+        </div>
+      </main>
+    </div>
+
+    <section class="modal" id="confirmModal" aria-hidden="true">
+      <div class="modal-card stack">
+        <div class="stack">
+          <span class="eyebrow">Confirm selection</span>
+          <h2 id="modalTitle">Choose this option</h2>
+          <div class="status-card" id="modalOptionSummary"></div>
+        </div>
+        <label>
+          Your name (to confirm selection)
+          <input id="confirmNameInput" type="text" placeholder="Your full name" />
+        </label>
+        <div class="modal-actions">
+          <button class="secondary-btn" id="confirmChoiceBtn" type="button">Yes, I want this option</button>
+          <button class="ghost-btn" id="cancelChoiceBtn" type="button">Cancel</button>
+        </div>
+        <p id="modalStatus"></p>
+      </div>
+    </section>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      const SUPABASE_URL = 'https://ipxjalcgiaqcyubrxqxu.supabase.co';
+      const SUPABASE_ANON_KEY = 'sb_publishable_-XW9I_e7OR4TUMq0B4SG-Q_el-7vKPJ';
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      const params = new URLSearchParams(window.location.search);
+      const quoteId = params.get('id');
+      const app = document.getElementById('app');
+      const confirmModal = document.getElementById('confirmModal');
+      const confirmNameInput = document.getElementById('confirmNameInput');
+      const confirmChoiceBtn = document.getElementById('confirmChoiceBtn');
+      const cancelChoiceBtn = document.getElementById('cancelChoiceBtn');
+      const modalOptionSummary = document.getElementById('modalOptionSummary');
+      const modalStatus = document.getElementById('modalStatus');
+      let currentQuote = null;
+      let selectedIndex = null;
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function formatCurrency(value) {
+        const amount = Number(value || 0);
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }).format(Number.isFinite(amount) ? amount : 0);
+      }
+
+      function formatDate(value) {
+        if (!value) return 'Date to be confirmed';
+        const date = new Date(value);
+        if (!Number.isFinite(date.getTime())) return value;
+        return date.toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        });
+      }
+
+      function getQuoteMetadata(options) {
+        const list = Array.isArray(options) ? options : [];
+        const metaEntry = list.find((option) => option && typeof option === 'object' && option.__meta);
+        return metaEntry && metaEntry.__meta ? metaEntry.__meta : {};
+      }
+
+      function getRenderableOptions(options) {
+        return (Array.isArray(options) ? options : []).filter((option) => {
+          return option
+            && typeof option === 'object'
+            && !option.__meta
+            && (option.label || option.detail || option.price !== undefined);
+        });
+      }
+
+      function setUnavailableMessage() {
+        app.innerHTML = `
+          <div class="notice stack">
+            <span class="eyebrow">Performance quote</span>
+            <h1>This quote is no longer available</h1>
+            <p>Please reach out to your contact directly if you have any questions.</p>
+          </div>
+        `;
+      }
+
+      function renderAcceptedState(quote, options, bandName) {
+        const chosenOption = options[Number(quote.chosen_option_index)] || null;
+        app.innerHTML = `
+          <section class="success stack">
+            <span class="eyebrow">Performance quote</span>
+            <h1>You're confirmed! We'll be in touch soon.</h1>
+            <p>${escapeHtml(quote.chosen_by_name || quote.client_name || '')}, thanks for booking ${escapeHtml(bandName || 'the band')}.</p>
+            ${chosenOption ? `
+              <div class="card stack">
+                <h2>${escapeHtml(chosenOption.label || 'Selected option')}</h2>
+                <p class="price">${formatCurrency(chosenOption.price)}</p>
+                <p class="detail">${escapeHtml(chosenOption.detail || '')}</p>
+                <p class="deposit">${formatCurrency(chosenOption.deposit || 0)} deposit to hold your date</p>
+              </div>
+            ` : ''}
+          </section>
+        `;
+      }
+
+      function renderQuotePage(quote, options, bandName) {
+        app.innerHTML = `
+          <section class="hero">
+            <span class="eyebrow">Performance quote</span>
+            <h1>${escapeHtml(bandName || 'Performance quote')}</h1>
+            <h2>Hi ${escapeHtml(quote.client_name || 'there')}!</h2>
+            <div class="meta">
+              <p>${escapeHtml(formatDate(quote.event_date))}</p>
+              <p>${escapeHtml(quote.venue_name || 'Venue details coming soon')}</p>
+              <p>This quote expires on ${escapeHtml(formatDate(quote.expires_at))}</p>
+              <p>Questions? Email ${escapeHtml(quote.contact_email || 'your booking contact')}.</p>
+            </div>
+          </section>
+          <section class="options" id="optionsWrap">
+            ${options.map((option, index) => `
+              <article class="card stack">
+                <div class="card-head">
+                  <div class="stack">
+                    <h2>${escapeHtml(option.label || 'Performance option')}</h2>
+                    ${option.sets ? `<span class="detail-label">${escapeHtml(option.sets)}</span>` : ''}
+                  </div>
+                  ${option.featured ? '<span class="badge">Most popular</span>' : ''}
+                </div>
+                <p class="price">${formatCurrency(option.price)}</p>
+                <p class="detail">${escapeHtml(option.detail || '')}</p>
+                <p class="deposit">${formatCurrency(option.deposit || 0)} deposit to hold your date</p>
+                <button class="primary-btn" type="button" data-select-option="${index}">Choose this option</button>
+              </article>
+            `).join('')}
+          </section>
+        `;
+      }
+
+      function openConfirmModal(option, index) {
+        selectedIndex = index;
+        modalStatus.textContent = '';
+        confirmNameInput.value = '';
+        modalOptionSummary.innerHTML = `
+          <div class="stack">
+            <h3>${escapeHtml(option.label || 'Selected option')}</h3>
+            <p class="price">${formatCurrency(option.price)}</p>
+            <p>${escapeHtml(option.detail || '')}</p>
+            <p class="deposit">${formatCurrency(option.deposit || 0)} deposit to hold your date</p>
+          </div>
+        `;
+        confirmModal.classList.add('open');
+        confirmModal.setAttribute('aria-hidden', 'false');
+        confirmNameInput.focus();
+      }
+
+      function closeConfirmModal() {
+        confirmModal.classList.remove('open');
+        confirmModal.setAttribute('aria-hidden', 'true');
+      }
+
+      async function confirmChoice() {
+        if (!currentQuote || selectedIndex === null) return;
+        const clientName = confirmNameInput.value.trim();
+        if (!clientName) {
+          modalStatus.textContent = 'Please enter your name to confirm.';
+          return;
+        }
+
+        modalStatus.textContent = 'Confirming your selection...';
+        const { error } = await supabase.from('quotes').update({
+          status: 'accepted',
+          chosen_option_index: selectedIndex,
+          chosen_by_name: clientName,
+          chosen_at: new Date().toISOString()
+        }).eq('id', quoteId);
+
+        if (error) {
+          modalStatus.textContent = 'We could not confirm this quote just now. Please try again.';
+          return;
+        }
+
+        currentQuote.status = 'accepted';
+        currentQuote.chosen_option_index = selectedIndex;
+        currentQuote.chosen_by_name = clientName;
+        currentQuote.chosen_at = new Date().toISOString();
+        closeConfirmModal();
+        const meta = getQuoteMetadata(currentQuote.options);
+        const options = getRenderableOptions(currentQuote.options);
+        const bandName = meta.band_name || 'The band';
+        const chosenOption = options[selectedIndex] || null;
+
+        app.innerHTML = `
+          <section class="success stack">
+            <span class="eyebrow">Performance quote</span>
+            <h1>You're confirmed! ${escapeHtml(bandName)} will follow up with your contract soon.</h1>
+            ${chosenOption ? `
+              <div class="card stack">
+                <h2>${escapeHtml(chosenOption.label || 'Selected option')}</h2>
+                <p class="price">${formatCurrency(chosenOption.price)}</p>
+                <p class="detail">${escapeHtml(chosenOption.detail || '')}</p>
+                <p class="deposit">${formatCurrency(chosenOption.deposit || 0)} deposit to hold your date</p>
+              </div>
+            ` : ''}
+          </section>
+        `;
+      }
+
+      async function loadQuote() {
+        if (!quoteId) {
+          setUnavailableMessage();
+          return;
+        }
+
+        try {
+          const { data: quote } = await supabase
+            .from('quotes')
+            .select('*')
+            .eq('id', quoteId)
+            .single();
+
+          if (!quote) {
+            setUnavailableMessage();
+            return;
+          }
+
+          currentQuote = quote;
+          const meta = getQuoteMetadata(quote.options);
+          const options = getRenderableOptions(quote.options);
+          quote.band_name = meta.band_name || '';
+          quote.contact_email = meta.contact_email || '';
+
+          if (quote.status === 'accepted') {
+            renderAcceptedState(quote, options, quote.band_name);
+            return;
+          }
+
+          if (quote.expires_at && new Date(quote.expires_at).getTime() < Date.now()) {
+            setUnavailableMessage();
+            return;
+          }
+
+          renderQuotePage(quote, options, quote.band_name);
+        } catch (error) {
+          setUnavailableMessage();
+        }
+      }
+
+      document.addEventListener('click', (event) => {
+        const selectBtn = event.target.closest('[data-select-option]');
+        if (selectBtn && currentQuote) {
+          const options = getRenderableOptions(currentQuote.options);
+          const index = Number(selectBtn.getAttribute('data-select-option'));
+          const option = options[index];
+          if (option) openConfirmModal(option, index);
+        }
+      });
+
+      confirmChoiceBtn.addEventListener('click', confirmChoice);
+      cancelChoiceBtn.addEventListener('click', closeConfirmModal);
+      confirmModal.addEventListener('click', (event) => {
+        if (event.target === confirmModal) closeConfirmModal();
+      });
+
+      loadQuote();
+    </script>
+  </body>
+</html>

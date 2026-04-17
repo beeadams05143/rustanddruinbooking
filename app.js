@@ -1,5 +1,6 @@
 const depositDefault = 50;
 const additionalSongFee = 50;
+const AGREEMENT_STEP_COUNT = 5;
 
 function createInitialAgreementState() {
   return {
@@ -13,6 +14,7 @@ function createInitialAgreementState() {
     holidayRateType: "timeAndHalf",
     hours: "",
     feeTotal: "",
+    feeManualOverride: false,
     depositAmount: "",
     depositEnabled: false,
     depositWaived: false,
@@ -73,6 +75,17 @@ function createInitialReceiptState() {
     amountPaid: "",
     paymentMethod: "Venmo",
     relatedInvoice: "",
+  };
+}
+
+function createInitialQuoteBuilderState() {
+  return {
+    activeQuoteId: "",
+    link: "",
+    status: "",
+    options: [],
+    expiresAt: "",
+    acceptedBanner: "",
   };
 }
 
@@ -152,6 +165,27 @@ function createInitialBandProfileState() {
   };
 }
 
+function createInitialBusinessProfileState() {
+  return {
+    businessName: "Rust & Ruin",
+    contactEmail: "rustandruinvt@gmail.com",
+    contactPhone: "",
+    defaultLineup: "Duo",
+  };
+}
+
+function createInitialPricingProfileState() {
+  return {
+    baseRate: "",
+    lineupRates: [],
+    defaultPerformanceHours: "",
+    defaultDepositAmount: String(depositDefault),
+    defaultDepositEnabled: true,
+    defaultEventType: "",
+    defaultBandConfig: "Duo",
+  };
+}
+
 function createInitialWorkOrderWorkspaceState() {
   return {
     section: "tasks",
@@ -161,16 +195,66 @@ function createInitialWorkOrderWorkspaceState() {
     promoTemplates: [],
     followUps: [],
     bandProfile: createInitialBandProfileState(),
+    businessProfile: createInitialBusinessProfileState(),
+    pricingProfile: createInitialPricingProfileState(),
     epk: createInitialEpkState(),
   };
 }
 
 const state = {
+  bandDNA: {
+    onboardingComplete: false,
+    migratedFromLegacy: false,
+    bandName: "",
+    hometown: "",
+    contactEmail: "",
+    contactPhone: "",
+    homeAddress: "",
+    paymentMethods: "Cash, check, Venmo @rustandruinvt, PayPal @rustandruin",
+    managerName: "",
+    signoffName: "",
+    oneLineBio: "",
+    artistReferences: "",
+    genreTags: [],
+    bestFitEvents: "",
+    proofPoint: "",
+    tone: "Warm",
+    lineups: [
+      { name: "Duo", rate: "", rateType: "hourly" },
+      { name: "Full Band", rate: "", rateType: "hourly" },
+    ],
+    defaultSetLength: "",
+    defaultDeposit: "50",
+    depositEnabled: true,
+    travelFreeWithinHours: "2",
+    travelChargeType: "hourly_per_performer",
+    travelHourlyRate: "25",
+    travelFlatFee: "",
+    addons: [
+      { id: "tent", name: "Tent / outdoor cover", price: "25", enabled: true },
+      { id: "lights", name: "Stage lights", price: "10", enabled: true },
+      { id: "generator", name: "Generator", price: "75", enabled: true },
+      { id: "mcing", name: "MC'ing", price: "50", enabled: true },
+      { id: "djing", name: "DJ'ing between sets", price: "50", enabled: true },
+      { id: "specialsong", name: "Special song request", price: "50", enabled: true },
+      { id: "recordedsong", name: "Recorded song (beyond first)", price: "5", enabled: true },
+    ],
+    website: "",
+    musicLink: "",
+    videoLink: "",
+    instagram: "",
+    facebook: "",
+  },
   agreement: createInitialAgreementState(),
   invoice: createInitialInvoiceState(),
   receipt: createInitialReceiptState(),
+  quoteBuilder: createInitialQuoteBuilderState(),
   workspace: {
     top: "login",
+    agreementStep: 1,
+    bookingSaved: false,
+    bookingEventId: "",
+    contractWizardOpen: false,
   },
   calendar: {
     overridePin: "",
@@ -212,6 +296,7 @@ const state = {
   },
   musicianShowBookings: [],
   musicians: [],
+  onboardingStep: 1,
   activeTab: "agreement",
 };
 
@@ -301,6 +386,457 @@ function todayString() {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function getBandDNA() {
+  return state.bandDNA;
+}
+
+function updateBandDNA(updates = {}) {
+  state.bandDNA = { ...state.bandDNA, ...updates };
+  saveDraft();
+}
+
+function migrateLegacyToBandDNA() {
+  if (state.bandDNA.migratedFromLegacy) return;
+
+  const workOrderWorkspace = state.workOrderWorkspace || {};
+  const bandProfile = workOrderWorkspace.bandProfile || {};
+  const businessProfile = workOrderWorkspace.businessProfile || {};
+  const pricingProfile = workOrderWorkspace.pricingProfile || {};
+  const epk = workOrderWorkspace.epk || {};
+  const promoBuilder = workOrderWorkspace.promoBuilder || {};
+  const lineupRates = Array.isArray(pricingProfile.lineupRates)
+    ? pricingProfile.lineupRates
+    : [];
+
+  state.bandDNA = {
+    ...state.bandDNA,
+    bandName: businessProfile.businessName || bandProfile.bandName || epk.bandName || "",
+    hometown: bandProfile.hometown || "",
+    contactEmail: businessProfile.contactEmail || epk.contactEmail || "",
+    contactPhone: businessProfile.contactPhone || epk.contactPhone || "",
+    managerName: bandProfile.signoffName || "",
+    signoffName: bandProfile.signoffName || "",
+    oneLineBio: bandProfile.introLine || epk.shortBio || "",
+    artistReferences: bandProfile.artistReferences || "",
+    genreTags: (bandProfile.genreTags || epk.genres || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+    bestFitEvents: bandProfile.eventFitLine || "",
+    proofPoint: bandProfile.proofPointPrimary || "",
+    tone: promoBuilder.tone || "Warm",
+    defaultDeposit: pricingProfile.defaultDepositAmount || "50",
+    depositEnabled: pricingProfile.defaultDepositEnabled !== false,
+    defaultSetLength: pricingProfile.defaultPerformanceHours || "",
+    website: epk.website || "",
+    musicLink: epk.musicLink || "",
+    videoLink: epk.videoLink || "",
+    instagram: epk.instagram || "",
+    facebook: epk.facebook || "",
+    lineups: lineupRates.length
+      ? lineupRates.map((entry) => ({
+          name: entry?.lineup || "",
+          rate: entry?.rate || "",
+          rateType: "hourly",
+        }))
+      : [
+          { name: "Duo", rate: pricingProfile.baseRate || "", rateType: "hourly" },
+          { name: "Full Band", rate: pricingProfile.baseRate || "", rateType: "hourly" },
+        ],
+    migratedFromLegacy: true,
+    onboardingComplete: true,
+  };
+}
+
+function getOnboardingStepTitle(stepNumber = 1) {
+  return [
+    "Who are you",
+    "What you offer",
+    "Travel + mileage",
+    "Your sound",
+    "Your presence + outreach tone",
+  ][Number(stepNumber || 1) - 1] || "Who are you";
+}
+
+function getOnboardingGenreTagsFromDom() {
+  return Array.from(document.querySelectorAll("#onboardingGenreChipList [data-tag]"))
+    .map((chip) => chip.getAttribute("data-tag") || "")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function renderOnboardingGenreChips() {
+  const wrap = document.getElementById("onboardingGenreChipList");
+  if (!wrap) return;
+  const tags = Array.isArray(state.bandDNA.genreTags) ? state.bandDNA.genreTags : [];
+  wrap.innerHTML = tags.length
+    ? tags.map((tag) => `
+      <button class="btn ghost" type="button" data-remove-genre="${escapeHtml(tag)}" data-tag="${escapeHtml(tag)}">
+        ${escapeHtml(tag)} ×
+      </button>
+    `).join("")
+    : `<span class="muted">No genre tags added yet.</span>`;
+}
+
+function renderOnboardingWizard() {
+  state.onboardingStep = Math.min(5, Math.max(1, Number(state.onboardingStep || 1)));
+  const step = state.onboardingStep;
+  const dna = getBandDNA();
+  const stepBar = document.getElementById("onboardingStepBar");
+  const stepLabel = document.getElementById("onboardingStepLabel");
+  const backBtn = document.getElementById("onboardingBack");
+  const nextBtn = document.getElementById("onboardingNext");
+
+  if (stepBar) {
+    stepBar.innerHTML = [1, 2, 3, 4, 5].map((pip) => `
+      <button
+        type="button"
+        class="btn ghost${pip === step ? " active" : ""}"
+        data-onboarding-goto="${pip}"
+        aria-label="Go to step ${pip}"
+      >${pip}</button>
+    `).join("");
+  }
+
+  if (stepLabel) {
+    stepLabel.textContent = `Step ${step} of 5 · ${getOnboardingStepTitle(step)}`;
+  }
+
+  const step1 = document.getElementById("onboardingStep1");
+  if (step1) {
+    step1.innerHTML = `
+      <section class="panel form-panel">
+        <h2>Who are you?</h2>
+        <p class="muted">Let's start with the essentials you want reused across contracts, outreach, and booking details.</p>
+        <div class="form-grid">
+          <label>
+            Band / act name
+            <input id="onboardingBandName" type="text" value="${escapeHtml(dna.bandName || "")}" />
+            <span class="inline-help">Used in your contract header and outreach materials.</span>
+          </label>
+          <label>
+            Your hometown or base
+            <input id="onboardingHometown" type="text" value="${escapeHtml(dna.hometown || "")}" />
+            <span class="inline-help">Used to describe your act in outreach and EPK copy.</span>
+          </label>
+          <label>
+            Booking contact name
+            <input id="onboardingSignoffName" type="text" value="${escapeHtml(dna.signoffName || "")}" />
+            <span class="inline-help">Used in your contract header and email signoff.</span>
+          </label>
+          <label>
+            Booking email
+            <input id="onboardingContactEmail" type="email" value="${escapeHtml(dna.contactEmail || "")}" />
+            <span class="inline-help">Used in EPK contact blocks and outreach signoffs.</span>
+          </label>
+          <label>
+            Booking phone
+            <input id="onboardingContactPhone" type="tel" value="${escapeHtml(dna.contactPhone || "")}" />
+            <span class="inline-help">Used when venues or clients need a direct callback number.</span>
+          </label>
+          <label>
+            Home address for travel calculation
+            <input id="onboardingHomeAddress" type="text" value="${escapeHtml(dna.homeAddress || "")}" />
+            <span class="inline-help">Used as the home base for future travel calculations.</span>
+          </label>
+        </div>
+        <label>
+          Payment methods accepted
+          <textarea id="onboardingPaymentMethods">${escapeHtml(dna.paymentMethods || "")}</textarea>
+          <span class="inline-help">Used in invoices, receipts, and booking follow-up details.</span>
+        </label>
+      </section>
+    `;
+  }
+
+  const step2 = document.getElementById("onboardingStep2");
+  if (step2) {
+    const lineups = Array.isArray(dna.lineups) && dna.lineups.length
+      ? dna.lineups
+      : [{ name: "Duo", rate: "", rateType: "hourly" }];
+    step2.innerHTML = `
+      <section class="panel form-panel">
+        <h2>What do you offer?</h2>
+        <p class="muted">Set up your default lineups, rates, and deposit settings once so new bookings start pre-filled.</p>
+        <div id="onboardingLineupList">
+          ${lineups.map((lineup, index) => `
+            <div class="form-grid onboarding-lineup-row" data-lineup-row="${index}">
+              <label>
+                Lineup name
+                <input type="text" data-lineup-name value="${escapeHtml(lineup.name || "")}" />
+                <span class="inline-help">Used in proposals and booking defaults.</span>
+              </label>
+              <label>
+                Hourly rate
+                <input type="number" min="0" step="1" data-lineup-rate value="${escapeHtml(lineup.rate || "")}" />
+                <span class="inline-help">Used as the starting point for booking pricing.</span>
+              </label>
+              <label>
+                Rate type
+                <input type="text" value="${escapeHtml(lineup.rateType || "hourly")}" disabled />
+                <span class="inline-help">This setup uses hourly pricing.</span>
+              </label>
+              <div>
+                <button class="btn ghost" type="button" data-remove-lineup="${index}">Remove</button>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+        <p><button class="btn ghost" id="onboardingAddLineup" type="button">Add lineup</button></p>
+        <div class="form-grid">
+          <label>
+            Default set length (hours)
+            <input id="onboardingDefaultSetLength" type="number" min="0" step="0.25" value="${escapeHtml(dna.defaultSetLength || "")}" />
+            <span class="inline-help">Used to pre-fill booking durations.</span>
+          </label>
+          <label>
+            Default deposit amount
+            <input id="onboardingDefaultDeposit" type="number" min="0" step="1" value="${escapeHtml(dna.defaultDeposit || "")}" />
+            <span class="inline-help">Used as the default booking deposit.</span>
+          </label>
+          <label class="checkbox inline-note">
+            <input id="onboardingDepositEnabled" type="checkbox" ${dna.depositEnabled !== false ? "checked" : ""} />
+            Deposit enabled
+            <span class="inline-help">Turns deposit defaults on for new bookings.</span>
+          </label>
+        </div>
+      </section>
+    `;
+  }
+
+  const step3 = document.getElementById("onboardingStep3");
+  if (step3) {
+    step3.innerHTML = `
+      <section class="panel form-panel">
+        <h2>Travel + mileage</h2>
+        <p>How far will you drive before charging for travel?</p>
+        <label>
+          Free travel radius (hours)
+          <input id="onboardingTravelFreeWithinHours" type="number" min="0" step="0.25" value="${escapeHtml(dna.travelFreeWithinHours || "")}" />
+          <span class="inline-help">Used as your included travel distance before extra charges apply.</span>
+        </label>
+        <p>How do you charge for travel beyond that?</p>
+        <div class="form-grid">
+          <button class="btn ghost${dna.travelChargeType === "irs_mileage" ? " active" : ""}" type="button" data-travel-type="irs_mileage">
+            IRS mileage rate · $0.67/mile
+          </button>
+          <button class="btn ghost${dna.travelChargeType === "hourly_per_performer" ? " active" : ""}" type="button" data-travel-type="hourly_per_performer">
+            Per performer, per hour · custom rate
+          </button>
+          <button class="btn ghost${dna.travelChargeType === "flat_fee" ? " active" : ""}" type="button" data-travel-type="flat_fee">
+            Flat fee per show · custom amount
+          </button>
+        </div>
+        <input id="onboardingTravelChargeType" type="hidden" value="${escapeHtml(dna.travelChargeType || "hourly_per_performer")}" />
+        <div id="onboardingTravelHourlyWrap" class="${dna.travelChargeType === "hourly_per_performer" ? "" : "hidden"}">
+          <label>
+            Travel hourly rate
+            <input id="onboardingTravelHourlyRate" type="number" min="0" step="1" value="${escapeHtml(dna.travelHourlyRate || "")}" />
+            <span class="inline-help">Used when you charge per performer per hour outside your free radius.</span>
+          </label>
+        </div>
+        <div id="onboardingTravelFlatWrap" class="${dna.travelChargeType === "flat_fee" ? "" : "hidden"}">
+          <label>
+            Flat fee per show
+            <input id="onboardingTravelFlatFee" type="number" min="0" step="1" value="${escapeHtml(dna.travelFlatFee || "")}" />
+            <span class="inline-help">Used when you prefer one flat travel add-on per show.</span>
+          </label>
+        </div>
+      </section>
+    `;
+  }
+
+  const step4 = document.getElementById("onboardingStep4");
+  if (step4) {
+    step4.innerHTML = `
+      <section class="panel form-panel">
+        <h2>Your sound</h2>
+        <p>How would you describe your sound in one sentence?</p>
+        <label>
+          <textarea id="onboardingOneLineBio">${escapeHtml(dna.oneLineBio || "")}</textarea>
+          <span class="inline-help">Shows up in your outreach emails and EPK bio.</span>
+        </label>
+        <p>Who are 2-3 artists you're compared to or inspired by?</p>
+        <label>
+          <input id="onboardingArtistReferences" type="text" value="${escapeHtml(dna.artistReferences || "")}" />
+          <span class="inline-help">Used automatically in cold outreach scripts.</span>
+        </label>
+        <p>Genre tags</p>
+        <div id="onboardingGenreChipList"></div>
+        <label>
+          Add a genre tag
+          <input id="onboardingGenreInput" type="text" placeholder="Americana" />
+          <span class="inline-help">Press Add to save a tag you want reused in outreach and EPK copy.</span>
+        </label>
+        <p><button class="btn ghost" id="onboardingAddGenre" type="button">Add genre tag</button></p>
+        <p>What events are you the best fit for?</p>
+        <label>
+          <input id="onboardingBestFitEvents" type="text" value="${escapeHtml(dna.bestFitEvents || "")}" />
+          <span class="inline-help">Used in booking copy to describe where you shine most.</span>
+        </label>
+        <p>What's a proof point — something concrete about your track record?</p>
+        <label>
+          <input id="onboardingProofPoint" type="text" value="${escapeHtml(dna.proofPoint || "")}" />
+          <span class="inline-help">Used in first-contact outreach e.g. "We play 100+ shows a year".</span>
+        </label>
+      </section>
+    `;
+    renderOnboardingGenreChips();
+  }
+
+  const step5 = document.getElementById("onboardingStep5");
+  if (step5) {
+    step5.innerHTML = `
+      <section class="panel form-panel">
+        <h2>Your presence + outreach tone</h2>
+        <div class="form-grid">
+          <label>
+            Website URL
+            <input id="onboardingWebsite" type="url" value="${escapeHtml(dna.website || "")}" />
+            <span class="inline-help">Used in EPK summaries and outreach signoffs.</span>
+          </label>
+          <label>
+            Music link
+            <input id="onboardingMusicLink" type="url" value="${escapeHtml(dna.musicLink || "")}" />
+            <span class="inline-help">Used in outreach messages and EPK contact blocks.</span>
+          </label>
+          <label>
+            Video link
+            <input id="onboardingVideoLink" type="url" value="${escapeHtml(dna.videoLink || "")}" />
+            <span class="inline-help">Used when a venue wants a fast performance sample.</span>
+          </label>
+          <label>
+            Instagram handle
+            <input id="onboardingInstagram" type="text" value="${escapeHtml(dna.instagram || "")}" />
+            <span class="inline-help">Used in your EPK preview and outreach footer.</span>
+          </label>
+          <label>
+            Facebook handle
+            <input id="onboardingFacebook" type="text" value="${escapeHtml(dna.facebook || "")}" />
+            <span class="inline-help">Used in your EPK preview and social links.</span>
+          </label>
+        </div>
+        <p>Choose the outreach tone that feels most like you.</p>
+        <div class="form-grid">
+          ${["Warm", "Professional", "Upbeat"].map((tone) => `
+            <button class="btn ghost${dna.tone === tone ? " active" : ""}" type="button" data-onboarding-tone="${tone}">
+              ${tone}
+            </button>
+          `).join("")}
+        </div>
+        <input id="onboardingTone" type="hidden" value="${escapeHtml(dna.tone || "Warm")}" />
+      </section>
+    `;
+  }
+
+  [1, 2, 3, 4, 5].forEach((stepNumber) => {
+    const panel = document.getElementById(`onboardingStep${stepNumber}`);
+    if (panel) panel.classList.toggle("hidden", stepNumber !== step);
+  });
+
+  if (backBtn) backBtn.classList.toggle("hidden", step === 1);
+  if (nextBtn) nextBtn.textContent = step === 5 ? "Finish setup" : "Continue";
+}
+
+function saveOnboardingStep(stepNumber) {
+  const step = Number(stepNumber || state.onboardingStep || 1);
+
+  if (step === 1) {
+    updateBandDNA({
+      bandName: document.getElementById("onboardingBandName")?.value.trim() || "",
+      hometown: document.getElementById("onboardingHometown")?.value.trim() || "",
+      signoffName: document.getElementById("onboardingSignoffName")?.value.trim() || "",
+      managerName: document.getElementById("onboardingSignoffName")?.value.trim() || "",
+      contactEmail: document.getElementById("onboardingContactEmail")?.value.trim() || "",
+      contactPhone: document.getElementById("onboardingContactPhone")?.value.trim() || "",
+      homeAddress: document.getElementById("onboardingHomeAddress")?.value.trim() || "",
+      paymentMethods: document.getElementById("onboardingPaymentMethods")?.value.trim() || "",
+    });
+    return;
+  }
+
+  if (step === 2) {
+    const lineups = Array.from(document.querySelectorAll("#onboardingLineupList [data-lineup-row]"))
+      .map((row) => ({
+        name: row.querySelector("[data-lineup-name]")?.value.trim() || "",
+        rate: row.querySelector("[data-lineup-rate]")?.value.trim() || "",
+        rateType: "hourly",
+      }))
+      .filter((entry) => entry.name || entry.rate);
+    updateBandDNA({
+      lineups: lineups.length ? lineups : [{ name: "Duo", rate: "", rateType: "hourly" }],
+      defaultSetLength: document.getElementById("onboardingDefaultSetLength")?.value.trim() || "",
+      defaultDeposit: document.getElementById("onboardingDefaultDeposit")?.value.trim() || "",
+      depositEnabled: Boolean(document.getElementById("onboardingDepositEnabled")?.checked),
+    });
+    return;
+  }
+
+  if (step === 3) {
+    const travelChargeType = document.getElementById("onboardingTravelChargeType")?.value || "hourly_per_performer";
+    updateBandDNA({
+      travelFreeWithinHours: document.getElementById("onboardingTravelFreeWithinHours")?.value.trim() || "",
+      travelChargeType,
+      travelHourlyRate: document.getElementById("onboardingTravelHourlyRate")?.value.trim() || "",
+      travelFlatFee: document.getElementById("onboardingTravelFlatFee")?.value.trim() || "",
+    });
+    return;
+  }
+
+  if (step === 4) {
+    updateBandDNA({
+      oneLineBio: document.getElementById("onboardingOneLineBio")?.value.trim() || "",
+      artistReferences: document.getElementById("onboardingArtistReferences")?.value.trim() || "",
+      genreTags: getOnboardingGenreTagsFromDom(),
+      bestFitEvents: document.getElementById("onboardingBestFitEvents")?.value.trim() || "",
+      proofPoint: document.getElementById("onboardingProofPoint")?.value.trim() || "",
+    });
+    return;
+  }
+
+  if (step === 5) {
+    updateBandDNA({
+      website: document.getElementById("onboardingWebsite")?.value.trim() || "",
+      musicLink: document.getElementById("onboardingMusicLink")?.value.trim() || "",
+      videoLink: document.getElementById("onboardingVideoLink")?.value.trim() || "",
+      instagram: document.getElementById("onboardingInstagram")?.value.trim() || "",
+      facebook: document.getElementById("onboardingFacebook")?.value.trim() || "",
+      tone: document.getElementById("onboardingTone")?.value || "Warm",
+    });
+  }
+}
+
+function advanceOnboardingStep() {
+  saveOnboardingStep(state.onboardingStep);
+  const statusEl = document.getElementById("onboardingStatus");
+
+  if (Number(state.onboardingStep || 1) === 5) {
+    state.bandDNA.onboardingComplete = true;
+    updateBandDNA({ onboardingComplete: true });
+    saveDraft();
+    if (statusEl) {
+      statusEl.textContent = "You're all set. Your profile is saved and ready to use across bookings, outreach, and your EPK.";
+    }
+    window.setTimeout(() => {
+      if (switchTopView) switchTopView("home");
+    }, 1500);
+    return;
+  }
+
+  state.onboardingStep = Math.min(5, Number(state.onboardingStep || 1) + 1);
+  if (statusEl) statusEl.textContent = "";
+  renderOnboardingWizard();
+}
+
+function escapeHtml(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function parseTimeValue(timeValue) {
@@ -602,7 +1138,16 @@ function safeStorageGet(key) {
 function saveDraft() {
   try {
     const payload = {
+      bandDNA: state.bandDNA,
       agreement: state.agreement,
+      quoteBuilder: {
+        activeQuoteId: state.quoteBuilder.activeQuoteId,
+        link: state.quoteBuilder.link,
+        status: state.quoteBuilder.status,
+        options: Array.isArray(state.quoteBuilder.options) ? state.quoteBuilder.options : [],
+        expiresAt: state.quoteBuilder.expiresAt,
+        acceptedBanner: state.quoteBuilder.acceptedBanner,
+      },
       agreementDraftContext: state.agreementDraftContext,
       activeTab: state.activeTab,
       workspace: state.workspace,
@@ -641,8 +1186,23 @@ function loadDraft() {
     const stored = safeStorageGet(STORAGE_KEY);
     if (!stored) return;
     const parsed = JSON.parse(stored);
+    if (parsed.bandDNA && typeof parsed.bandDNA === "object") {
+      state.bandDNA = { ...state.bandDNA, ...parsed.bandDNA };
+      if (Array.isArray(parsed.bandDNA.lineups)) state.bandDNA.lineups = parsed.bandDNA.lineups;
+      if (Array.isArray(parsed.bandDNA.addons)) state.bandDNA.addons = parsed.bandDNA.addons;
+      if (Array.isArray(parsed.bandDNA.genreTags)) state.bandDNA.genreTags = parsed.bandDNA.genreTags;
+    }
     if (parsed.agreement) {
       state.agreement = { ...state.agreement, ...parsed.agreement };
+    }
+    if (parsed.quoteBuilder && typeof parsed.quoteBuilder === "object") {
+      state.quoteBuilder = {
+        ...state.quoteBuilder,
+        ...parsed.quoteBuilder,
+        options: Array.isArray(parsed.quoteBuilder.options)
+          ? parsed.quoteBuilder.options
+          : state.quoteBuilder.options,
+      };
     }
     if (parsed.agreementDraftContext) {
       state.agreementDraftContext = {
@@ -676,6 +1236,14 @@ function loadDraft() {
         bandProfile: {
           ...state.workOrderWorkspace.bandProfile,
           ...(parsed.workOrderWorkspace.bandProfile || {}),
+        },
+        businessProfile: {
+          ...state.workOrderWorkspace.businessProfile,
+          ...(parsed.workOrderWorkspace.businessProfile || {}),
+        },
+        pricingProfile: {
+          ...state.workOrderWorkspace.pricingProfile,
+          ...(parsed.workOrderWorkspace.pricingProfile || {}),
         },
         epk: {
           ...state.workOrderWorkspace.epk,
@@ -742,6 +1310,207 @@ function hydrateBandProfileFromLegacyData() {
   if (!profile.eventFitLine && epk.bookingNotes) profile.eventFitLine = epk.bookingNotes;
   if (!profile.bioShortDraft && epk.shortBio) profile.bioShortDraft = epk.shortBio;
   if (!profile.bioFullDraft && epk.longBio) profile.bioFullDraft = epk.longBio;
+}
+
+function hydrateBookingProfilesFromLegacyData() {
+  const business = state.workOrderWorkspace.businessProfile;
+  const pricing = state.workOrderWorkspace.pricingProfile;
+  const profile = state.workOrderWorkspace.bandProfile;
+  const epk = state.workOrderWorkspace.epk;
+
+  if (!business.businessName && profile.bandName) business.businessName = profile.bandName;
+  if (!business.contactEmail && epk.contactEmail) business.contactEmail = epk.contactEmail;
+  if (!business.contactPhone && epk.contactPhone) business.contactPhone = epk.contactPhone;
+  if ((!business.defaultLineup || business.defaultLineup === "Duo") && profile.lineupSummary) {
+    const lineupText = String(profile.lineupSummary).toLowerCase();
+    if (lineupText.includes("full band")) {
+      business.defaultLineup = "Full Band";
+    } else if (lineupText.includes("duo")) {
+      business.defaultLineup = "Duo";
+    }
+  }
+
+  if (!pricing.defaultDepositAmount) {
+    pricing.defaultDepositAmount = state.agreement.depositAmount || String(depositDefault);
+  }
+  if (!pricing.defaultEventType && state.agreement.eventType) {
+    pricing.defaultEventType = state.agreement.eventType;
+  }
+  if (!pricing.defaultBandConfig) {
+    pricing.defaultBandConfig = state.agreement.bandConfig || business.defaultLineup || "Duo";
+  }
+  if (state.agreement.depositEnabled) {
+    pricing.defaultDepositEnabled = true;
+  }
+  if (!pricing.baseRate && state.agreement.feeTotal) {
+    pricing.baseRate = state.agreement.feeTotal;
+  }
+  if (!pricing.defaultPerformanceHours && state.agreement.hours) {
+    pricing.defaultPerformanceHours = state.agreement.hours;
+  }
+}
+
+function applyAgreementDefaultsFromProfiles(force = false) {
+  const business = state.workOrderWorkspace.businessProfile;
+  const pricing = state.workOrderWorkspace.pricingProfile;
+  if (force || !state.agreement.bandConfig) {
+    state.agreement.bandConfig =
+      pricing.defaultBandConfig || business.defaultLineup || state.agreement.bandConfig || "";
+  }
+  if (force || !state.agreement.eventType) {
+    state.agreement.eventType = pricing.defaultEventType || state.agreement.eventType || "";
+  }
+  if (force || !state.agreement.hours) {
+    state.agreement.hours = pricing.defaultPerformanceHours || state.agreement.hours || "";
+  }
+  if (force || !state.agreement.feeTotal) {
+    state.agreement.feeTotal = "";
+    state.agreement.feeManualOverride = false;
+  }
+  if (force || !state.agreement.depositAmount) {
+    state.agreement.depositAmount = pricing.defaultDepositAmount || String(depositDefault);
+  }
+  if (force || (!state.agreement.depositEnabled && !state.agreement.depositWaived)) {
+    state.agreement.depositEnabled = pricing.defaultDepositEnabled !== false;
+  }
+}
+
+function createLineupRateEntry(lineup = "", rate = "") {
+  return {
+    id: `lineup-rate-${Math.random().toString(36).slice(2, 10)}`,
+    lineup,
+    rate,
+  };
+}
+
+function normalizeLineupName(value = "") {
+  return String(value).trim().toLowerCase();
+}
+
+function getDefaultRateForLineup(lineup = "") {
+  const pricing = state.workOrderWorkspace.pricingProfile;
+  const normalized = normalizeLineupName(lineup);
+  if (!normalized) return pricing.baseRate || "";
+  const match = (pricing.lineupRates || []).find((entry) => normalizeLineupName(entry.lineup) === normalized);
+  return match?.rate || pricing.baseRate || "";
+}
+
+function applyLineupRateToAgreement() {
+  if (state.agreement.feeManualOverride) return;
+  state.agreement.feeTotal = "";
+  const feeInput = document.getElementById("feeTotal");
+  if (feeInput) feeInput.value = "";
+}
+
+function setBandProfileStatus(message = "", isError = false) {
+  const status = document.getElementById("bandProfileStatus");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("error", Boolean(isError && message));
+  status.classList.toggle("success", Boolean(message && !isError));
+}
+
+function syncReusableBandProfileFromForm() {
+  const business = state.workOrderWorkspace.businessProfile;
+  const pricing = state.workOrderWorkspace.pricingProfile;
+
+  business.businessName = document.getElementById("bandProfileBusinessName")?.value.trim() || business.businessName;
+  business.contactEmail = document.getElementById("bandProfileContactEmail")?.value.trim() || "";
+  business.contactPhone = document.getElementById("bandProfileContactPhone")?.value.trim() || "";
+  business.defaultLineup = document.getElementById("bandProfileDefaultLineup")?.value || business.defaultLineup || "Duo";
+
+  pricing.defaultBandConfig = business.defaultLineup || pricing.defaultBandConfig || "Duo";
+  pricing.defaultPerformanceHours = document.getElementById("bandProfileDefaultHours")?.value.trim() || "";
+  pricing.baseRate = document.getElementById("bandProfileBaseRate")?.value.trim() || "";
+  pricing.lineupRates = Array.from(document.querySelectorAll("[data-lineup-rate-row]"))
+    .map((row) => ({
+      id: row.getAttribute("data-lineup-rate-row") || createLineupRateEntry().id,
+      lineup: row.querySelector("[data-lineup-rate-name]")?.value.trim() || "",
+      rate: row.querySelector("[data-lineup-rate-value]")?.value.trim() || "",
+    }))
+    .filter((entry) => entry.lineup || entry.rate);
+  pricing.defaultDepositAmount =
+    document.getElementById("bandProfileDefaultDepositAmount")?.value.trim() || String(depositDefault);
+  pricing.defaultDepositEnabled = Boolean(document.getElementById("bandProfileDefaultDepositEnabled")?.checked);
+}
+
+function renderLineupRateEntries() {
+  const wrap = document.getElementById("bandProfileLineupRates");
+  if (!wrap) return;
+  const pricing = state.workOrderWorkspace.pricingProfile;
+  wrap.innerHTML = "";
+
+  if (!(pricing.lineupRates || []).length) {
+    wrap.innerHTML = "<p class=\"inline-help\">No lineup-specific rates yet. Add one only if you price different lineups differently.</p>";
+    return;
+  }
+
+  pricing.lineupRates.forEach((entry) => {
+    const row = document.createElement("div");
+    row.className = "lineup-rate-row";
+    row.setAttribute("data-lineup-rate-row", entry.id);
+    row.innerHTML = `
+      <label>
+        Lineup name
+        <input data-lineup-rate-name placeholder="Duo or Trio" value="${escapeHtml(entry.lineup || "")}" />
+      </label>
+      <label>
+        Hourly rate
+        <input data-lineup-rate-value placeholder="$150/hr" value="${escapeHtml(entry.rate || "")}" />
+      </label>
+      <button class="btn ghost lineup-rate-remove" type="button">Remove</button>
+    `;
+    wrap.appendChild(row);
+  });
+
+  wrap.querySelectorAll(".lineup-rate-remove").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const row = btn.closest("[data-lineup-rate-row]");
+      if (!row) return;
+      const id = row.getAttribute("data-lineup-rate-row");
+      state.workOrderWorkspace.pricingProfile.lineupRates =
+        state.workOrderWorkspace.pricingProfile.lineupRates.filter((entry) => entry.id !== id);
+      renderLineupRateEntries();
+      saveDraft();
+      setBandProfileStatus("");
+    });
+  });
+}
+
+function renderReusableBandProfile() {
+  const business = state.workOrderWorkspace.businessProfile;
+  const pricing = state.workOrderWorkspace.pricingProfile;
+  const setValue = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.value = value || "";
+  };
+  const setChecked = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.checked = Boolean(value);
+  };
+
+  setValue("bandProfileBusinessName", business.businessName);
+  setValue("bandProfileContactEmail", business.contactEmail);
+  setValue("bandProfileContactPhone", business.contactPhone);
+  setValue("bandProfileDefaultLineup", business.defaultLineup || pricing.defaultBandConfig || "Duo");
+  setValue("bandProfileDefaultHours", pricing.defaultPerformanceHours);
+  setValue("bandProfileBaseRate", pricing.baseRate);
+  setValue("bandProfileDefaultDepositAmount", pricing.defaultDepositAmount || String(depositDefault));
+  setChecked("bandProfileDefaultDepositEnabled", pricing.defaultDepositEnabled !== false);
+  renderLineupRateEntries();
+}
+
+function saveReusableBandProfile() {
+  syncReusableBandProfileFromForm();
+  saveDraft();
+  applyAgreementDefaultsFromProfiles(false);
+  renderReusableBandProfile();
+  setBandProfileStatus("Saved ✓");
+  const panel = document.getElementById("bandProfilePanel");
+  if (panel) {
+    panel.classList.add("saved-flash");
+    window.setTimeout(() => panel.classList.remove("saved-flash"), 1400);
+  }
 }
 
 function applyBandProfileToPromoBuilder(force = false) {
@@ -1144,36 +1913,31 @@ function getAgreementTotals() {
   const addOnTotal = Object.entries(addonFees).reduce((total, [key, value]) => {
     return state.agreement[key] ? total + value : total;
   }, 0);
-    const baseBandMembers =
-      state.agreement.bandConfig === "Full Band"
-        ? 4
-        : state.agreement.bandConfig === "Duo"
-        ? 2
-        : 0;
+  const baseBandMembers =
+    state.agreement.bandConfig === "Full Band"
+      ? 4
+      : state.agreement.bandConfig === "Duo"
+      ? 2
+      : 0;
   const extraMembers = toNumber(state.agreement.additionalMusicians);
   const bandMembers = baseBandMembers + (extraMembers > 0 ? extraMembers : 0);
-  const baseHourlyRatePerMember = 50;
-  const basePerformanceRate =
-    state.agreement.bandConfig === "Full Band"
-      ? 200
-      : state.agreement.bandConfig === "Duo"
-      ? 100
-      : 0;
   const manualPerformanceHours = toNumber(state.agreement.hours);
-  const computedHours =
+  const performanceHours =
     manualPerformanceHours > 0
       ? manualPerformanceHours
       : hoursBetweenTimes(
           state.agreement.performanceTime,
           state.agreement.performanceEndTime
         );
-  const extraMusicianRate = extraMembers > 0 ? extraMembers * baseHourlyRatePerMember : 0;
-  const hourlyPerformanceRate = basePerformanceRate + extraMusicianRate;
-  const performanceFeeAuto = computedHours * hourlyPerformanceRate;
-  const nonPerformanceHours = toNumber(state.agreement.nonPerformanceHours);
-  const onsiteFee = state.agreement.chargeNonPerformance
-    ? nonPerformanceHours * baseHourlyRatePerMember * bandMembers
+  const nonPerformanceHours = state.agreement.chargeNonPerformance
+    ? toNumber(state.agreement.nonPerformanceHours)
     : 0;
+  const totalContractedHours = performanceHours + nonPerformanceHours;
+  const hourlyRate = toNumber(getDefaultRateForLineup(state.agreement.bandConfig));
+  const performanceFee = performanceHours * hourlyRate;
+  const onsiteFee = nonPerformanceHours * hourlyRate;
+  const autoCalculatedTotal = totalContractedHours * hourlyRate;
+  const manualOverrideTotal = state.agreement.feeManualOverride ? toNumber(state.agreement.feeTotal) : 0;
   const backlineFee = state.agreement.backlineSound ? 50 : 0;
   const holidayMultiplier = state.agreement.holidayWeekend
     ? state.agreement.holidayRateType === "double"
@@ -1182,10 +1946,14 @@ function getAgreementTotals() {
       ? 1.5
       : 1
     : 1;
-  const holidayFee = state.agreement.holidayWeekend
-    ? (performanceFeeAuto + onsiteFee) * (holidayMultiplier - 1)
-    : 0;
-  const performanceFeeEffective = performanceFeeAuto + onsiteFee + holidayFee + backlineFee;
+  const holidayFee =
+    !state.agreement.feeManualOverride && state.agreement.holidayWeekend
+      ? autoCalculatedTotal * (holidayMultiplier - 1)
+      : 0;
+  const performanceFeeEffective =
+    (state.agreement.feeManualOverride ? manualOverrideTotal : autoCalculatedTotal) +
+    holidayFee +
+    backlineFee;
   const discountInputEl = document.getElementById("friendsFamilyDiscountAmount");
   const discountRawValue =
     discountInputEl?.value || state.agreement.friendsFamilyDiscountAmount || "0";
@@ -1219,10 +1987,9 @@ function getAgreementTotals() {
     addOnTotal,
     feeSubtotal,
     totalWithDeposit,
-    performanceFee: eventSubtotal,
-    performanceFeeAuto,
-    basePerformanceRate,
-    hourlyPerformanceRate,
+    performanceFee,
+    performanceFeeAuto: autoCalculatedTotal,
+    hourlyRate,
     travelFee,
     travelHours,
     bandMembers,
@@ -1234,11 +2001,14 @@ function getAgreementTotals() {
     holidayFee,
     holidayMultiplier,
     friendsFamilyDiscountAmount: cappedFriendsFamilyDiscount,
-    performanceHoursTotal: computedHours,
+    performanceHoursTotal: performanceHours,
+    totalContractedHours,
     eventSubtotal,
     backlineFee,
-    performanceFeeAuto,
     performanceFeeEffective,
+    autoCalculatedTotal,
+    manualOverrideActive: Boolean(state.agreement.feeManualOverride),
+    manualOverrideTotal,
   };
 }
 
@@ -1265,10 +2035,22 @@ function updateFeesAndDepositsFields(totals) {
     if (depositInput) depositInput.value = state.agreement.depositAmount;
   }
 
-  const feeValue = toMoney(totals.eventSubtotal);
-  state.agreement.feeTotal = feeValue;
+  const feeValue = totals.manualOverrideActive
+    ? toMoney(totals.manualOverrideTotal)
+    : toMoney(totals.performanceFeeEffective);
+  if (!state.agreement.feeManualOverride || !state.agreement.feeTotal) {
+    state.agreement.feeTotal = feeValue;
+  }
   const feeInput = document.getElementById("feeTotal");
-  if (feeInput) feeInput.value = feeValue;
+  if (feeInput) feeInput.value = state.agreement.feeTotal || feeValue;
+
+  const breakdown = document.getElementById("feeRateBreakdown");
+  if (breakdown) {
+    const autoLine = `${totals.totalContractedHours.toFixed(2)} hours × ${toMoney(totals.hourlyRate)}/hr = ${toMoney(totals.autoCalculatedTotal)}`;
+    breakdown.textContent = totals.manualOverrideActive
+      ? `Manual total override active. Auto-calculated base would be ${autoLine}.`
+      : autoLine;
+  }
 
   const backlineInput = document.getElementById("feeBackline");
   if (backlineInput) {
@@ -1373,6 +2155,8 @@ function updateAgreementPreview() {
   setText("[data-fill='performanceFee']", toMoney(totals.performanceFee));
   setText("[data-fill='performanceFeeAuto']", toMoney(totals.performanceFeeAuto));
   setText("[data-fill='nonPerformanceFee']", toMoney(totals.onsiteFee));
+  setText("[data-fill='hourlyRate']", toMoney(totals.hourlyRate));
+  setText("[data-fill='hourlyRateBreakdown']", `${totals.totalContractedHours.toFixed(2)} hours × ${toMoney(totals.hourlyRate)}/hr = ${toMoney(totals.autoCalculatedTotal)}`);
   setText(
     "[data-fill='depositAmount']",
     !totals.depositEnabled
@@ -1471,6 +2255,532 @@ function updateAgreementPreview() {
     liveVideoCreditInput.disabled = !totals.depositEnabled || totals.depositWaived;
   }
   updateAgreementBookingWarning();
+  updateAgreementStepSummary();
+}
+
+function updateAgreementStepSummary() {
+  const clientLabel = document.querySelector("[data-booking-summary='client']");
+  const dateLabel = document.querySelector("[data-booking-summary='date']");
+  const typeLabel = document.querySelector("[data-booking-summary='type']");
+  const pricingLabel = document.querySelector("[data-booking-summary='pricing']");
+  if (clientLabel) clientLabel.textContent = state.agreement.clientName || "New booking";
+  if (dateLabel) {
+    dateLabel.textContent = state.agreement.performanceDate
+      ? formatDate(state.agreement.performanceDate)
+      : "Not set yet";
+  }
+  if (typeLabel) typeLabel.textContent = state.agreement.eventType || "Not set yet";
+  if (pricingLabel) {
+    const totals = getAgreementTotals();
+    pricingLabel.textContent = toMoney(totals.eventSubtotal || 0);
+  }
+}
+
+let quoteStatusPollTimer = null;
+let quoteStatusChannel = null;
+
+function getQuoteBuilderStatusEl() {
+  return document.getElementById("quoteStatusArea");
+}
+
+function setQuoteBuilderStatus(message = "", isError = false) {
+  const status = getQuoteBuilderStatusEl();
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("warning", Boolean(message && isError));
+  status.classList.toggle("success", Boolean(message && !isError));
+}
+
+function getQuoteMetadata(options = []) {
+  return (Array.isArray(options) ? options : []).find((option) => option && typeof option === "object" && option.__meta)?.__meta || {};
+}
+
+function getRenderableQuoteOptions(options = []) {
+  return (Array.isArray(options) ? options : []).filter((option) => {
+    return option
+      && typeof option === "object"
+      && !option.__meta
+      && (
+        option.label
+        || option.detail
+        || option.sets
+        || option.price !== undefined
+        || option.deposit !== undefined
+      );
+  });
+}
+
+function getQuoteBuilderLink(quoteId = "") {
+  if (!quoteId) return "";
+  return `https://gigos.netlify.app/quote.html?id=${quoteId}`;
+}
+
+function formatQuoteStatusLabel(status = "") {
+  const value = String(status || "").trim().toLowerCase();
+  if (!value) return "No quote generated yet.";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function buildDefaultQuoteOptionsFromBandDNA() {
+  const lineups = Array.isArray(state.bandDNA.lineups) ? state.bandDNA.lineups : [];
+  const defaultHours = state.bandDNA.defaultSetLength || state.agreement.hours || "";
+  const defaultDeposit = state.bandDNA.defaultDeposit || "";
+  return lineups.slice(0, 2).map((lineup) => ({
+    label: [lineup?.name || "", defaultHours ? `· ${defaultHours} hrs` : ""].filter(Boolean).join(" "),
+    sets: defaultHours ? `${defaultHours} hrs` : "",
+    price: lineup?.rate || "",
+    deposit: defaultDeposit,
+    detail: "",
+    featured: false,
+  }));
+}
+
+function getQuoteBuilderOptionsForRender() {
+  const savedOptions = getRenderableQuoteOptions(state.quoteBuilder.options);
+  if (savedOptions.length) return savedOptions.slice(0, 3);
+  const defaults = buildDefaultQuoteOptionsFromBandDNA();
+  return defaults.length ? defaults : [{
+    label: "",
+    sets: "",
+    price: "",
+    deposit: state.bandDNA.defaultDeposit || "",
+    detail: "",
+    featured: false,
+  }];
+}
+
+function createQuoteOptionRowMarkup(option = {}, index = 0) {
+  return `
+    <div class="form-section booking-nested-section" data-quote-option-row="${index}">
+      <div class="form-grid">
+        <label>
+          Label
+          <input data-quote-field="label" placeholder="Duo · 3 hrs" value="${escapeHtml(option.label || "")}" />
+        </label>
+        <label>
+          Price
+          <input data-quote-field="price" type="number" min="0" step="1" placeholder="600" value="${escapeHtml(option.price || "")}" />
+        </label>
+        <label>
+          Sets
+          <input data-quote-field="sets" placeholder="2 sets" value="${escapeHtml(option.sets || "")}" />
+        </label>
+        <label>
+          Deposit
+          <input data-quote-field="deposit" type="number" min="0" step="1" placeholder="50" value="${escapeHtml(option.deposit || "")}" />
+        </label>
+        <label>
+          Detail
+          <textarea data-quote-field="detail" placeholder="Sound included · $50 deposit">${escapeHtml(option.detail || "")}</textarea>
+        </label>
+        <label class="checkbox inline-note">
+          <input data-quote-field="featured" type="checkbox" ${option.featured ? "checked" : ""} />
+          Mark as Most popular
+        </label>
+      </div>
+      <div class="inline-actions">
+        <button class="btn ghost" type="button" data-remove-quote-option="${index}">Remove</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderQuoteOptionRows(options = []) {
+  const wrap = document.getElementById("quoteOptionRows");
+  if (!wrap) return;
+  const rows = (Array.isArray(options) ? options : []).slice(0, 3);
+  wrap.innerHTML = rows.map((option, index) => createQuoteOptionRowMarkup(option, index)).join("");
+  const addBtn = document.getElementById("addQuoteOptionBtn");
+  if (addBtn) addBtn.disabled = rows.length >= 3;
+}
+
+function collectQuoteOptionsFromDom() {
+  return Array.from(document.querySelectorAll("[data-quote-option-row]"))
+    .map((row) => ({
+      label: row.querySelector("[data-quote-field='label']")?.value.trim() || "",
+      sets: row.querySelector("[data-quote-field='sets']")?.value.trim() || "",
+      price: row.querySelector("[data-quote-field='price']")?.value.trim() || "",
+      deposit: row.querySelector("[data-quote-field='deposit']")?.value.trim() || "",
+      detail: row.querySelector("[data-quote-field='detail']")?.value.trim() || "",
+      featured: Boolean(row.querySelector("[data-quote-field='featured']")?.checked),
+    }))
+    .filter((option) => option.label || option.sets || option.price || option.deposit || option.detail);
+}
+
+function renderQuoteLinkDisplay(link = "") {
+  const wrap = document.getElementById("quoteLinkWrap");
+  const display = document.getElementById("quoteLinkDisplay");
+  const copyBtn = document.getElementById("copyQuoteLinkBtn");
+  if (display) display.value = link || "";
+  if (wrap) wrap.classList.toggle("hidden", !link);
+  if (copyBtn) copyBtn.disabled = !link;
+}
+
+function renderQuoteAcceptedBanner(message = "", showConvert = false) {
+  const banner = document.getElementById("quoteAcceptedBanner");
+  if (!banner) return;
+  if (!message) {
+    banner.innerHTML = "";
+    banner.classList.add("hidden");
+    return;
+  }
+  banner.innerHTML = `
+    <p><strong>${escapeHtml(message)}</strong></p>
+    ${showConvert ? '<button class="btn" id="convertQuoteToContractBtn" type="button">Convert to contract</button>' : ""}
+  `;
+  banner.classList.remove("hidden");
+}
+
+function stopQuoteStatusPolling() {
+  if (quoteStatusPollTimer) {
+    clearInterval(quoteStatusPollTimer);
+    quoteStatusPollTimer = null;
+  }
+  const client = state.calendar.client;
+  if (client && quoteStatusChannel) {
+    client.removeChannel(quoteStatusChannel);
+  }
+  quoteStatusChannel = null;
+}
+
+async function fetchExistingQuoteForEvent(eventId) {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session || !eventId) return null;
+  const { data, error } = await client
+    .from("quotes")
+    .select("*")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  return Array.isArray(data) && data.length ? data[0] : null;
+}
+
+async function renderQuoteBuilder() {
+  const title = document.getElementById("quoteBuilderHeading");
+  const summary = document.getElementById("quoteEventSummary");
+  const expiryInput = document.getElementById("quoteExpiryDays");
+  const clientName = state.agreement.clientName || "this client";
+  const eventDate = state.agreement.performanceDate
+    ? formatDate(state.agreement.performanceDate)
+    : "Date not set yet";
+  const venue = state.agreement.venueAddress || "Venue not set yet";
+
+  if (title) title.textContent = `Create a quote for ${clientName}`;
+  if (summary) {
+    summary.innerHTML = `
+      <p><strong>Date:</strong> ${escapeHtml(eventDate)}</p>
+      <p><strong>Venue:</strong> ${escapeHtml(venue)}</p>
+      <p><strong>Client:</strong> ${escapeHtml(state.agreement.clientName || "Not set yet")}</p>
+    `;
+  }
+  if (expiryInput && !expiryInput.value) expiryInput.value = "7";
+
+  renderQuoteAcceptedBanner("");
+  renderQuoteOptionRows(getQuoteBuilderOptionsForRender());
+  renderQuoteLinkDisplay(state.quoteBuilder.link || "");
+  setQuoteBuilderStatus(state.quoteBuilder.status || "No quote generated yet.");
+
+  if (!state.workspace.bookingSaved || !state.workspace.bookingEventId) {
+    state.quoteBuilder = {
+      ...createInitialQuoteBuilderState(),
+      options: getQuoteBuilderOptionsForRender(),
+    };
+    renderQuoteLinkDisplay("");
+    setQuoteBuilderStatus("Save the booking first, then generate a quote link.", true);
+    stopQuoteStatusPolling();
+    return;
+  }
+
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) {
+    setQuoteBuilderStatus("Sign in to Supabase first so quotes can be loaded and saved.", true);
+    stopQuoteStatusPolling();
+    return;
+  }
+
+  try {
+    const existingQuote = await fetchExistingQuoteForEvent(state.workspace.bookingEventId);
+    if (!existingQuote) {
+      state.quoteBuilder = {
+        ...createInitialQuoteBuilderState(),
+        options: getQuoteBuilderOptionsForRender(),
+      };
+      renderQuoteLinkDisplay("");
+      setQuoteBuilderStatus("No quote generated yet.");
+      stopQuoteStatusPolling();
+      return;
+    }
+
+    const quoteOptions = getRenderableQuoteOptions(existingQuote.options);
+    state.quoteBuilder = {
+      ...state.quoteBuilder,
+      activeQuoteId: existingQuote.id || "",
+      link: getQuoteBuilderLink(existingQuote.id),
+      status: existingQuote.status || "draft",
+      options: quoteOptions,
+      expiresAt: existingQuote.expires_at || "",
+      acceptedBanner: "",
+    };
+    if (quoteOptions.length) {
+      renderQuoteOptionRows(quoteOptions);
+    }
+    if (expiryInput && existingQuote.expires_at) {
+      const diffMs = new Date(existingQuote.expires_at).getTime() - Date.now();
+      const diffDays = Math.max(1, Math.ceil(diffMs / (24 * 60 * 60 * 1000)));
+      expiryInput.value = String(diffDays);
+    }
+    renderQuoteLinkDisplay(state.quoteBuilder.link);
+    await checkQuoteStatus(existingQuote.id);
+    pollQuoteStatus();
+  } catch (error) {
+    setQuoteBuilderStatus(formatSupabaseError(error, "Could not load quote."), true);
+    stopQuoteStatusPolling();
+  }
+}
+
+async function saveQuoteToSupabase() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) {
+    setQuoteBuilderStatus("Sign in to Supabase first so quotes can be saved.", true);
+    return;
+  }
+  if (!state.workspace.bookingSaved || !state.workspace.bookingEventId) {
+    setQuoteBuilderStatus("Save the booking first, then generate a quote link.", true);
+    return;
+  }
+
+  const expiryDays = Math.max(1, Number(document.getElementById("quoteExpiryDays")?.value || 7));
+  const options = collectQuoteOptionsFromDom().slice(0, 3);
+  if (!options.length) {
+    setQuoteBuilderStatus("Add at least one quote option before generating the link.", true);
+    return;
+  }
+
+  const payload = {
+    event_id: state.workspace.bookingEventId || null,
+    client_name: state.agreement.clientName || "",
+    client_email: state.agreement.clientEmail || "",
+    venue_name: state.agreement.venueAddress || "",
+    event_date: state.agreement.performanceDate || "",
+    options: [
+      ...options,
+      {
+        __meta: {
+          band_name: state.bandDNA.bandName || "",
+          contact_email: state.bandDNA.contactEmail || "",
+        },
+      },
+    ],
+    status: "draft",
+    expires_at: new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString(),
+  };
+
+  setQuoteBuilderStatus("Saving quote...");
+
+  try {
+    let savedQuote = null;
+    if (state.quoteBuilder.activeQuoteId) {
+      const { data, error } = await client
+        .from("quotes")
+        .update(payload)
+        .eq("id", state.quoteBuilder.activeQuoteId)
+        .select("*")
+        .single();
+      if (error) throw error;
+      savedQuote = data;
+    } else {
+      const { data, error } = await client
+        .from("quotes")
+        .insert(payload)
+        .select("*")
+        .single();
+      if (error) throw error;
+      savedQuote = data;
+    }
+
+    const quoteId = savedQuote?.id || "";
+    const link = getQuoteBuilderLink(quoteId);
+    state.quoteBuilder = {
+      ...state.quoteBuilder,
+      activeQuoteId: quoteId,
+      link,
+      status: savedQuote?.status || "draft",
+      options,
+      expiresAt: savedQuote?.expires_at || payload.expires_at,
+      acceptedBanner: "",
+    };
+    renderQuoteLinkDisplay(link);
+    renderQuoteOptionRows(options);
+    await copyTextToClipboard(link, {
+      statusEl: getQuoteBuilderStatusEl(),
+      successMessage: "Quote link generated and copied to clipboard.",
+      failureMessage: "Quote saved, but the link could not be copied.",
+    });
+    saveDraft();
+    await checkQuoteStatus(quoteId);
+    pollQuoteStatus();
+  } catch (error) {
+    setQuoteBuilderStatus(formatSupabaseError(error, "Could not save quote."), true);
+  }
+}
+
+async function checkQuoteStatus(quoteId) {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session || !quoteId) return;
+
+  try {
+    const { data: quote, error } = await client
+      .from("quotes")
+      .select("*")
+      .eq("id", quoteId)
+      .single();
+    if (error) throw error;
+
+    const options = getRenderableQuoteOptions(quote.options);
+    const chosenOption = options[Number(quote.chosen_option_index)] || null;
+    const chosenLabel = chosenOption?.label || "selected";
+    const statusMessage = `Current status: ${formatQuoteStatusLabel(quote.status)}`;
+    state.quoteBuilder = {
+      ...state.quoteBuilder,
+      activeQuoteId: quote.id || quoteId,
+      link: getQuoteBuilderLink(quote.id || quoteId),
+      status: quote.status || "",
+      options,
+      expiresAt: quote.expires_at || "",
+      acceptedBanner: quote.status === "accepted" && quote.chosen_by_name
+        ? `${quote.chosen_by_name} accepted the ${chosenLabel} option!`
+        : "",
+    };
+    renderQuoteLinkDisplay(state.quoteBuilder.link);
+    setQuoteBuilderStatus(statusMessage);
+
+    if (quote.status === "accepted" && quote.chosen_by_name) {
+      renderQuoteAcceptedBanner(state.quoteBuilder.acceptedBanner, true);
+    } else {
+      renderQuoteAcceptedBanner("");
+    }
+    saveDraft();
+  } catch (error) {
+    setQuoteBuilderStatus(formatSupabaseError(error, "Could not check quote status."), true);
+  }
+}
+
+function pollQuoteStatus() {
+  stopQuoteStatusPolling();
+  const quoteId = state.quoteBuilder.activeQuoteId;
+  const client = state.calendar.client;
+  if (!quoteId || !client || !state.calendar.session) return;
+
+  quoteStatusPollTimer = setInterval(() => {
+    if (document.hidden || state.activeTab !== "quotebuilder") return;
+    checkQuoteStatus(quoteId);
+  }, 30000);
+
+  quoteStatusChannel = client.channel(`quote-status-${quoteId}`);
+  quoteStatusChannel.on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "quotes",
+      filter: `id=eq.${quoteId}`,
+    },
+    () => {
+      checkQuoteStatus(quoteId);
+    }
+  );
+  quoteStatusChannel.subscribe();
+}
+
+function renderAgreementStepUI() {
+  const currentStep = Math.max(1, Math.min(AGREEMENT_STEP_COUNT, Number(state.workspace.agreementStep || 1)));
+  state.workspace.agreementStep = currentStep;
+
+  document.querySelectorAll("[data-agreement-step]").forEach((section) => {
+    const step = Number(section.getAttribute("data-agreement-step"));
+    section.classList.toggle("hidden", step !== currentStep);
+  });
+
+  const progress = document.getElementById("agreementStepProgress");
+  if (progress) {
+    const labels = ["Client", "Event", "Performance", "Pricing", "Review"];
+    progress.innerHTML = "";
+    labels.forEach((label, index) => {
+      const step = index + 1;
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "booking-step-chip";
+      if (step === currentStep) chip.classList.add("active");
+      if (step < currentStep) chip.classList.add("done");
+      chip.textContent = `${step}. ${label}`;
+      chip.addEventListener("click", () => {
+        state.workspace.agreementStep = step;
+        if (step !== AGREEMENT_STEP_COUNT) {
+          state.workspace.contractWizardOpen = false;
+        }
+        renderAgreementStepUI();
+        saveDraft();
+      });
+      progress.appendChild(chip);
+    });
+  }
+
+  const backBtn = document.getElementById("agreementStepBack");
+  const nextBtn = document.getElementById("agreementStepNext");
+  if (backBtn) backBtn.classList.toggle("hidden", currentStep === 1);
+  if (nextBtn) {
+    nextBtn.classList.toggle("hidden", currentStep === AGREEMENT_STEP_COUNT);
+    nextBtn.textContent = currentStep === AGREEMENT_STEP_COUNT - 1 ? "Review Booking" : "Next";
+  }
+
+  const saveBtn = document.getElementById("saveBookingOnly");
+  const contractBtn = document.getElementById("submitAgreement");
+  const quoteBtn = document.getElementById("createQuoteBtn");
+  const contractNote = document.getElementById("contractWizardNote");
+  if (saveBtn) {
+    if (state.workspace.bookingSaved) {
+      saveBtn.textContent = "Update Booking";
+    } else if (state.workspace.bookingEventId) {
+      saveBtn.textContent = "Re-save Booking";
+    } else {
+      saveBtn.textContent = "Save Booking";
+    }
+  }
+  if (contractBtn) {
+    contractBtn.disabled = !state.workspace.bookingSaved;
+    contractBtn.textContent = state.workspace.contractWizardOpen
+      ? "Contract Wizard Open"
+      : "Generate Contract";
+  }
+  if (quoteBtn) {
+    quoteBtn.classList.toggle("hidden", !state.workspace.bookingSaved);
+    quoteBtn.disabled = !state.workspace.bookingSaved;
+  }
+  if (contractNote) {
+    if (state.workspace.bookingSaved) {
+      contractNote.textContent = "Booking saved. Contract generation is optional and stays separate from the booking flow.";
+    } else if (state.workspace.bookingEventId) {
+      contractNote.textContent = "Changes made — please re-save before generating contract.";
+    } else {
+      contractNote.textContent = "Save the booking first. After that, you can open the contract wizard whenever you're ready.";
+    }
+  }
+
+  const previewPanel = document.querySelector("#agreementTab .preview-panel");
+  if (previewPanel) {
+    previewPanel.classList.toggle("hidden", !state.workspace.contractWizardOpen);
+  }
+  const messagePreviewWrap = document.getElementById("messagePreviewWrap");
+  const pdfActionsBar = document.getElementById("pdfActionsBar");
+  if (state.activeTab === "agreement") {
+    if (messagePreviewWrap) {
+      messagePreviewWrap.classList.toggle("hidden", !state.workspace.contractWizardOpen);
+    }
+    if (pdfActionsBar) {
+      pdfActionsBar.classList.toggle("hidden", !state.workspace.contractWizardOpen);
+    }
+  }
 }
 
 function refreshAgreementCreatedDate() {
@@ -1756,17 +3066,16 @@ function eventStartDate(event) {
   return Number.isFinite(parsed.getTime()) ? parsed : null;
 }
 
-function getUpcomingWeekEvents() {
+function getUpcomingEvents(limit = 3) {
   const today = new Date();
   const windowStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
-  const windowEnd = new Date(windowStart);
-  windowEnd.setDate(windowEnd.getDate() + 7);
 
   return state.calendar.events
     .filter((event) => String(event.type || "").toLowerCase() !== "blackout")
     .map((event) => ({ event, start: eventStartDate(event) }))
-    .filter(({ start }) => start && start >= windowStart && start < windowEnd)
+    .filter(({ start }) => start && start >= windowStart)
     .sort((a, b) => a.start - b.start)
+    .slice(0, limit)
     .map(({ event }) => event);
 }
 
@@ -1828,12 +3137,13 @@ function renderUpcomingShowsCard(events) {
   if (!summary || !list) return;
 
   summary.textContent = events.length
-    ? `${events.length} show${events.length === 1 ? "" : "s"} in the next 7 days.`
-    : "No shows in the next 7 days.";
+    ? `Your next ${events.length} upcoming booking${events.length === 1 ? "" : "s"}.`
+    : "No upcoming bookings yet.";
 
+  list.classList.add("compact");
   list.innerHTML = "";
   if (!events.length) {
-    list.innerHTML = "<li>No shows in the next 7 days.</li>";
+    list.innerHTML = "<li>No upcoming bookings yet.</li>";
     return;
   }
 
@@ -1842,9 +3152,12 @@ function renderUpcomingShowsCard(events) {
     const dayLabel = start
       ? start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
       : "Date TBD";
-    const status = eventTypeLabel(event.type || "Show");
     const item = document.createElement("li");
-    item.textContent = `${dayLabel}: ${event.title || "Untitled show"} (${status})`;
+    item.className = "upcoming-show-item";
+    item.innerHTML = `
+      <span class="upcoming-show-date">${dayLabel}</span>
+      <span class="upcoming-show-title">${escapeHtml(event.title || "Untitled show")}</span>
+    `;
     list.appendChild(item);
   });
 }
@@ -2065,17 +3378,19 @@ async function updateShowRecordCounts() {
 }
 
 function updateManagerDesk() {
-  const upcoming = getUpcomingWeekEvents();
+  const upcoming = getUpcomingEvents(3);
   renderUpcomingShowsCard(upcoming);
   renderManagerChecklist(upcoming);
   updateShowRecordCounts();
 }
 
 async function updateOpsProgress() {
-  const fill = document.getElementById("opsProgressFill");
   const summary = document.getElementById("opsProgressSummary");
   const detail = document.getElementById("opsProgressDetail");
-  if (!fill || !summary || !detail) return;
+  const upcomingEl = document.getElementById("snapshotUpcomingShows");
+  const contractsEl = document.getElementById("snapshotContractsPending");
+  const confirmationsEl = document.getElementById("snapshotConfirmationsNeeded");
+  if (!summary || !detail || !upcomingEl || !contractsEl || !confirmationsEl) return;
 
   const workOrdersTotal = state.workOrders.length;
   const workOrdersDone = state.workOrders.filter((item) => {
@@ -2138,23 +3453,20 @@ async function updateOpsProgress() {
   const adjustedShowsTotal = showsTotal + unlinkedPendingContracts;
 
   const useAssignmentMetric = assignmentsTotal > 0;
-  const totalItems =
-    workOrdersTotal +
-    contractsTotal +
-    (useAssignmentMetric ? assignmentsTotal : adjustedShowsTotal);
-  const doneItems =
-    workOrdersDone +
-    contractsDone +
-    (useAssignmentMetric ? assignmentsDone : showsDone);
-  const percent = totalItems > 0 ? Math.round((doneItems / totalItems) * 100) : 0;
+  const upcomingCount = getUpcomingEvents(20).length;
+  const confirmationsNeeded = useAssignmentMetric
+    ? Math.max(0, assignmentsTotal - assignmentsDone)
+    : Math.max(0, adjustedShowsTotal - showsDone);
 
-  fill.style.width = `${percent}%`;
-  summary.textContent = `${percent}% complete across active jobs`;
-  detail.textContent = `Work orders open ${workOrdersOpen} • Contract${contractsPendingSignature === 1 ? "" : "s"} pending signature ${contractsPendingSignature} • ${
-    useAssignmentMetric
-      ? `Musician confirmations ${assignmentsDone}/${assignmentsTotal}`
-      : `Shows confirmed ${showsDone}/${adjustedShowsTotal}`
-  }`;
+  upcomingEl.textContent = String(upcomingCount);
+  contractsEl.textContent = String(contractsPendingSignature);
+  confirmationsEl.textContent = String(confirmationsNeeded);
+
+  summary.textContent = "What needs attention this week.";
+  detail.textContent =
+    workOrdersOpen || contractsPendingSignature || confirmationsNeeded
+      ? `Work orders open ${workOrdersOpen} • Contracts pending ${contractsPendingSignature} • Confirmations needed ${confirmationsNeeded}`
+      : "No urgent items right now.";
   updateManagerDesk();
 }
 
@@ -3628,11 +4940,16 @@ async function openAgreementForCalendarEvent(event) {
   state.agreement.performanceDate = formatDateInput(start);
   state.agreement.performanceTime = formatTimeInput(start);
   state.agreement.performanceEndTime = formatTimeInput(end);
+  state.workspace.agreementStep = 1;
+  state.workspace.bookingSaved = Boolean(event?.id);
+  state.workspace.bookingEventId = event?.id || "";
+  state.workspace.contractWizardOpen = false;
 
   syncAgreementForm();
   updatePerformanceHoursFromTimes();
   updateHolidayFromDate();
   updateAgreementPreview();
+  renderAgreementStepUI();
   saveDraft();
   persistAgreementDraftSnapshot();
 
@@ -4646,8 +5963,13 @@ function loadAgreementDraftFromContract(contract, options = {}) {
       state.agreement.clientName ||
       String(contract.name).replace(/\s+Agreement$/i, "").trim();
   }
+  state.workspace.agreementStep = 1;
+  state.workspace.bookingSaved = Boolean(contract?.event_id);
+  state.workspace.bookingEventId = contract?.event_id || "";
+  state.workspace.contractWizardOpen = false;
   syncAgreementForm();
   updateAgreementPreview();
+  renderAgreementStepUI();
   saveDraft();
   if (switchView && switchTopView) {
     state.activeTab = "agreement";
@@ -4850,7 +6172,8 @@ function updateContractEventOptions() {
   });
 }
 
-async function ensureHoldEventForAgreement() {
+async function ensureBookingEventForAgreement(options = {}) {
+  const { createPendingContract = false } = options;
   const client = state.calendar.client;
   if (!client || !state.calendar.session) {
     return { ok: false, reason: "not_signed_in" };
@@ -4881,7 +6204,7 @@ async function ensureHoldEventForAgreement() {
   }
 
   let linkedEvent = null;
-  let eventId = activeDraft.event_id || "";
+  let eventId = activeDraft.event_id || state.workspace.bookingEventId || "";
   if (eventId) {
     const { data } = await client
       .from("events")
@@ -4891,7 +6214,7 @@ async function ensureHoldEventForAgreement() {
     linkedEvent = data || null;
   }
 
-  if (!linkedEvent) {
+  if (!linkedEvent && createPendingContract) {
     const dayStart = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0);
     const dayEnd = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 23, 59, 59);
 
@@ -4911,15 +6234,20 @@ async function ensureHoldEventForAgreement() {
     eventId = linkedEvent ? linkedEvent.id : "";
   }
 
+  const normalizedEventType = createPendingContract ? "Contract Needed" : "Confirmed";
+  const normalizedNotes = createPendingContract
+    ? AUTO_HOLD_NOTE
+    : `Saved from booking flow${state.agreement.eventType ? ` · ${state.agreement.eventType}` : ""}`;
+
   if (!eventId) {
     const { data, error } = await client
       .from("events")
       .insert({
-        type: "Contract Needed",
+        type: normalizedEventType,
         title,
         start_time: start.toISOString(),
         end_time: end.toISOString(),
-        notes: AUTO_HOLD_NOTE,
+        notes: normalizedNotes,
         override: false,
       })
       .select()
@@ -4932,13 +6260,10 @@ async function ensureHoldEventForAgreement() {
       title,
       start_time: start.toISOString(),
       end_time: end.toISOString(),
+      type: normalizedEventType,
+      notes: normalizedNotes,
     };
-    const normalizedType = String(linkedEvent?.type || "").toLowerCase();
-    if (normalizedType === "hold" || normalizedType === "contract needed" || !normalizedType) {
-      updatePayload.type = "Contract Needed";
-      updatePayload.notes = AUTO_HOLD_NOTE;
-      updatePayload.override = false;
-    }
+    updatePayload.override = false;
     const { error } = await client
       .from("events")
       .update(updatePayload)
@@ -4946,62 +6271,79 @@ async function ensureHoldEventForAgreement() {
     if (error) return { ok: false, reason: "event_update_failed" };
   }
 
-  const { data: existingContract } = await client
-    .from("contracts")
-    .select("*")
-    .eq("event_id", eventId)
-    .limit(1);
-
   let resolvedContractContext = null;
-
-  if (!existingContract || !existingContract.length) {
-    const { data: insertedContract, error } = await client
+  if (createPendingContract) {
+    const { data: existingContract } = await client
       .from("contracts")
-      .insert({
-        name: `${title} Agreement`,
-        file_path: null,
+      .select("*")
+      .eq("event_id", eventId)
+      .limit(1);
+
+    if (!existingContract || !existingContract.length) {
+      const { data: insertedContract, error } = await client
+        .from("contracts")
+        .insert({
+          name: `${title} Agreement`,
+          file_path: null,
+          event_id: eventId,
+          status: "Pending signature",
+        })
+        .select()
+        .single();
+      if (error) return { ok: false, reason: "contract_insert_failed" };
+      resolvedContractContext = insertedContract || {
+        id: "",
         event_id: eventId,
-        status: "Pending signature",
-      })
-      .select()
-      .single();
-    if (error) return { ok: false, reason: "contract_insert_failed" };
-    resolvedContractContext = insertedContract || {
-      id: "",
-      event_id: eventId,
-      name: `${title} Agreement`,
-    };
-    setAgreementDraftContext(resolvedContractContext);
-  } else if (!existingContract[0].file_path) {
-    const { data: updatedContract, error } = await client
-      .from("contracts")
-      .update({ name: `${title} Agreement`, status: "Pending signature" })
-      .eq("id", existingContract[0].id);
-    if (error) return { ok: false, reason: "contract_update_failed" };
-    resolvedContractContext = updatedContract?.[0] || {
-      id: existingContract[0].id,
-      event_id: eventId,
-      name: `${title} Agreement`,
-    };
-    setAgreementDraftContext(resolvedContractContext);
-  } else {
-    resolvedContractContext = {
-      id: existingContract[0].id,
-      event_id: eventId,
-      name: existingContract[0].name || `${title} Agreement`,
-    };
-    setAgreementDraftContext(resolvedContractContext);
-  }
+        name: `${title} Agreement`,
+      };
+      setAgreementDraftContext(resolvedContractContext);
+    } else if (!existingContract[0].file_path) {
+      const { data: updatedContract, error } = await client
+        .from("contracts")
+        .update({ name: `${title} Agreement`, status: "Pending signature" })
+        .eq("id", existingContract[0].id)
+        .select();
+      if (error) return { ok: false, reason: "contract_update_failed" };
+      resolvedContractContext = updatedContract?.[0] || {
+        id: existingContract[0].id,
+        event_id: eventId,
+        name: `${title} Agreement`,
+      };
+      setAgreementDraftContext(resolvedContractContext);
+    } else {
+      resolvedContractContext = {
+        id: existingContract[0].id,
+        event_id: eventId,
+        name: existingContract[0].name || `${title} Agreement`,
+      };
+      setAgreementDraftContext(resolvedContractContext);
+    }
 
-  saveAgreementSnapshotForContract(resolvedContractContext || {
-    id: existingContract?.[0]?.id || "",
-    event_id: eventId,
-    name: `${title} Agreement`,
-  });
+    saveAgreementSnapshotForContract(
+      resolvedContractContext || {
+        id: "",
+        event_id: eventId,
+        name: `${title} Agreement`,
+      }
+    );
+  } else {
+    await clearPendingDraftContractForEvent(eventId);
+    state.agreementDraftContext = {
+      contractId: "",
+      eventId,
+      name: `${title} Agreement`,
+    };
+    state.workspace.bookingSaved = true;
+    state.workspace.bookingEventId = eventId;
+  }
 
   await fetchEventsForMonth();
   await fetchContracts();
   return { ok: true, reason: "synced", eventId };
+}
+
+async function ensureHoldEventForAgreement() {
+  return ensureBookingEventForAgreement({ createPendingContract: true });
 }
 
 function setAgreementCalendarStatus(message, isError = false) {
@@ -5062,33 +6404,118 @@ async function addAgreementToCalendarPending() {
 
 function resetAgreementForm() {
   state.agreement = createInitialAgreementState();
+  applyAgreementDefaultsFromProfiles(true);
   state.agreementDraftContext = {
     contractId: "",
     eventId: "",
     name: "",
   };
+  state.workspace.agreementStep = 1;
+  state.workspace.bookingSaved = false;
+  state.workspace.bookingEventId = "";
+  state.workspace.contractWizardOpen = false;
   syncAgreementForm();
   updateAgreementPreview();
+  renderAgreementStepUI();
   saveDraft();
   setAgreementCalendarStatus("Agreement form reset.");
 }
 
+async function saveBookingOnly() {
+  prepareAgreementForOutput();
+  setAgreementCalendarStatus("Saving booking...");
+  const result = await ensureBookingEventForAgreement({ createPendingContract: false });
+  if (result?.ok) {
+    const dateValue = state.agreement.performanceDate;
+    if (dateValue) {
+      focusCalendarOnDate(dateValue);
+      await fetchEventsForMonth();
+      renderCalendar();
+      updateEventList();
+    }
+    state.workspace.bookingSaved = true;
+    state.workspace.bookingEventId = result.eventId || "";
+    state.workspace.contractWizardOpen = false;
+    updateSupabaseStatus("Booking saved.");
+    setAgreementCalendarStatus(
+      "Booking saved. Generate Contract whenever you're ready."
+    );
+    renderAgreementStepUI();
+    saveDraft();
+    return;
+  }
+  if (result?.reason === "not_signed_in") {
+    updateSupabaseStatus("Sign in on Calendar tab first, then save the booking.", true);
+    setAgreementCalendarStatus("Sign in on Calendar tab first.", true);
+    return;
+  }
+  if (result?.reason === "missing_fields") {
+    const details = result?.details
+      ? ` Date: ${result.details.date} | Start: ${result.details.startTime} | End: ${result.details.endTime}`
+      : "";
+    updateSupabaseStatus(
+      `Set performance date, start time, and end time before saving the booking.${details}`,
+      true
+    );
+    setAgreementCalendarStatus(`Missing/invalid date or time in Booking.${details}`, true);
+    return;
+  }
+  const reasonLabel = result?.reason ? ` (${result.reason})` : "";
+  updateSupabaseStatus(`Could not save booking right now${reasonLabel}.`, true);
+  setAgreementCalendarStatus(`Could not save booking${reasonLabel}.`, true);
+}
+
 async function submitAgreement() {
-  const added = await addAgreementToCalendarPending();
-  if (!added) return;
-  await generatePdf("agreement");
-  state.agreement = createInitialAgreementState();
-  state.agreementDraftContext = {
-    contractId: "",
-    eventId: "",
-    name: "",
-  };
-  syncAgreementForm();
-  updateAgreementPreview();
+  if (!state.workspace.bookingSaved) {
+    setAgreementCalendarStatus("Save the booking first, then generate the contract.", true);
+    return;
+  }
+  state.workspace.contractWizardOpen = true;
+  prepareAgreementForOutput();
+  renderAgreementStepUI();
   saveDraft();
-  setAgreementCalendarStatus(
-    "Saved. The event is on the calendar, the message is copied, the PDF is ready, and the form has been cleared for a new agreement."
-  );
+  setAgreementCalendarStatus("Contract wizard ready. Review the message and use the PDF actions when you're ready.");
+  const previewPanel = document.querySelector("#agreementTab .preview-panel");
+  if (previewPanel && typeof previewPanel.scrollIntoView === "function") {
+    previewPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function seedInvoiceFromAgreement() {
+  const totals = getAgreementTotals();
+  state.invoice.clientName = state.agreement.clientName || state.invoice.clientName;
+  state.invoice.clientEmail = state.agreement.clientEmail || state.invoice.clientEmail;
+  state.invoice.issueDate = todayString();
+  state.invoice.dueDate = state.agreement.performanceDate || state.invoice.dueDate;
+  state.invoice.description = state.agreement.performanceDate
+    ? `Performance on ${formatDate(state.agreement.performanceDate)}`
+    : "Live performance";
+  state.invoice.performanceFee = String(Math.max(0, totals.eventSubtotal || 0));
+  state.invoice.depositDue = String(Math.max(0, totals.depositAmount || 0));
+  state.invoice.depositPaid = state.agreement.depositPaid || state.invoice.depositPaid;
+  state.invoice.addons = String(Math.max(0, totals.addOnTotal || 0));
+  syncInvoiceForm();
+  updateInvoicePreview();
+}
+
+function seedReceiptFromAgreement() {
+  state.receipt.clientName = state.agreement.clientName || state.receipt.clientName;
+  state.receipt.paymentDate = todayString();
+  state.receipt.amountPaid = state.agreement.amountDueDayOf || state.receipt.amountPaid;
+  syncReceiptForm();
+  updateReceiptPreview();
+}
+
+function openInvoiceFromAgreement() {
+  seedInvoiceFromAgreement();
+  state.activeTab = "invoice";
+  if (switchTopView) switchTopView("bookkeeping");
+}
+
+function openReceiptFromAgreement() {
+  seedReceiptFromAgreement();
+  state.activeTab = "receipt";
+  if (switchTopView) switchTopView("bookkeeping");
 }
 
 function syncAgreementForm() {
@@ -5103,13 +6530,44 @@ function syncAgreementForm() {
   });
 
   const savedAmount = state.agreement.friendsFamilyDiscountAmount;
-  if (savedAmount && savedAmount !== "0") {
-    const wrap = document.getElementById("friendsFamilyDiscountButtons");
-    if (wrap) {
-      wrap.querySelectorAll("button[data-discount]").forEach((button) => {
-        button.classList.toggle("active", button.getAttribute("data-discount") === savedAmount);
-      });
-    }
+  const discountButtonsWrap = document.getElementById("friendsFamilyDiscountButtons");
+  if (discountButtonsWrap) {
+    discountButtonsWrap.querySelectorAll("button[data-discount]").forEach((button) => {
+      button.classList.toggle(
+        "active",
+        Boolean(savedAmount && savedAmount !== "0" && button.getAttribute("data-discount") === savedAmount)
+      );
+    });
+  }
+
+  const feeTotalInput = document.getElementById("feeTotal");
+  if (feeTotalInput) {
+    const feeHandler = () => {
+      const rawValue = feeTotalInput.value.trim();
+      const previousValue = state.agreement.feeTotal;
+      const previousOverride = state.agreement.feeManualOverride;
+      if (!rawValue) {
+        state.agreement.feeTotal = "";
+        state.agreement.feeManualOverride = false;
+      } else {
+        state.agreement.feeTotal = rawValue;
+        state.agreement.feeManualOverride = true;
+      }
+      if (
+        (previousValue !== state.agreement.feeTotal || previousOverride !== state.agreement.feeManualOverride) &&
+        state.workspace.bookingSaved
+      ) {
+        state.workspace.bookingSaved = false;
+        state.workspace.contractWizardOpen = false;
+        setAgreementCalendarStatus("Changes made — please re-save before generating contract.");
+      }
+      updateAgreementPreview();
+      renderAgreementStepUI();
+      saveDraft();
+      persistAgreementDraftSnapshot();
+    };
+    feeTotalInput.addEventListener("input", feeHandler);
+    feeTotalInput.addEventListener("change", feeHandler);
   }
 }
 
@@ -5123,10 +6581,10 @@ function syncAgreementFeeOverrideFromForm() {
 
 function syncFriendsFamilyDiscountFromForm() {
   const discountToggle = document.getElementById("friendsFamilyDiscount");
+  const discountField = document.getElementById("friendsFamilyDiscountAmount");
   const discountEnabled = discountToggle ? discountToggle.checked : Boolean(state.agreement.friendsFamilyDiscount);
 
   state.agreement.friendsFamilyDiscount = discountEnabled;
-  const discountField = document.getElementById("friendsFamilyDiscountAmount");
   if (discountField) {
     discountField.value = state.agreement.friendsFamilyDiscountAmount || "0";
   }
@@ -5572,6 +7030,7 @@ function syncBandProfileStateFromForm() {
 }
 
 function buildPromoScript(channel = "email", option = 1) {
+  const dna = state.bandDNA;
   const builder = state.workOrderWorkspace.promoBuilder;
   const epk = state.workOrderWorkspace.epk;
   const profile = state.workOrderWorkspace.bandProfile;
@@ -5580,9 +7039,9 @@ function buildPromoScript(channel = "email", option = 1) {
   const city = builder.city ? ` in ${builder.city}` : "";
   const bookingType = builder.bookingType || "Venue booking";
   const relationship = builder.relationship || "First Contact";
-  const bandName = profile.bandName || epk.bandName || "Rust and Ruin";
-  const genreText = builder.genre || profile.genreTags || profile.genreLine || "";
-  const lineupText = builder.lineup || profile.lineupSummary || "";
+  const bandName = profile.bandName || dna.bandName || epk.bandName || "Rust and Ruin";
+  const genreText = builder.genre || (Array.isArray(dna.genreTags) ? dna.genreTags.join(", ") : "") || profile.genreTags || profile.genreLine || "";
+  const lineupText = builder.lineup || dna.lineups?.[0]?.name || profile.lineupSummary || "";
   const openDatesText = builder.openDates || "a few open dates coming up";
   const venueConnectionText = builder.venueConnection || "";
   const hook = builder.customHook ? `${builder.customHook}\n\n` : "";
@@ -5776,13 +7235,13 @@ function buildPromoScript(channel = "email", option = 1) {
   const contactBlock = [
     `Thanks,`,
     profile.signoffBand || bandName,
-    profile.signoffEmail || epk.contactEmail || "rustandruinvt@gmail.com",
+    profile.signoffEmail || epk.contactEmail || dna.contactEmail || "rustandruinvt@gmail.com",
     epk.contactPhone || "",
   ].filter(Boolean).join("\n");
   const returningContactBlock = [
-    profile.signoffName || `Beth (and Josh)`,
+    profile.signoffName || dna.signoffName || `Beth (and Josh)`,
     profile.signoffBand || bandName,
-    profile.signoffEmail || epk.contactEmail || "rustandruinvt@gmail.com",
+    profile.signoffEmail || epk.contactEmail || dna.contactEmail || "rustandruinvt@gmail.com",
   ].filter(Boolean).join("\n");
 
   const toneLead = {
@@ -5963,9 +7422,9 @@ function buildPromoScript(channel = "email", option = 1) {
       ...firstContactExtras,
       "",
       builder.tone === "Professional" ? "Warmly," : "Warmly,",
-      profile.signoffName || "Beth (and Josh)",
+      profile.signoffName || dna.signoffName || "Beth (and Josh)",
       profile.signoffBand || bandName,
-      profile.signoffEmail || epk.contactEmail || "rustandruinvt@gmail.com",
+      profile.signoffEmail || epk.contactEmail || dna.contactEmail || "rustandruinvt@gmail.com",
     ].filter(Boolean).join("\n");
   }
 
@@ -6122,20 +7581,22 @@ function renderFollowUps() {
 function renderEpkSummary() {
   const summary = document.getElementById("epkSummary");
   if (!summary) return;
+  const dna = state.bandDNA;
   const profile = state.workOrderWorkspace.bandProfile;
   const epk = state.workOrderWorkspace.epk;
   summary.innerHTML = `
     <p><strong>EPK Draft Preview</strong></p>
-    <p><strong>${epk.bandName || profile.bandName || "Band name"}</strong></p>
-    <p><strong>Short bio:</strong> ${epk.shortBio || profile.bioShortDraft || "Use the Bio Generator to create a short bio for outreach and EPK use."}</p>
+    <p><strong>${epk.bandName || dna.bandName || profile.bandName || "Band name"}</strong></p>
+    <p><strong>Short bio:</strong> ${epk.shortBio || dna.oneLineBio || profile.bioShortDraft || "Use the Bio Generator to create a short bio for outreach and EPK use."}</p>
     <p><strong>Full bio:</strong> ${epk.longBio || profile.bioFullDraft || "Use the Bio Generator to create a fuller bio with more story and member detail."}</p>
-    <p><strong>Genres:</strong> ${epk.genres || profile.genreTags || "Not set yet"}</p>
+    <p><strong>Genres:</strong> ${epk.genres || (Array.isArray(dna.genreTags) ? dna.genreTags.join(", ") : "") || profile.genreTags || "Not set yet"}</p>
     <p><strong>Artists / references:</strong> ${profile.artistReferences || "Not set yet"}</p>
     <p><strong>Lineup options:</strong> ${epk.lineupOptions || profile.lineupSummary || "Not set yet"}</p>
     <p><strong>Website:</strong> ${epk.website || "Not set yet"}</p>
     <p><strong>Music:</strong> ${epk.musicLink || "Not set yet"}</p>
     <p><strong>Video:</strong> ${epk.videoLink || "Not set yet"}</p>
     <p><strong>Photo assets:</strong> ${epk.photoLinks || "Add photo links or asset locations"}</p>
+    <p><strong>Contact email:</strong> ${epk.contactEmail || dna.contactEmail || "Not set yet"}</p>
   `;
 }
 
@@ -7822,10 +9283,16 @@ function setupListeners() {
     const el = document.getElementById(field);
     if (!el) return;
     const handler = () => {
+      const previousValue = state.agreement[field];
       if (el.type === "checkbox") {
         state.agreement[field] = el.checked;
       } else {
         state.agreement[field] = el.value;
+      }
+      if (previousValue !== state.agreement[field] && state.workspace.bookingSaved) {
+        state.workspace.bookingSaved = false;
+        state.workspace.contractWizardOpen = false;
+        setAgreementCalendarStatus("Changes made — please re-save before generating contract.");
       }
       if (field === "lodgingEnabled") {
         updateAgreementPreview();
@@ -7833,6 +9300,9 @@ function setupListeners() {
       if (field === "performanceDate") {
         updateHolidayFromDate();
         updateAgreementBookingWarning();
+      }
+      if (field === "bandConfig") {
+        applyLineupRateToAgreement();
       }
       if (field === "performanceTime" || field === "performanceEndTime") {
         updatePerformanceHoursFromTimes();
@@ -7862,6 +9332,7 @@ function setupListeners() {
         if (depositInput) depositInput.value = state.agreement.depositAmount;
       }
       updateAgreementPreview();
+      renderAgreementStepUI();
       saveDraft();
       persistAgreementDraftSnapshot();
     };
@@ -7872,14 +9343,16 @@ function setupListeners() {
   const discountButtonsWrap = document.getElementById("friendsFamilyDiscountButtons");
   if (discountButtonsWrap) {
     discountButtonsWrap.addEventListener("click", (e) => {
-      const btn = e.target.closest("button[data-discount]");
-      if (!btn) return;
-      const amount = btn.getAttribute("data-discount");
+      const button = e.target.closest("button[data-discount]");
+      if (!button) return;
+      const amount = button.getAttribute("data-discount");
       state.agreement.friendsFamilyDiscountAmount = amount;
       const hiddenInput = document.getElementById("friendsFamilyDiscountAmount");
       if (hiddenInput) hiddenInput.value = amount;
-      discountButtonsWrap.querySelectorAll("button").forEach((button) => button.classList.remove("active"));
-      if (amount !== "0") btn.classList.add("active");
+      discountButtonsWrap.querySelectorAll("button[data-discount]").forEach((btn) => {
+        btn.classList.remove("active");
+      });
+      if (amount !== "0") button.classList.add("active");
       if (state.workspace.bookingSaved) {
         state.workspace.bookingSaved = false;
         state.workspace.contractWizardOpen = false;
@@ -7957,6 +9430,7 @@ function setupListeners() {
   const scheduleTabs = document.getElementById("scheduleTabs");
   const aboutTabs = document.getElementById("aboutTabs");
   const homeTab = document.getElementById("homeTab");
+  const onboardingTab = document.getElementById("onboardingTab");
   const messagePreviewWrap = document.getElementById("messagePreviewWrap");
   const pdfActionsBar = document.getElementById("pdfActionsBar");
   const topOpenPdfBtn = document.getElementById("openPdf");
@@ -7992,16 +9466,19 @@ function setupListeners() {
     const workspaceTitle = document.getElementById("workspaceTitle");
     const workspaceCrumb = document.getElementById("workspaceCrumb");
     if (workspaceHead) {
-      workspaceHead.classList.toggle("hidden", topTarget === "home");
+      workspaceHead.classList.toggle("hidden", topTarget === "home" && panelTarget === "home");
     }
     if (!workspaceTitle || !workspaceCrumb) return;
     const panelNames = {
       login: "Sign In",
       home: "Dashboard",
+      onboarding: "Band Setup",
+      bandprofile: "Band Profile",
       workorders: "Work Orders",
       contractshub: "Contracts",
       shows: "Shows",
       agreement: "Agreement",
+      quotebuilder: "Quote Builder",
       invoice: "Invoice",
       receipt: "Receipt",
       calendar: "Event Calendar",
@@ -8015,6 +9492,7 @@ function setupListeners() {
     const folderNames = {
       login: "Front Desk",
       home: "Dashboard",
+      onboarding: "Setup",
       bookkeeping: "Booking",
       calendar: "Calendar",
       contracts: "Contracts",
@@ -8035,7 +9513,10 @@ function setupListeners() {
     state.activeTab = target;
     document.getElementById("loginTab").classList.toggle("hidden", target !== "login");
     if (homeTab) homeTab.classList.toggle("hidden", target !== "home");
+    if (onboardingTab) onboardingTab.classList.toggle("hidden", target !== "onboarding");
+    document.getElementById("bandProfileTab").classList.toggle("hidden", target !== "bandprofile");
     document.getElementById("agreementTab").classList.toggle("hidden", target !== "agreement");
+    document.getElementById("quoteBuilderTab").classList.toggle("hidden", target !== "quotebuilder");
     document.getElementById("invoiceTab").classList.toggle("hidden", target !== "invoice");
     document.getElementById("receiptTab").classList.toggle("hidden", target !== "receipt");
     document.getElementById("calendarTab").classList.toggle("hidden", target !== "calendar");
@@ -8048,14 +9529,40 @@ function setupListeners() {
     document.getElementById("workOrdersTab").classList.toggle("hidden", target !== "workorders");
     document.getElementById("allaboutTab").classList.toggle("hidden", target !== "allabout");
     document.getElementById("howtoTab").classList.toggle("hidden", target !== "howto");
+    if (target === "onboarding") {
+      renderOnboardingWizard();
+    }
     if (target === "workorders") {
       renderWorkOrders();
       renderWorkOrderWorkspace();
     }
+    if (target === "bandprofile") {
+      renderReusableBandProfile();
+    }
+    if (target === "agreement") {
+      renderAgreementStepUI();
+      updateAgreementStepSummary();
+    }
+    if (target === "quotebuilder") {
+      renderQuoteBuilder();
+    } else {
+      stopQuoteStatusPolling();
+    }
     const inBookkeeping =
       target === "agreement" || target === "invoice" || target === "receipt";
-    if (messagePreviewWrap) messagePreviewWrap.classList.toggle("hidden", !inBookkeeping);
-    if (pdfActionsBar) pdfActionsBar.classList.toggle("hidden", !inBookkeeping);
+    const showAgreementDocumentTools = target === "agreement" && state.workspace.contractWizardOpen;
+    if (messagePreviewWrap) {
+      messagePreviewWrap.classList.toggle(
+        "hidden",
+        target === "agreement" ? !showAgreementDocumentTools : !inBookkeeping
+      );
+    }
+    if (pdfActionsBar) {
+      pdfActionsBar.classList.toggle(
+        "hidden",
+        target === "agreement" ? !showAgreementDocumentTools : !inBookkeeping
+      );
+    }
     if (topOpenPdfBtn) topOpenPdfBtn.classList.toggle("hidden", !inBookkeeping);
     if (topPrintPdfBtn) topPrintPdfBtn.classList.toggle("hidden", !inBookkeeping);
     if (sharePdfBtn) sharePdfBtn.classList.toggle("hidden", !inBookkeeping);
@@ -8070,7 +9577,7 @@ function setupListeners() {
 
   const switchTop = (topTarget) => {
     const signedIn = Boolean(state.calendar.session);
-    if (!signedIn && topTarget !== "login") {
+    if (!signedIn && topTarget !== "login" && topTarget !== "onboarding") {
       updateSupabaseStatus("Sign in first to open the rest of Booking Suite.", true);
       topTarget = "login";
     }
@@ -8085,6 +9592,11 @@ function setupListeners() {
 
     if (topTarget === "login") {
       switchPanel("login");
+      return;
+    }
+
+    if (topTarget === "onboarding") {
+      switchPanel("onboarding");
       return;
     }
 
@@ -8116,6 +9628,7 @@ function setupListeners() {
     if (topTarget === "bookkeeping") {
       const valid =
         state.activeTab === "agreement" ||
+        state.activeTab === "quotebuilder" ||
         state.activeTab === "invoice" ||
         state.activeTab === "receipt" ||
         state.activeTab === "contracts" ||
@@ -8180,14 +9693,277 @@ function setupListeners() {
       renderWorkOrders();
     });
   }
+  const homeNewBookingBtn = document.getElementById("homeNewBooking");
+  if (homeNewBookingBtn) {
+    homeNewBookingBtn.addEventListener("click", () => {
+      resetAgreementForm();
+      state.activeTab = "agreement";
+      switchTop("bookkeeping");
+    });
+  }
+  const homeOpenContractsBtn = document.getElementById("homeOpenContracts");
+  if (homeOpenContractsBtn) {
+    homeOpenContractsBtn.addEventListener("click", () => {
+      state.activeTab = "contractshub";
+      switchTop("contracts");
+    });
+  }
+  const homeOpenCalendarBtn = document.getElementById("homeOpenCalendar");
+  if (homeOpenCalendarBtn) {
+    homeOpenCalendarBtn.addEventListener("click", () => {
+      state.activeTab = "calendar";
+      switchTop("calendar");
+    });
+  }
+  const homeBandProfileBtn = document.getElementById("homeBandProfile");
+  if (homeBandProfileBtn) {
+    homeBandProfileBtn.addEventListener("click", () => {
+      switchTop("home");
+      switchPanel("bandprofile");
+    });
+  }
+  const homeEditBandDNABtn = document.getElementById("homeEditBandDNA");
+  if (homeEditBandDNABtn) {
+    homeEditBandDNABtn.addEventListener("click", () => {
+      state.onboardingStep = 1;
+      switchTop("onboarding");
+    });
+  }
+
+  const onboardingNextBtn = document.getElementById("onboardingNext");
+  if (onboardingNextBtn) {
+    onboardingNextBtn.addEventListener("click", advanceOnboardingStep);
+  }
+  const onboardingBackBtn = document.getElementById("onboardingBack");
+  if (onboardingBackBtn) {
+    onboardingBackBtn.addEventListener("click", () => {
+      state.onboardingStep = Math.max(1, Number(state.onboardingStep || 1) - 1);
+      renderOnboardingWizard();
+    });
+  }
+  const onboardingWizard = document.getElementById("onboardingWizard");
+  if (onboardingWizard) {
+    onboardingWizard.addEventListener("click", (event) => {
+      const gotoBtn = event.target.closest("[data-onboarding-goto]");
+      if (gotoBtn) {
+        state.onboardingStep = Number(gotoBtn.getAttribute("data-onboarding-goto")) || 1;
+        renderOnboardingWizard();
+        return;
+      }
+
+      const removeLineupBtn = event.target.closest("[data-remove-lineup]");
+      if (removeLineupBtn) {
+        saveOnboardingStep(2);
+        const removeIndex = Number(removeLineupBtn.getAttribute("data-remove-lineup"));
+        state.bandDNA.lineups = (state.bandDNA.lineups || []).filter((_, index) => index !== removeIndex);
+        if (!state.bandDNA.lineups.length) {
+          state.bandDNA.lineups = [{ name: "Duo", rate: "", rateType: "hourly" }];
+        }
+        saveDraft();
+        renderOnboardingWizard();
+        return;
+      }
+
+      if (event.target.closest("#onboardingAddLineup")) {
+        saveOnboardingStep(2);
+        state.bandDNA.lineups = [
+          ...(Array.isArray(state.bandDNA.lineups) ? state.bandDNA.lineups : []),
+          { name: "", rate: "", rateType: "hourly" },
+        ];
+        saveDraft();
+        renderOnboardingWizard();
+        return;
+      }
+
+      const travelTypeBtn = event.target.closest("[data-travel-type]");
+      if (travelTypeBtn) {
+        const travelType = travelTypeBtn.getAttribute("data-travel-type")
+          || "hourly_per_performer";
+        state.bandDNA.travelChargeType = travelType;
+        updateBandDNA({ travelChargeType: travelType });
+        document.querySelectorAll("[data-travel-type]").forEach((btn) => {
+          btn.classList.toggle("active",
+            btn.getAttribute("data-travel-type") === travelType);
+        });
+        const hourlyWrap = document.getElementById("onboardingTravelHourlyWrap");
+        const flatWrap = document.getElementById("onboardingTravelFlatWrap");
+        if (hourlyWrap) hourlyWrap.classList.toggle("hidden",
+          travelType !== "hourly_per_performer");
+        if (flatWrap) flatWrap.classList.toggle("hidden",
+          travelType !== "flat_fee");
+        return;
+      }
+
+      const toneBtn = event.target.closest("[data-onboarding-tone]");
+      if (toneBtn) {
+        const tone = toneBtn.getAttribute("data-onboarding-tone") || "Warm";
+        state.bandDNA.tone = tone;
+        updateBandDNA({ tone });
+        const hiddenInput = document.getElementById("onboardingTone");
+        if (hiddenInput) hiddenInput.value = tone;
+        document.querySelectorAll("[data-onboarding-tone]").forEach((btn) => {
+          btn.classList.toggle("active", btn.getAttribute("data-onboarding-tone") === tone);
+        });
+        return;
+      }
+
+      if (event.target.closest("#onboardingAddGenre")) {
+        const input = document.getElementById("onboardingGenreInput");
+        const nextTag = input?.value.trim() || "";
+        if (!nextTag) return;
+        const currentTags = Array.isArray(state.bandDNA.genreTags) ? state.bandDNA.genreTags : [];
+        if (!currentTags.includes(nextTag)) {
+          updateBandDNA({ genreTags: [...currentTags, nextTag] });
+        }
+        renderOnboardingWizard();
+        return;
+      }
+
+      const removeGenreBtn = event.target.closest("[data-remove-genre]");
+      if (removeGenreBtn) {
+        const tagToRemove = removeGenreBtn.getAttribute("data-remove-genre") || "";
+        updateBandDNA({
+          genreTags: (Array.isArray(state.bandDNA.genreTags) ? state.bandDNA.genreTags : [])
+            .filter((tag) => tag !== tagToRemove),
+        });
+        renderOnboardingWizard();
+      }
+    });
+  }
+
+  const saveReusableBandProfileBtn = document.getElementById("saveReusableBandProfile");
+  if (saveReusableBandProfileBtn) {
+    saveReusableBandProfileBtn.addEventListener("click", saveReusableBandProfile);
+  }
+  const addLineupRateBtn = document.getElementById("addLineupRate");
+  if (addLineupRateBtn) {
+    addLineupRateBtn.addEventListener("click", () => {
+      syncReusableBandProfileFromForm();
+      state.workOrderWorkspace.pricingProfile.lineupRates.push(createLineupRateEntry());
+      renderLineupRateEntries();
+      saveDraft();
+      setBandProfileStatus("");
+    });
+  }
 
   const submitAgreementBtn = document.getElementById("submitAgreement");
   if (submitAgreementBtn) {
     submitAgreementBtn.addEventListener("click", submitAgreement);
   }
+  const createQuoteBtn = document.getElementById("createQuoteBtn");
+  if (createQuoteBtn) {
+    createQuoteBtn.addEventListener("click", () => {
+      state.activeTab = "quotebuilder";
+      switchTop("bookkeeping");
+      switchPanel("quotebuilder");
+    });
+  }
+  const saveBookingOnlyBtn = document.getElementById("saveBookingOnly");
+  if (saveBookingOnlyBtn) {
+    saveBookingOnlyBtn.addEventListener("click", saveBookingOnly);
+  }
+  const generateQuoteBtn = document.getElementById("generateQuoteBtn");
+  if (generateQuoteBtn) {
+    generateQuoteBtn.addEventListener("click", saveQuoteToSupabase);
+  }
+  const copyQuoteLinkBtn = document.getElementById("copyQuoteLinkBtn");
+  if (copyQuoteLinkBtn) {
+    copyQuoteLinkBtn.addEventListener("click", () => {
+      const link = document.getElementById("quoteLinkDisplay")?.value.trim() || "";
+      if (!link) {
+        setQuoteBuilderStatus("Generate a quote link first.", true);
+        return;
+      }
+      copyTextToClipboard(link, {
+        statusEl: getQuoteBuilderStatusEl(),
+        successMessage: "Quote link copied to clipboard.",
+        failureMessage: "Could not copy quote link.",
+      });
+    });
+  }
+  const agreementStepBackBtn = document.getElementById("agreementStepBack");
+  if (agreementStepBackBtn) {
+    agreementStepBackBtn.addEventListener("click", () => {
+      state.workspace.agreementStep = Math.max(1, Number(state.workspace.agreementStep || 1) - 1);
+      if (state.workspace.agreementStep !== AGREEMENT_STEP_COUNT) {
+        state.workspace.contractWizardOpen = false;
+      }
+      renderAgreementStepUI();
+      saveDraft();
+    });
+  }
+  const agreementStepNextBtn = document.getElementById("agreementStepNext");
+  if (agreementStepNextBtn) {
+    agreementStepNextBtn.addEventListener("click", () => {
+      state.workspace.agreementStep = Math.min(
+        AGREEMENT_STEP_COUNT,
+        Number(state.workspace.agreementStep || 1) + 1
+      );
+      if (state.workspace.agreementStep !== AGREEMENT_STEP_COUNT) {
+        state.workspace.contractWizardOpen = false;
+      }
+      renderAgreementStepUI();
+      saveDraft();
+    });
+  }
   const resetAgreementBtn = document.getElementById("resetAgreement");
   if (resetAgreementBtn) {
     resetAgreementBtn.addEventListener("click", resetAgreementForm);
+  }
+  const quoteBuilderTab = document.getElementById("quoteBuilderTab");
+  if (quoteBuilderTab) {
+    quoteBuilderTab.addEventListener("click", (event) => {
+      const removeBtn = event.target.closest("[data-remove-quote-option]");
+      if (removeBtn) {
+        const removeIndex = Number(removeBtn.getAttribute("data-remove-quote-option"));
+        const nextOptions = collectQuoteOptionsFromDom().filter((_, index) => index !== removeIndex);
+        state.quoteBuilder.options = nextOptions;
+        renderQuoteOptionRows(nextOptions.length ? nextOptions : [{
+          label: "",
+          sets: "",
+          price: "",
+          deposit: state.bandDNA.defaultDeposit || "",
+          detail: "",
+          featured: false,
+        }]);
+        saveDraft();
+        return;
+      }
+
+      if (event.target.closest("#addQuoteOptionBtn")) {
+        const existingOptions = collectQuoteOptionsFromDom();
+        if (existingOptions.length >= 3) return;
+        existingOptions.push({
+          label: "",
+          sets: "",
+          price: "",
+          deposit: state.bandDNA.defaultDeposit || "",
+          detail: "",
+          featured: false,
+        });
+        state.quoteBuilder.options = existingOptions;
+        renderQuoteOptionRows(existingOptions);
+        saveDraft();
+        return;
+      }
+
+      if (event.target.closest("#convertQuoteToContractBtn")) {
+        state.activeTab = "agreement";
+        switchTop("bookkeeping");
+        switchPanel("agreement");
+        submitAgreement();
+      }
+    });
+
+    quoteBuilderTab.addEventListener("input", () => {
+      state.quoteBuilder.options = collectQuoteOptionsFromDom();
+      saveDraft();
+    });
+
+    quoteBuilderTab.addEventListener("change", () => {
+      state.quoteBuilder.options = collectQuoteOptionsFromDom();
+      saveDraft();
+    });
   }
   document.getElementById("invoicePdf").addEventListener("click", () => generatePdf("invoice"));
   const invoiceCopyMessageBtn = document.getElementById("invoiceCopyMessage");
@@ -9135,7 +10911,16 @@ async function copyMessage(statusTargetId = "pdfStatus", triggerButton = null) {
 
 async function init() {
   loadDraft();
+  if (!state.bandDNA.migratedFromLegacy) {
+    migrateLegacyToBandDNA();
+    saveDraft();
+  }
+  if (!state.bandDNA.onboardingComplete) {
+    if (switchTopView) switchTopView("onboarding");
+  }
   hydrateBandProfileFromLegacyData();
+  hydrateBookingProfilesFromLegacyData();
+  applyAgreementDefaultsFromProfiles(false);
   applyBandProfileToPromoBuilder(false);
   loadCalendarSettings();
   ensureToddSeededShowFiles();
@@ -9157,6 +10942,9 @@ async function init() {
   state.calendar.selectedDate = "";
   setCalendarEventFormExpanded(false);
   setupListeners();
+  if (!state.bandDNA.onboardingComplete) {
+    if (switchTopView) switchTopView("onboarding");
+  }
   initSupabaseClient();
   updateCalendarAuthVisibility();
 
@@ -9171,6 +10959,7 @@ async function init() {
   updateHolidayFromDate();
   updatePerformanceHoursFromTimes();
   updateAgreementPreview();
+  renderAgreementStepUI();
   updateInvoicePreview();
   updateReceiptPreview();
   updateMessagePreview();

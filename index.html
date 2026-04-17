@@ -102,21 +102,45 @@
           </div>
 
           <div class="board-grid">
-            <article class="board-card pin-red">
+            <article class="board-card wide pin-red">
               <h3>Upcoming Shows</h3>
-              <p id="upcomingShowsSummary">Shows scheduled for the next 7 days.</p>
+              <p id="upcomingShowsSummary">Your next 3 upcoming bookings.</p>
               <ul class="board-list" id="upcomingShowsList">
-                <li>No shows in the next 7 days.</li>
+                <li>No upcoming bookings yet.</li>
               </ul>
             </article>
 
             <article class="board-card pin-gold">
-              <h3>Operations Progress</h3>
-              <p id="opsProgressSummary">Track completion across tasks, contracts, and confirmations.</p>
-              <div class="ops-progress-track" aria-hidden="true">
-                <div class="ops-progress-fill" id="opsProgressFill"></div>
+              <h3>Weekly Snapshot</h3>
+              <p id="opsProgressSummary">What needs attention this week.</p>
+              <div class="snapshot-grid">
+                <div class="snapshot-item">
+                  <span class="snapshot-label">Upcoming shows</span>
+                  <strong id="snapshotUpcomingShows">0</strong>
+                </div>
+                <div class="snapshot-item">
+                  <span class="snapshot-label">Contracts pending</span>
+                  <strong id="snapshotContractsPending">0</strong>
+                </div>
+                <div class="snapshot-item">
+                  <span class="snapshot-label">Confirmations needed</span>
+                  <strong id="snapshotConfirmationsNeeded">0</strong>
+                </div>
               </div>
-              <p class="work-order-meta" id="opsProgressDetail">0% complete</p>
+              <p class="work-order-meta" id="opsProgressDetail">No urgent items right now.</p>
+            </article>
+
+            <article class="board-card pin-blue">
+              <h3>Quick Actions</h3>
+              <p>Start the next thing fast.</p>
+              <div class="quick-action-stack">
+                <button class="btn board-action primary-action" id="homeNewBooking">New Booking</button>
+                <div class="quick-action-links">
+                  <button class="btn ghost quick-link" id="homeOpenContracts">Contracts</button>
+                  <button class="btn ghost quick-link" id="homeOpenCalendar">Calendar</button>
+                  <button class="btn ghost quick-link" id="homeWorkOrders">Work Orders</button>
+                </div>
+              </div>
             </article>
 
             <article class="board-card wide pin-blue">
@@ -127,8 +151,122 @@
                   <strong>Clear</strong>
                 </div>
               </div>
-              <button class="btn board-action" id="homeWorkOrders">Open Work Orders</button>
             </article>
+
+            <article class="board-card pin-gold">
+              <h3>Band Profile</h3>
+              <p>Save your reusable booking defaults once so new bookings start faster.</p>
+              <ul class="board-list">
+                <li>Basic contact info</li>
+                <li>Default lineup and hours</li>
+                <li>Rate and deposit defaults</li>
+              </ul>
+              <button class="btn board-action" id="homeBandProfile">Open Band Profile</button>
+              <button class="btn ghost board-action" id="homeEditBandDNA" type="button">Edit bandDNA Profile</button>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <section id="onboardingTab" class="hidden">
+        <div id="onboardingWizard">
+          <div id="onboardingStepBar"></div>
+          <div id="onboardingStepLabel"></div>
+
+          <div id="onboardingStep1" class="onboarding-step"></div>
+          <div id="onboardingStep2" class="onboarding-step hidden"></div>
+          <div id="onboardingStep3" class="onboarding-step hidden"></div>
+          <div id="onboardingStep4" class="onboarding-step hidden"></div>
+          <div id="onboardingStep5" class="onboarding-step hidden"></div>
+
+          <div id="onboardingNav">
+            <button id="onboardingBack" class="btn ghost hidden" type="button">Back</button>
+            <button id="onboardingNext" class="btn" type="button">Continue</button>
+          </div>
+          <p id="onboardingStatus"></p>
+        </div>
+      </section>
+
+      <main class="layout single hidden" id="bandProfileTab">
+        <section class="panel form-panel band-profile-panel" id="bandProfilePanel">
+          <h2>Band Profile</h2>
+          <p class="muted">Save the booking defaults you use most often so each new booking starts pre-filled and lighter on mobile.</p>
+
+          <div class="form-section band-profile-section">
+            <h3>Basic Info</h3>
+            <p class="inline-help band-profile-section-help">Used in contracts and communication.</p>
+            <div class="form-grid">
+              <label>
+                Band name
+                <input id="bandProfileBusinessName" placeholder="Rust & Ruin" />
+              </label>
+              <label>
+                Contact email
+                <input id="bandProfileContactEmail" type="email" placeholder="you@email.com" />
+              </label>
+              <label>
+                Contact phone
+                <input id="bandProfileContactPhone" placeholder="(802) 555-0101" />
+              </label>
+            </div>
+          </div>
+
+          <div class="form-section band-profile-section">
+            <h3>Performance Defaults</h3>
+            <p class="inline-help band-profile-section-help">Automatically applied to new bookings.</p>
+            <div class="form-grid">
+              <label>
+                Default lineup
+                <select id="bandProfileDefaultLineup">
+                  <option value="Duo">Duo</option>
+                  <option value="Full Band">Full Band</option>
+                </select>
+              </label>
+              <label>
+                Default performance hours
+                <input id="bandProfileDefaultHours" type="number" min="0" step="0.25" placeholder="3" />
+                <span class="inline-help">Used to calculate total performance time.</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-section band-profile-section">
+            <h3>Pricing Defaults</h3>
+            <p class="inline-help band-profile-section-help">Pre-fills pricing and deposit settings.</p>
+            <div class="form-grid">
+              <label>
+                Base hourly rate
+                <input id="bandProfileBaseRate" placeholder="$150/hr" />
+                <span class="inline-help">Used as default hourly rate.</span>
+              </label>
+              <label>
+                Default deposit amount
+                <input id="bandProfileDefaultDepositAmount" placeholder="$250" />
+                <span class="inline-help">Automatically applied unless changed per booking.</span>
+              </label>
+              <label class="checkbox inline-note">
+                <input id="bandProfileDefaultDepositEnabled" type="checkbox" />
+                Deposit enabled by default
+                <span class="inline-help">Automatically applied unless changed per booking.</span>
+              </label>
+            </div>
+
+            <div class="band-profile-rates-section">
+              <div class="band-profile-rates-head">
+                <div>
+                  <h4>Rates by Lineup</h4>
+                  <p class="inline-help">Optional. If a lineup-specific hourly rate exists, it will be used first. Otherwise the base hourly rate stays the fallback.</p>
+                  <p class="inline-help">Enter hourly rate for each lineup.</p>
+                </div>
+                <button class="btn ghost" id="addLineupRate" type="button">Add Lineup Rate</button>
+              </div>
+              <div id="bandProfileLineupRates" class="lineup-rate-list"></div>
+            </div>
+          </div>
+
+          <div class="inline-actions band-profile-actions">
+            <button class="btn" id="saveReusableBandProfile" type="button">Save Band Profile</button>
+            <p class="muted" id="bandProfileStatus"></p>
           </div>
         </section>
       </main>
@@ -662,283 +800,356 @@
       </div>
 
       <main class="layout hidden" id="agreementTab">
-        <section class="panel form-panel">
-          <h2>Agreement Details</h2>
-
-          <div class="form-section">
-            <h3>Client</h3>
-            <div class="form-grid">
-              <label>
-                Client name
-                <input id="clientName" placeholder="Jane Booker" />
-              </label>
-              <label>
-                Client email
-                <input id="clientEmail" type="email" placeholder="jane@email.com" />
-              </label>
-              <label>
-                Client phone
-                <input id="clientPhone" placeholder="(802) 555-0101" />
-              </label>
+        <section class="panel form-panel booking-flow-panel">
+          <div class="booking-flow-head">
+            <div>
+              <h2>New Booking</h2>
+              <p class="muted">Move step by step, save faster on mobile, and only generate documents when you need them.</p>
+            </div>
+            <div class="booking-progress-wrap">
+              <p class="booking-progress-help">Edit steps</p>
+              <div class="booking-progress" id="agreementStepProgress" aria-label="Booking step navigation"></div>
             </div>
           </div>
 
-          <div class="form-section">
-            <h3>Event</h3>
-            <div class="form-grid">
-              <label>
-                Performance date
-                <input id="performanceDate" type="date" />
-              </label>
-              <div class="checkbox-group">
-                <label class="checkbox">
-                  <input id="holidayWeekend" type="checkbox" />
-                  Holiday weekend (holiday rate)
+          <div class="booking-summary-card">
+            <div>
+              <span class="booking-summary-label">Client</span>
+              <strong data-booking-summary="client">New booking</strong>
+            </div>
+            <div>
+              <span class="booking-summary-label">Date</span>
+              <strong data-booking-summary="date">Not set yet</strong>
+            </div>
+            <div>
+              <span class="booking-summary-label">Booking type</span>
+              <strong data-booking-summary="type">Not set yet</strong>
+            </div>
+            <div>
+              <span class="booking-summary-label">Pricing</span>
+              <strong data-booking-summary="pricing">Not set yet</strong>
+            </div>
+          </div>
+
+          <div class="agreement-step-shell">
+            <section class="form-section agreement-step-section" data-agreement-step="1">
+              <h3>Step 1: Client Info</h3>
+              <p class="inline-help">Who is booking you? Keep this light and editable.</p>
+              <div class="form-grid">
+                <label>
+                  Client name
+                  <input id="clientName" placeholder="Jane Booker" />
                 </label>
-                <p id="holidayWarning" class="holiday-warning hidden">
-                  THIS IS A HOLIDAY WEEKEND
-                </p>
-                <div id="holidayDetails" class="hidden">
+                <label>
+                  Client email
+                  <input id="clientEmail" type="email" placeholder="jane@email.com" />
+                </label>
+                <label>
+                  Client phone
+                  <input id="clientPhone" placeholder="(802) 555-0101" />
+                </label>
+              </div>
+            </section>
+
+            <section class="form-section agreement-step-section hidden" data-agreement-step="2">
+              <h3>Step 2: Event Details</h3>
+              <p class="inline-help">Capture the essentials for the event before you price anything.</p>
+              <div class="form-grid">
+                <label>
+                  Performance date
+                  <input id="performanceDate" type="date" />
+                </label>
+                <label>
+                  Event type
+                  <select id="eventType">
+                    <option value="">Select</option>
+                    <option>Pub / Club</option>
+                    <option>Private Event</option>
+                  </select>
+                </label>
+                <label>
+                  Venue address (GPS)
+                  <textarea id="venueAddress" placeholder="123 Main St, City, ST 00000"></textarea>
+                </label>
+                <div class="checkbox-group">
+                  <label class="checkbox">
+                    <input id="holidayWeekend" type="checkbox" />
+                    Holiday weekend (holiday rate)
+                  </label>
+                  <p id="holidayWarning" class="holiday-warning hidden">
+                    THIS IS A HOLIDAY WEEKEND
+                  </p>
+                  <div id="holidayDetails" class="hidden">
+                    <label>
+                      Holiday rate
+                      <select id="holidayRateType">
+                        <option value="regular">Regular rate (1x)</option>
+                        <option value="timeAndHalf">Time and a half (1.5x)</option>
+                        <option value="double">Double (2x)</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <p id="agreementBookingWarning" class="warning hidden"></p>
+              <div id="agreementBookingActions" class="inline-actions hidden"></div>
+            </section>
+
+            <section class="form-section agreement-step-section hidden" data-agreement-step="3">
+              <h3>Step 3: Performance Details</h3>
+              <p class="inline-help">Lock in the actual performance setup, time, and logistics.</p>
+              <div class="form-grid">
+                <label>
+                  Performance start time (on stage)
+                  <input id="performanceTime" type="time" />
+                </label>
+                <label>
+                  Performance end time (on stage)
+                  <input id="performanceEndTime" type="time" />
+                </label>
+                <label>
+                  Performance hours (on stage)
+                  <input id="hours" placeholder="Select" />
+                </label>
+                <div class="field-stack">
                   <label>
-                    Holiday rate
-                    <select id="holidayRateType">
-                      <option value="regular">Regular rate (1x)</option>
-                      <option value="timeAndHalf">Time and a half (1.5x)</option>
-                      <option value="double">Double (2x)</option>
-                    </select>
+                    Non-performance hours on site
+                    <input id="nonPerformanceHours" disabled />
+                  </label>
+                  <label class="checkbox inline-note">
+                    <input id="chargeNonPerformance" type="checkbox" />
+                    Charge for non-performance time
                   </label>
                 </div>
-              </div>
-              <label>
-                Performance start time (on stage)
-                <input id="performanceTime" type="time" />
-              </label>
-              <label>
-                Performance end time (on stage)
-                <input id="performanceEndTime" type="time" />
-              </label>
-              <label>
-                Performance hours (on stage)
-                <input id="hours" placeholder="Select" />
-              </label>
-              <div class="field-stack">
                 <label>
-                  Non-performance hours on site
-                  <input id="nonPerformanceHours" disabled />
+                  Band configuration
+                  <select id="bandConfig">
+                    <option value="">Select</option>
+                    <option>Full Band</option>
+                    <option>Duo</option>
+                  </select>
                 </label>
-                <label class="checkbox inline-note">
-                  <input id="chargeNonPerformance" type="checkbox" />
-                  Charge for non-performance time
+                <label>
+                  Additional musicians (beyond band size)
+                  <input id="additionalMusicians" placeholder="Leave blank if unknown" />
+                </label>
+                <label class="checkbox">
+                  <input id="backlineSound" type="checkbox" />
+                  Backline / sound tech (+$50 per show)
                 </label>
               </div>
-              <label>
-                Event type
-                <select id="eventType">
-                  <option value="">Select</option>
-                  <option>Pub / Club</option>
-                  <option>Private Event</option>
-                </select>
-              </label>
-              <label>
-                Band configuration
-                <select id="bandConfig">
-                  <option value="">Select</option>
-                  <option>Full Band</option>
-                  <option>Duo</option>
-                </select>
-              </label>
-              <label>
-                Additional musicians (beyond band size)
-                <input id="additionalMusicians" placeholder="Leave blank if unknown" />
-              </label>
-              <label class="checkbox">
-                <input id="backlineSound" type="checkbox" />
-                Backline / sound tech (+$50 per show)
-              </label>
-              <div class="field-stack">
-                <label class="checkbox inline-note">
-                  <input id="friendsFamilyDiscount" type="checkbox" />
-                  Friends &amp; family / preferred venue discount
-                </label>
-                <label>Discount amount</label>
-                <div id="friendsFamilyDiscountButtons" class="discount-preset-buttons">
-                  <button type="button" class="btn ghost" data-discount="50">$50</button>
-                  <button type="button" class="btn ghost" data-discount="75">$75</button>
-                  <button type="button" class="btn ghost" data-discount="100">$100</button>
-                  <button type="button" class="btn ghost" data-discount="200">$200</button>
-                  <button type="button" class="btn ghost" data-discount="300">$300</button>
-                  <button type="button" class="btn ghost" data-discount="0">Clear</button>
+              <div class="sub-step-grid">
+                <div class="form-section booking-nested-section">
+                  <details class="booking-collapse">
+                    <summary>
+                      <span class="booking-collapse-title">Travel &amp; Lodging</span>
+                      <span class="booking-collapse-help">Tap to expand</span>
+                    </summary>
+                    <div class="form-grid booking-collapse-body">
+                      <label class="checkbox">
+                        <input id="travelOutside" type="checkbox" />
+                        Travel time is outside of 2 hours from 56 Kevadus Circle
+                      </label>
+                      <div id="travelDetails" class="hidden">
+                        <label>
+                          Hours outside of 2-hour radius
+                          <input id="travelHours" placeholder="0.5" />
+                        </label>
+                        <label>
+                          Number of performers for travel time
+                          <input id="travelPerformerCount" type="number" min="1" step="1" placeholder="4" />
+                        </label>
+                      </div>
+                      <label class="checkbox">
+                        <input id="lodgingEnabled" type="checkbox" />
+                        Lodging needed (camp/site)
+                      </label>
+                      <label id="lodgingRateWrap" class="hidden">
+                        Lodging rate
+                        <select id="lodgingRate">
+                          <option value="250">Full Band ($250)</option>
+                          <option value="125">Duo ($125)</option>
+                        </select>
+                      </label>
+                    </div>
+                    <p class="section-total">
+                      Travel &amp; lodging total: <span data-fill="travelLodgingTotal"></span>
+                    </p>
+                  </details>
                 </div>
-                <input type="hidden" id="friendsFamilyDiscountAmount" />
               </div>
-              <label>
-                Venue address (GPS)
-                <textarea id="venueAddress" placeholder="123 Main St, City, ST 00000"></textarea>
-              </label>
-            </div>
-            <p class="section-total">
-              Performance time total: <span data-fill="performanceHoursTotal"></span> hours
-            </p>
-            <p id="agreementBookingWarning" class="warning hidden"></p>
-            <div id="agreementBookingActions" class="inline-actions hidden"></div>
-            <p class="section-total">
-              Discount applied: <span data-fill="friendsFamilyDiscountDisplay"></span>
-            </p>
-            <p class="section-total">
-              Event subtotal (before add-ons & travel): <span data-fill="eventSubtotal"></span>
-            </p>
-          </div>
+              <p class="section-total">
+                Performance time total: <span data-fill="performanceHoursTotal"></span> hours
+              </p>
+            </section>
 
-          <div class="form-section">
-            <h3>Travel &amp; Lodging</h3>
-            <div class="form-grid">
-              <label class="checkbox">
-                <input id="travelOutside" type="checkbox" />
-                Travel time is outside of 2 hours from 56 Kevadus Circle
-              </label>
-              <div id="travelDetails" class="hidden">
-                <label>
-                  Hours outside of 2-hour radius
-                  <input id="travelHours" placeholder="0.5" />
-                </label>
-                <label>
-                  Number of performers for travel time
-                  <input id="travelPerformerCount" type="number" min="1" step="1" placeholder="4" />
-                </label>
+            <section class="form-section agreement-step-section hidden" data-agreement-step="4">
+              <h3>Step 4: Pricing &amp; Add-ons</h3>
+              <p class="inline-help">Apply your pricing defaults, discounts, deposit settings, and extras.</p>
+              <div class="form-grid">
+                <div class="field-stack">
+                  <label class="checkbox inline-note">
+                    <input id="friendsFamilyDiscount" type="checkbox" />
+                    Friends &amp; family / preferred venue discount
+                  </label>
+                  <label>Discount amount</label>
+                  <div id="friendsFamilyDiscountButtons" class="discount-preset-buttons">
+                    <button type="button" class="btn ghost" data-discount="50">$50</button>
+                    <button type="button" class="btn ghost" data-discount="75">$75</button>
+                    <button type="button" class="btn ghost" data-discount="100">$100</button>
+                    <button type="button" class="btn ghost" data-discount="200">$200</button>
+                    <button type="button" class="btn ghost" data-discount="300">$300</button>
+                    <button type="button" class="btn ghost" data-discount="0">Clear</button>
+                  </div>
+                  <input type="hidden" id="friendsFamilyDiscountAmount" />
+                </div>
               </div>
-              <label class="checkbox">
-                <input id="lodgingEnabled" type="checkbox" />
-                Lodging needed (camp/site)
-              </label>
-              <label id="lodgingRateWrap" class="hidden">
-                Lodging rate
-                <select id="lodgingRate">
-                  <option value="250">Full Band ($250)</option>
-                  <option value="125">Duo ($125)</option>
-                </select>
-              </label>
-            </div>
-            <p class="section-total">
-              Travel &amp; lodging total: <span data-fill="travelLodgingTotal"></span>
-            </p>
-          </div>
+              <p class="section-total">
+                Discount applied: <span data-fill="friendsFamilyDiscountDisplay"></span>
+              </p>
+              <p class="section-total">
+                Event subtotal (before add-ons & travel): <span data-fill="eventSubtotal"></span>
+              </p>
 
-          <div class="form-section">
-            <h3>Add-ons</h3>
-            <div class="addon-list">
-              <label class="checkbox">
-                <input id="addonTent" type="checkbox" />
-                Tent (+$25)
-              </label>
-              <label class="checkbox">
-                <input id="addonLights" type="checkbox" />
-                Lights (+$10)
-              </label>
-              <label class="checkbox">
-                <input id="addonGenerator" type="checkbox" />
-                Generator (+$75)
-              </label>
-              <label class="checkbox">
-                <input id="addonAdditionalSong" type="checkbox" />
-                Special request song performance (outside our catalog, +$50)
-              </label>
-              <label class="checkbox">
-                <input id="addonRecordedSong" type="checkbox" />
-                Recorded song beyond first (+$5)
-              </label>
-              <label class="checkbox">
-                <input id="addonMCing" type="checkbox" />
-                MC&apos;ing (event announcements, introductions, or timeline cues, +$50)
-              </label>
-              <label class="checkbox">
-                <input id="addonDJing" type="checkbox" />
-                DJ&apos;ing (recorded music sets, dances, or background playlists, +$50)
-              </label>
-            </div>
-            <label class="addon-notes">
-              Requested songs (details)
-              <textarea id="requestedSongs" placeholder="List requested songs here..."></textarea>
-            </label>
-            <p class="section-total">
-              Add-ons total: <span data-fill="addonTotal"></span>
-            </p>
-          </div>
+              <div class="form-section booking-nested-section">
+                <details class="booking-collapse">
+                  <summary>
+                    <span class="booking-collapse-title">Add-ons</span>
+                    <span class="booking-collapse-help">Tap to expand</span>
+                  </summary>
+                  <div class="addon-list booking-collapse-body">
+                    <label class="checkbox">
+                      <input id="addonTent" type="checkbox" />
+                      Tent (+$25)
+                    </label>
+                    <label class="checkbox">
+                      <input id="addonLights" type="checkbox" />
+                      Lights (+$10)
+                    </label>
+                    <label class="checkbox">
+                      <input id="addonGenerator" type="checkbox" />
+                      Generator (+$75)
+                    </label>
+                    <label class="checkbox">
+                      <input id="addonAdditionalSong" type="checkbox" />
+                      Special request song performance (outside our catalog, +$50)
+                    </label>
+                    <label class="checkbox">
+                      <input id="addonRecordedSong" type="checkbox" />
+                      Recorded song beyond first (+$5)
+                    </label>
+                    <label class="checkbox">
+                      <input id="addonMCing" type="checkbox" />
+                      MC&apos;ing (event announcements, introductions, or timeline cues, +$50)
+                    </label>
+                    <label class="checkbox">
+                      <input id="addonDJing" type="checkbox" />
+                      DJ&apos;ing (recorded music sets, dances, or background playlists, +$50)
+                    </label>
+                  </div>
+                  <label class="addon-notes">
+                    Requested songs (details)
+                    <textarea id="requestedSongs" placeholder="List requested songs here..."></textarea>
+                  </label>
+                  <p class="section-total">
+                    Add-ons total: <span data-fill="addonTotal"></span>
+                  </p>
+                </details>
+              </div>
 
-          <div class="form-section">
-            <h3>Fees &amp; Deposits</h3>
-            <div class="form-grid">
-              <label>
-                Event subtotal
-                <input id="feeTotal" placeholder="1200" readonly />
-              </label>
-              <label>
-                Backline / sound tech included above
-                <input id="feeBackline" readonly />
-              </label>
-              <label>
-                Friends &amp; family discount applied
-                <input id="feeDiscount" readonly />
-              </label>
-              <label>
-                Add-ons total
-                <input id="feeAddons" readonly />
-              </label>
-              <label>
-                Deposit amount
-                <input id="depositAmount" placeholder="50" />
-              </label>
-              <label>
-                Deposit due (after credits)
-                <input id="feeDepositDue" readonly />
-              </label>
-              <label class="checkbox inline-note">
-                <input id="depositEnabled" type="checkbox" />
-                Apply deposit (default $50)
-              </label>
-              <label class="checkbox">
-                <input id="depositWaived" type="checkbox" />
-                Waive deposit (preferred venue)
-              </label>
-              <div class="field-stack">
-                <label class="checkbox">
-                  <input id="promoCredit" type="checkbox" />
-                  $5 deposit credit for promo post + tag
-                </label>
-                <label class="checkbox">
-                  <input id="liveVideoCredit" type="checkbox" />
-                  $10 deposit credit for live video + tag
-                </label>
-                <p class="inline-help">
-                  By selecting credits, client agrees to make the posts.
+              <div class="form-section booking-nested-section">
+                <h3>Fees &amp; Deposits</h3>
+                <div class="form-grid">
+                  <label>
+                    Event subtotal
+                    <input id="feeTotal" placeholder="$800" />
+                    <span class="inline-help">Auto-calculated from total hours × hourly rate. Edit to override.</span>
+                    <span class="inline-help" id="feeRateBreakdown">0.00 hours × $0.00/hr = $0.00</span>
+                  </label>
+                  <label>
+                    Backline / sound tech included above
+                    <input id="feeBackline" readonly />
+                  </label>
+                  <label>
+                    Friends &amp; family discount applied
+                    <input id="feeDiscount" readonly />
+                  </label>
+                  <label>
+                    Add-ons total
+                    <input id="feeAddons" readonly />
+                  </label>
+                  <label>
+                    Deposit amount
+                    <input id="depositAmount" placeholder="50" />
+                  </label>
+                  <label>
+                    Deposit due (after credits)
+                    <input id="feeDepositDue" readonly />
+                  </label>
+                  <label class="checkbox inline-note">
+                    <input id="depositEnabled" type="checkbox" />
+                    Apply deposit (default $50)
+                  </label>
+                  <label class="checkbox">
+                    <input id="depositWaived" type="checkbox" />
+                    Waive deposit (preferred venue)
+                  </label>
+                  <div class="field-stack">
+                    <label class="checkbox">
+                      <input id="promoCredit" type="checkbox" />
+                      $5 deposit credit for promo post + tag
+                    </label>
+                    <label class="checkbox">
+                      <input id="liveVideoCredit" type="checkbox" />
+                      $10 deposit credit for live video + tag
+                    </label>
+                    <p class="inline-help">
+                      By selecting credits, client agrees to make the posts.
+                    </p>
+                  </div>
+                  <label>
+                    Deposit paid
+                    <input id="depositPaid" />
+                  </label>
+                  <label>
+                    Amount due day of after deposit
+                    <input id="amountDueDayOf" placeholder="$1150" readonly />
+                  </label>
+                </div>
+                <p class="section-total">
+                  Total after discount, add-ons, and deposit: <span data-fill="feesSubtotal"></span>
+                </p>
+                <p class="section-total">
+                  Deposit credits: <span data-fill="depositCredits"></span>
+                </p>
+                <p class="section-total">
+                  Deposit due: <span data-fill="depositDue"></span>
                 </p>
               </div>
-              <label>
-                Deposit paid
-                <input id="depositPaid" />
-              </label>
-              <label>
-                Amount due day of after deposit
-                <input id="amountDueDayOf" placeholder="$1150" readonly />
-              </label>
-            </div>
-            <p class="section-total">
-              Total after discount, add-ons, and deposit: <span data-fill="feesSubtotal"></span>
-            </p>
-            <p class="section-total">
-              Deposit credits: <span data-fill="depositCredits"></span>
-            </p>
-            <p class="section-total">
-              Deposit due: <span data-fill="depositDue"></span>
-            </p>
+            </section>
+
+            <section class="form-section agreement-step-section hidden" data-agreement-step="5">
+              <h3>Step 5: Review &amp; Save</h3>
+              <p class="inline-help">Save the booking now. Contract generation stays separate so you can come back to it later.</p>
+              <p class="inline-help booking-review-help">Need to make changes? Use the steps above or Back to edit any section.</p>
+              <div class="booking-action-grid">
+                <button class="btn" id="saveBookingOnly" type="button">Save Booking</button>
+                <button class="btn ghost" id="submitAgreement" type="button">Generate Contract</button>
+                <button class="btn ghost hidden" id="createQuoteBtn" type="button">Create Quote</button>
+              </div>
+              <div class="booking-action-notes">
+                <p class="inline-help" id="contractWizardNote">Save the booking first. After that, you can open the contract wizard whenever you're ready.</p>
+                <p class="inline-help">This review step is just for the booking. Contract, invoice, and receipt creation happen separately.</p>
+              </div>
+              <p id="agreementCalendarStatus" class="muted"></p>
+            </section>
           </div>
 
-          <div class="form-footer agreement-actions">
-            <p class="inline-help">Client signs on PDF.</p>
-            <p class="inline-help">When you click Save + Generate/Share, the event is added to the calendar, the message is copied to your clipboard, and the PDF is generated. Then use Share PDF or Print PDF at the top of this screen.</p>
-            <button class="btn" id="submitAgreement" type="button">Save + Generate/Share</button>
+          <div class="agreement-step-footer">
+            <button class="btn ghost" id="agreementStepBack" type="button">Back</button>
+            <button class="btn" id="agreementStepNext" type="button">Next</button>
             <button class="btn ghost" id="resetAgreement" type="button">Reset Form</button>
           </div>
-          <p id="agreementCalendarStatus" class="muted"></p>
         </section>
 
         <section class="panel preview-panel" aria-label="Agreement preview">
@@ -971,7 +1182,7 @@
                 when not performing.
               </p>
               <p>
-                The fee breakdown is as follows: performance fee from event subtotal
+                The fee breakdown is as follows: performance time fee
                 <span data-fill="performanceFee"></span>; additional on-site time fee
                 <span data-fill="nonPerformanceFee"></span>; holiday adjustment
                 <span data-fill="holidayFee"></span> (<span data-fill="holidayRateType"></span>);
@@ -1003,7 +1214,7 @@
                 sound check, and breakdown are included in the performance fee. Non-performance time on
                 site is only billed when additional on-site time is requested by the client or venue
                 (for example, weddings, memorials, or speeches). Non-performance time (if selected) is
-                billed at $50/hour per band member and is prorated to actual time (e.g., 0.25, 0.50,
+                billed at the booked hourly rate and is prorated to actual time (e.g., 0.25, 0.50,
                 0.75, or 1+ hours). Current billed time:
                 <span data-fill="nonPerformanceHoursDisplay"></span> hours.
               </p>
@@ -1058,7 +1269,7 @@
                   Performance hours (on stage):
                   <span data-fill="performanceHoursDisplay"></span> hours
                 </p>
-                <p>Performance fee from event subtotal: <span data-fill="performanceFee"></span></p>
+                <p>Performance time fee: <span data-fill="performanceFee"></span></p>
                 <p>Additional on-site time fee: <span data-fill="nonPerformanceFee"></span></p>
                 <p>Holiday adjustment: <span data-fill="holidayFee"></span></p>
                 <p>Preferred venue / friends &amp; family discount: <span data-fill="friendsFamilyDiscountDisplay"></span></p>
@@ -1094,6 +1305,59 @@
               <p>rustandruinvt@gmail.com · 802-952-6609 (Josh) · 802-952-8225 (Beth)</p>
               <p>www.rustandruin.info</p>
             </footer>
+          </div>
+        </section>
+      </main>
+
+      <main class="layout single hidden" id="quoteBuilderTab">
+        <section class="panel form-panel booking-flow-panel">
+          <div class="booking-flow-head">
+            <div>
+              <h2 id="quoteBuilderHeading">Create a quote</h2>
+              <p class="muted">Build a client-facing quote page with up to three options and one shareable link.</p>
+            </div>
+          </div>
+
+          <div class="booking-summary-card" id="quoteEventSummary"></div>
+
+          <div id="quoteAcceptedBanner" class="form-section hidden"></div>
+
+          <div class="form-section">
+            <h3>Quote options</h3>
+            <div id="quoteOptionRows"></div>
+            <div class="inline-actions">
+              <button class="btn ghost" id="addQuoteOptionBtn" type="button">Add option</button>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="form-grid">
+              <label>
+                Expiry days
+                <input id="quoteExpiryDays" type="number" min="1" step="1" value="7" />
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button class="btn" id="generateQuoteBtn" type="button">Generate quote link</button>
+            </div>
+          </div>
+
+          <div class="form-section hidden" id="quoteLinkWrap">
+            <h3>Quote link</h3>
+            <div class="form-grid">
+              <label>
+                Public URL
+                <input id="quoteLinkDisplay" readonly />
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button class="btn ghost" id="copyQuoteLinkBtn" type="button">Copy link</button>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>Quote status</h3>
+            <p id="quoteStatusArea" class="muted">No quote generated yet.</p>
           </div>
         </section>
       </main>
