@@ -2130,7 +2130,12 @@ function getAgreementTotals() {
     ? toNumber(state.agreement.nonPerformanceHours)
     : 0;
   const totalContractedHours = performanceHours + nonPerformanceHours;
-  const hourlyRate = toNumber(getDefaultRateForLineup(state.agreement.bandConfig));
+  let hourlyRate = toNumber(getDefaultRateForLineup(state.agreement.bandConfig));
+  if (hourlyRate === 0 && state.bandDNA.musicianHourlyRate) {
+    const count = state.agreement.bandConfig === "Full Band" ? 4
+      : state.agreement.bandConfig === "Duo" ? 2 : 1;
+    hourlyRate = toNumber(state.bandDNA.musicianHourlyRate) * count;
+  }
   const performanceFee = performanceHours * hourlyRate;
   const onsiteFee = nonPerformanceHours * hourlyRate;
   const autoCalculatedTotal = totalContractedHours * hourlyRate;
