@@ -4230,9 +4230,16 @@ function buildAgreementContractDigitalPayload() {
     performance_end_time: state.agreement.performanceEndTime || "",
     hours: state.agreement.hours || "",
     lineup: state.agreement.bandConfig || "",
-    performance_fee: totals.depositFeeBase > 0
-      ? totals.depositFeeBase
-      : toNumber(state.agreement.feeTotal || document.getElementById("feeTotal")?.value || "0"),
+    performance_fee: (() => {
+      const base = totals.depositFeeBase;
+      if (base > 0) return base;
+      const hourlyRate = toNumber(getDefaultRateForLineup(state.agreement.bandConfig));
+      const hours = toNumber(state.agreement.hours);
+      if (hourlyRate > 0 && hours > 0) return hourlyRate * hours;
+      const feeInput = document.getElementById("feeTotal");
+      const feeRaw = feeInput ? feeInput.value.replace(/[^0-9.]/g, "") : "";
+      return toNumber(feeRaw || state.agreement.feeTotal || "0");
+    })(),
     deposit_amount: totals.depositDueNow,
     amount_due_day_of: Math.max(
       0,
