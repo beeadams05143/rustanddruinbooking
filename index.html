@@ -1117,8 +1117,17 @@
                     <input id="amountDueDayOf" placeholder="$1150" readonly />
                   </label>
                 </div>
-                <p class="section-total">
-                  Total after discount, add-ons, and deposit: <span data-fill="feesSubtotal"></span>
+                <p class="agreement-total-line">
+                  Total contract value:
+                  <strong data-fill="totalContractValue">$0.00</strong>
+                </p>
+                <p class="agreement-total-line">
+                  Deposit due to hold date:
+                  <strong data-fill="depositDueNow">$0.00</strong>
+                </p>
+                <p class="agreement-total-line">
+                  Balance due day of show:
+                  <strong data-fill="balanceDueAtShow">$0.00</strong>
                 </p>
                 <p class="section-total">
                   Deposit credits: <span data-fill="depositCredits"></span>
@@ -1173,15 +1182,15 @@
             <div class="contract-section">
               <h3>1. Fees</h3>
               <p>
-                The total fee for this event is <span data-fill="openingPerformanceFee"></span> for
-                <span data-fill="totalContractedHoursDisplay"></span> total contracted on-site hours.
-                The performance date is <span data-fill="performanceDate"></span>, with performance time
-                from <span data-fill="performanceTime"></span> to
+                This booking covers <span data-fill="totalContractedHoursDisplay"></span> total contracted
+                on-site hours. The performance date is <span data-fill="performanceDate"></span>, with
+                performance time from <span data-fill="performanceTime"></span> to
                 <span data-fill="performanceEndTime"></span>. This includes
                 <span data-fill="performanceHoursDisplay"></span> performance hours on stage and
                 <span data-fill="nonPerformanceHoursDisplay"></span> additional required on-site hours
                 when not performing.
               </p>
+              <p><span data-fill="contractDepositModelCopy"></span></p>
               <p>
                 The fee breakdown is as follows: performance time fee
                 <span data-fill="performanceFee"></span>; additional on-site time fee

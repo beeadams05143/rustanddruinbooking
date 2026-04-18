@@ -181,6 +181,7 @@ function createInitialPricingProfileState() {
     defaultPerformanceHours: "",
     defaultDepositAmount: String(depositDefault),
     defaultDepositEnabled: true,
+    depositModel: "addition",
     defaultEventType: "",
     defaultBandConfig: "Duo",
   };
@@ -228,6 +229,7 @@ const state = {
     defaultSetLength: "",
     defaultDeposit: "50",
     depositEnabled: true,
+    depositModel: "addition",
     travelFreeWithinHours: "2",
     travelChargeType: "hourly_per_performer",
     travelHourlyRate: "25",
@@ -397,6 +399,9 @@ function getBandDNA() {
 
 function updateBandDNA(updates = {}) {
   state.bandDNA = { ...state.bandDNA, ...updates };
+  if (typeof updates.depositModel === "string") {
+    state.workOrderWorkspace.pricingProfile.depositModel = updates.depositModel;
+  }
   saveDraft();
   saveBandDNAToSupabase();
 }
@@ -485,6 +490,7 @@ function migrateLegacyToBandDNA() {
     musicianHourlyRate: pricingProfile.musicianHourlyRate || "50",
     defaultDeposit: pricingProfile.defaultDepositAmount || "50",
     depositEnabled: pricingProfile.defaultDepositEnabled !== false,
+    depositModel: pricingProfile.depositModel || "addition",
     defaultSetLength: pricingProfile.defaultPerformanceHours || "",
     website: epk.website || "",
     musicLink: epk.musicLink || "",
@@ -707,6 +713,25 @@ function renderOnboardingWizard() {
               <input id="onboardingDefaultDeposit" type="number" min="0" step="1" value="${escapeHtml(dna.defaultDeposit || "")}" />
               <span class="inline-help">Used as the default booking deposit.</span>
             </label>
+            <p>How does your deposit work?</p>
+            <div class="form-grid">
+              <button class="btn ghost${dna.depositModel === "credited" ? "" : " active"}" type="button" data-deposit-model="addition">
+                In addition to the fee
+                <span class="inline-help">
+                  Client pays deposit + performance fee separately.
+                  Total = $300 fee + $50 deposit = $350.
+                </span>
+              </button>
+              <button class="btn ghost${dna.depositModel === "credited" ? " active" : ""}" type="button" data-deposit-model="credited">
+                Credited toward the fee
+                <span class="inline-help">
+                  Deposit comes out of the total fee.
+                  Total = $300 fee, $50 paid upfront, $250 day of show.
+                </span>
+              </button>
+            </div>
+            <input type="hidden" id="onboardingDepositModel" 
+              value="${escapeHtml(dna.depositModel || "addition")}" />
             <label class="checkbox inline-note">
               <input id="onboardingDepositEnabled" type="checkbox" ${dna.depositEnabled !== false ? "checked" : ""} />
               Deposit enabled
@@ -892,6 +917,7 @@ function saveOnboardingStep(stepNumber) {
       minimumHours: document.getElementById("onboardingMinimumHours")?.value.trim() || "2",
       defaultDeposit: document.getElementById("onboardingDefaultDeposit")?.value.trim() || "",
       depositEnabled: Boolean(document.getElementById("onboardingDepositEnabled")?.checked),
+      depositModel: document.getElementById("onboardingDepositModel")?.value || "addition",
     });
     return;
   }
@@ -1480,6 +1506,9 @@ function hydrateBookingProfilesFromLegacyData() {
   }
   if (!pricing.defaultPerformanceHours && state.agreement.hours) {
     pricing.defaultPerformanceHours = state.agreement.hours;
+  }
+  if (!pricing.depositModel && state.bandDNA.depositModel) {
+    pricing.depositModel = state.bandDNA.depositModel;
   }
 }
 
@@ -2146,7 +2175,35 @@ function getAgreementTotals() {
   const feeSubtotal = eventSubtotal + addOnTotal + adjustedDeposit;
   const totalWithDeposit = eventSubtotal + addOnTotal + adjustedDeposit + travelFee + lodgingFee;
 
+  const depositModel =
+    state.bandDNA.depositModel === "credited" ? "credited" : "addition";
+  const depositFeeBase = Math.max(0, eventSubtotal);
+  const depositDueNow = adjustedDeposit;
+  let totalContractValue = depositFeeBase;
+  let balanceDueAtShow = depositFeeBase;
+  let totalClientPays = depositFeeBase;
+
+  if (!depositEnabled || depositWaived || depositDueNow <= 0) {
+    totalContractValue = depositFeeBase;
+    balanceDueAtShow = depositFeeBase;
+    totalClientPays = depositFeeBase;
+  } else if (depositModel === "credited") {
+    totalContractValue = depositFeeBase;
+    balanceDueAtShow = Math.max(0, depositFeeBase - depositDueNow);
+    totalClientPays = depositFeeBase;
+  } else {
+    totalContractValue = depositFeeBase + depositDueNow;
+    balanceDueAtShow = depositFeeBase;
+    totalClientPays = depositFeeBase + depositDueNow;
+  }
+
   return {
+    depositModel,
+    depositFeeBase,
+    totalContractValue,
+    balanceDueAtShow,
+    depositDueNow,
+    totalClientPays,
     depositAmount: adjustedDeposit,
     rawDepositAmount,
     depositEnabled,
@@ -2242,7 +2299,10 @@ function updateFeesAndDepositsFields(totals) {
   const depositDueInput = document.getElementById("feeDepositDue");
   if (depositDueInput) depositDueInput.value = toMoney(totals.depositAmount);
 
-  const dayOfDue = Math.max(0, totals.performanceFee - totals.depositAmount);
+  const dayOfDue = Math.max(
+    0,
+    totals.balanceDueAtShow + totals.addOnTotal + totals.travelFee + totals.lodgingFee
+  );
   const dayOfValue = toMoney(dayOfDue);
   state.agreement.amountDueDayOf = dayOfValue;
   const dayOfInput = document.getElementById("amountDueDayOf");
@@ -2321,10 +2381,6 @@ function updateAgreementPreview() {
   }
 
   setText("[data-fill='performanceFee']", toMoney(totals.performanceFee));
-  setText(
-    "[data-fill='openingPerformanceFee']",
-    toMoney(totals.performanceFee)
-  );
   setText("[data-fill='performanceFeeAuto']", toMoney(totals.performanceFeeAuto));
   setText("[data-fill='nonPerformanceFee']", toMoney(totals.onsiteFee));
   setText("[data-fill='hourlyRate']", toMoney(totals.hourlyRate));
@@ -2354,7 +2410,35 @@ function updateAgreementPreview() {
       : "$0.00"
   );
   setText("[data-fill='feesSubtotal']", toMoney(totals.feeSubtotal));
-  setText("[data-fill='totalWithDeposit']", toMoney(totals.performanceFee));
+  setText("[data-fill='totalContractValue']", toMoney(totals.totalContractValue));
+  setText("[data-fill='depositDueNow']", toMoney(totals.depositDueNow));
+  setText("[data-fill='balanceDueAtShow']", toMoney(totals.balanceDueAtShow));
+  setText(
+    "[data-fill='totalWithDeposit']",
+    toMoney(totals.totalClientPays + totals.addOnTotal + totals.travelFee + totals.lodgingFee)
+  );
+
+  const feeStr = toMoney(totals.depositFeeBase);
+  const depStr = toMoney(totals.depositDueNow);
+  const totStr = toMoney(totals.totalContractValue);
+  const balStr = toMoney(totals.balanceDueAtShow);
+  let contractDepositCopy = "";
+  if (!totals.depositEnabled || totals.depositWaived || totals.depositDueNow <= 0) {
+    contractDepositCopy = totals.depositWaived
+      ? `No deposit is required to hold this date (waived preferred venue). The total contracted performance fee is ${feeStr}.`
+      : `The total contracted performance fee is ${feeStr}.`;
+  } else if (totals.depositModel === "credited") {
+    contractDepositCopy =
+      `The total fee for this event is ${feeStr}. A deposit of ${depStr} is due upon signing and ` +
+      "will be credited toward the total fee. The remaining balance of " +
+      `${balStr} is due on the day of the event.`;
+  } else {
+    contractDepositCopy =
+      `The total performance fee is ${feeStr}. A deposit of ${depStr} is required in addition to hold this date, ` +
+      `bringing the total amount due to ${totStr}. The deposit is due upon signing. The full performance fee of ` +
+      `${feeStr} is due on the day of the event.`;
+  }
+  setText("[data-fill='contractDepositModelCopy']", contractDepositCopy);
   setText("[data-fill='travelHours']", state.agreement.travelHours || "__");
   setText("[data-fill='travelBandMembers']", String(totals.travelBandMembers || 0));
   setText(
@@ -4146,9 +4230,12 @@ function buildAgreementContractDigitalPayload() {
     performance_end_time: state.agreement.performanceEndTime || "",
     hours: state.agreement.hours || "",
     lineup: state.agreement.bandConfig || "",
-    performance_fee: totals.performanceFee,
-    deposit_amount: totals.depositAmount,
-    amount_due_day_of: Math.max(0, totals.performanceFee - totals.depositAmount),
+    performance_fee: totals.depositFeeBase,
+    deposit_amount: totals.depositDueNow,
+    amount_due_day_of: Math.max(
+      0,
+      totals.balanceDueAtShow + totals.addOnTotal + totals.travelFee + totals.lodgingFee
+    ),
     payment_methods:
       "cash, check to Rust and Ruin, Venmo @rustandruinvt, or PayPal @rustandruin",
   };
@@ -10017,6 +10104,21 @@ function setupListeners() {
       if (gotoBtn) {
         state.onboardingStep = Number(gotoBtn.getAttribute("data-onboarding-goto")) || 1;
         renderOnboardingWizard();
+        return;
+      }
+
+      const depositModelBtn = event.target.closest("[data-deposit-model]");
+      if (depositModelBtn) {
+        const model = depositModelBtn.getAttribute("data-deposit-model") || "addition";
+        updateBandDNA({ depositModel: model });
+        document.querySelectorAll("[data-deposit-model]").forEach((btn) => {
+          btn.classList.toggle(
+            "active",
+            btn.getAttribute("data-deposit-model") === model
+          );
+        });
+        const hiddenInput = document.getElementById("onboardingDepositModel");
+        if (hiddenInput) hiddenInput.value = model;
         return;
       }
 
