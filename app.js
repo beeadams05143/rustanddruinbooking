@@ -4230,7 +4230,9 @@ function buildAgreementContractDigitalPayload() {
     performance_end_time: state.agreement.performanceEndTime || "",
     hours: state.agreement.hours || "",
     lineup: state.agreement.bandConfig || "",
-    performance_fee: totals.depositFeeBase,
+    performance_fee: totals.depositFeeBase > 0
+      ? totals.depositFeeBase
+      : toNumber(state.agreement.feeTotal || document.getElementById("feeTotal")?.value || "0"),
     deposit_amount: totals.depositDueNow,
     amount_due_day_of: Math.max(
       0,
