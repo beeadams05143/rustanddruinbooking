@@ -2139,7 +2139,8 @@ function getAgreementTotals() {
   const performanceFee = performanceHours * hourlyRate;
   const onsiteFee = nonPerformanceHours * hourlyRate;
   const autoCalculatedTotal = totalContractedHours * hourlyRate;
-  const manualOverrideTotal = state.agreement.feeManualOverride ? toNumber(state.agreement.feeTotal) : 0;
+  const rawFeeTotal = String(state.agreement.feeTotal || "").replace(/[^0-9.]/g, "");
+  const manualOverrideTotal = state.agreement.feeManualOverride ? toNumber(rawFeeTotal) : 0;
   const backlineFee = state.agreement.backlineSound ? 50 : 0;
   const holidayMultiplier = state.agreement.holidayWeekend
     ? state.agreement.holidayRateType === "double"
