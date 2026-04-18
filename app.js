@@ -2272,7 +2272,11 @@ function updateFeesAndDepositsFields(totals) {
     state.agreement.feeTotal = feeValue;
   }
   const feeInput = document.getElementById("feeTotal");
-  if (feeInput) feeInput.value = state.agreement.feeTotal || feeValue;
+  if (feeInput) {
+    feeInput.dataset.programmatic = "1";
+    feeInput.value = state.agreement.feeTotal || feeValue;
+    feeInput.dataset.programmatic = "";
+  }
 
   const breakdown = document.getElementById("feeRateBreakdown");
   if (breakdown) {
