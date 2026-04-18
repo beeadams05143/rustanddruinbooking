@@ -6905,6 +6905,7 @@ function syncAgreementForm() {
   const feeTotalInput = document.getElementById("feeTotal");
   if (feeTotalInput) {
     const feeHandler = () => {
+      if (feeTotalInput.dataset.programmatic === "1") return;
       const rawValue = feeTotalInput.value.trim();
       const previousValue = state.agreement.feeTotal;
       const previousOverride = state.agreement.feeManualOverride;
