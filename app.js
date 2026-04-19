@@ -4512,9 +4512,10 @@ async function loadSupabasePdfIntoMemory(path, fileName, statusHandler = updateS
 }
 
 function syncTopAuthTabLabel() {
-  const topLoginTab = document.querySelector('.top-tab[data-top="login"]');
-  if (!topLoginTab) return;
-  topLoginTab.textContent = state.calendar.session ? "Sign out" : "Sign in";
+  const moreSignOutBtn = document.getElementById("moreSignOut");
+  if (!moreSignOutBtn) return;
+  moreSignOutBtn.textContent = state.calendar.session ? "Sign out" : "Signed out";
+  moreSignOutBtn.disabled = !state.calendar.session;
 }
 
 function updateCalendarAuthVisibility() {
@@ -9843,6 +9844,7 @@ function setupListeners() {
   const bookkeepingTabs = document.getElementById("bookkeepingTabs");
   const scheduleTabs = document.getElementById("scheduleTabs");
   const aboutTabs = document.getElementById("aboutTabs");
+  const bottomNav = document.getElementById("bottomNav");
   const homeTab = document.getElementById("homeTab");
   const onboardingTab = document.getElementById("onboardingTab");
   const messagePreviewWrap = document.getElementById("messagePreviewWrap");
@@ -9853,6 +9855,26 @@ function setupListeners() {
   let activeTop = "login";
   const navHistory = [];
   let suppressHistory = false;
+
+  const normalizeTopTarget = (topTarget) => {
+    if (topTarget === "login" || topTarget === "onboarding") return topTarget;
+    if (topTarget === "home") return "home";
+    if (topTarget === "bookkeeping") return "book";
+    if (topTarget === "contracts") return "docs";
+    if (topTarget === "marketing") return "marketing";
+    if (
+      topTarget === "calendar" ||
+      topTarget === "workorders" ||
+      topTarget === "shows" ||
+      topTarget === "musicians" ||
+      topTarget === "troubleshooting" ||
+      topTarget === "about" ||
+      topTarget === "more"
+    ) {
+      return "more";
+    }
+    return topTarget || "home";
+  };
 
   const updateBackButton = () => {
     const backBtn = document.getElementById("workspaceBack");
@@ -9888,6 +9910,8 @@ function setupListeners() {
       home: "Dashboard",
       onboarding: "Band Setup",
       bandprofile: "Band Profile",
+      marketing: "Marketing Hub",
+      more: "More",
       workorders: "Work Orders",
       contractshub: "Contracts",
       shows: "Shows",
@@ -9907,14 +9931,10 @@ function setupListeners() {
       login: "Front Desk",
       home: "Dashboard",
       onboarding: "Setup",
-      bookkeeping: "Booking",
-      calendar: "Calendar",
-      contracts: "Contracts",
-      workorders: "Work Orders",
-      shows: "Shows",
-      musicians: "Musicians + Tech Crew",
-      troubleshooting: "Troubleshooting",
-      about: "Guide Folder",
+      book: "Booking",
+      docs: "Docs",
+      marketing: "Marketing",
+      more: "More",
     };
     const folderLabel = folderNames[topTarget] || "Workspace";
     const panelLabel = panelNames[panelTarget] || "Overview";
@@ -9943,6 +9963,8 @@ function setupListeners() {
     document.getElementById("workOrdersTab").classList.toggle("hidden", target !== "workorders");
     document.getElementById("allaboutTab").classList.toggle("hidden", target !== "allabout");
     document.getElementById("howtoTab").classList.toggle("hidden", target !== "howto");
+    document.getElementById("marketingTab").classList.toggle("hidden", target !== "marketing");
+    document.getElementById("moreTab").classList.toggle("hidden", target !== "more");
     if (target === "onboarding") {
       renderOnboardingWizard();
     }
@@ -9995,12 +10017,16 @@ function setupListeners() {
       updateSupabaseStatus("Sign in first to open the rest of Booking Suite.", true);
       topTarget = "login";
     }
-    activeTop = topTarget;
-    state.workspace.top = topTarget;
-    document.querySelectorAll(".top-tab[data-top]").forEach((btn) => {
-      btn.classList.toggle("active", btn.getAttribute("data-top") === topTarget);
+    const navTarget = normalizeTopTarget(topTarget);
+    activeTop = navTarget;
+    state.workspace.top = navTarget;
+    document.querySelectorAll(".bottom-nav-tab[data-bottom]").forEach((btn) => {
+      btn.classList.toggle("active", btn.getAttribute("data-bottom") === navTarget);
     });
-    if (bookkeepingTabs) bookkeepingTabs.classList.toggle("hidden", topTarget !== "bookkeeping");
+    if (bottomNav) {
+      bottomNav.classList.toggle("hidden", topTarget === "login" || topTarget === "onboarding");
+    }
+    if (bookkeepingTabs) bookkeepingTabs.classList.toggle("hidden", navTarget !== "book");
     if (scheduleTabs) scheduleTabs.classList.toggle("hidden", topTarget !== "calendar");
     if (aboutTabs) aboutTabs.classList.toggle("hidden", topTarget !== "about");
 
@@ -10016,6 +10042,14 @@ function setupListeners() {
 
     if (topTarget === "home") {
       switchPanel("home");
+      return;
+    }
+    if (topTarget === "marketing") {
+      switchPanel("marketing");
+      return;
+    }
+    if (topTarget === "more") {
+      switchPanel("more");
       return;
     }
     if (topTarget === "workorders") {
@@ -10087,12 +10121,18 @@ function setupListeners() {
     });
   });
 
-  document.querySelectorAll(".top-tab[data-top]").forEach((tab) => {
+  document.querySelectorAll(".bottom-nav-tab[data-bottom]").forEach((tab) => {
     tab.addEventListener("click", () => {
-      const target = tab.getAttribute("data-top");
-      if (target === "bookkeeping") {
+      const target = tab.getAttribute("data-bottom");
+      if (target === "book") {
         resetAgreementForm();
         state.activeTab = "agreement";
+        switchTop("bookkeeping");
+        return;
+      }
+      if (target === "docs") {
+        switchTop("contracts");
+        return;
       }
       switchTop(target);
     });
@@ -10143,6 +10183,41 @@ function setupListeners() {
       switchTop("onboarding");
     });
   }
+
+  document.querySelectorAll("[data-more-panel]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = btn.getAttribute("data-more-panel");
+      if (!target) return;
+      if (target === "allabout" || target === "howto") {
+        switchTop("about");
+        switchPanel(target);
+        return;
+      }
+      if (target === "troubleshooting") {
+        switchTop("troubleshooting");
+        return;
+      }
+      if (target === "calendar") {
+        state.activeTab = "calendar";
+        switchTop("calendar");
+        return;
+      }
+      if (target === "workorders") {
+        state.workOrderView.focusId = "";
+        state.workOrderView.showCreate = true;
+        switchTop("workorders");
+        renderWorkOrders();
+        return;
+      }
+      if (target === "shows") {
+        switchTop("shows");
+        return;
+      }
+      if (target === "musicians") {
+        switchTop("musicians");
+      }
+    });
+  });
 
   const onboardingNextBtn = document.getElementById("onboardingNext");
   if (onboardingNextBtn) {
@@ -10500,6 +10575,7 @@ function setupListeners() {
   }
 
   const signOutBtn = document.getElementById("signOut");
+  const moreSignOutBtn = document.getElementById("moreSignOut");
   const signOutCurrentUser = async () => {
     const client = state.calendar.client;
     if (!client) return;
@@ -10533,6 +10609,9 @@ function setupListeners() {
   };
   if (signOutBtn) {
     signOutBtn.addEventListener("click", signOutCurrentUser);
+  }
+  if (moreSignOutBtn) {
+    moreSignOutBtn.addEventListener("click", signOutCurrentUser);
   }
 
   const loginSignInBtn = document.getElementById("loginSignIn");

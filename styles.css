@@ -31,7 +31,7 @@ body {
 
 .page {
   min-height: 100vh;
-  padding: 48px 6vw 96px;
+  padding: 48px 6vw 132px;
 }
 
 .app-header {
@@ -111,6 +111,166 @@ body {
   border: 1px solid var(--stroke);
   border-radius: 16px;
   background: #fff6e8;
+}
+
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: #fff8ee;
+  border-top: 0.5px solid #d4a96a;
+}
+
+.bottom-nav-tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #8a6840;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 2px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.bottom-nav-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: #e8d5b0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a6840;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.bottom-nav-label {
+  font-size: 10px;
+  line-height: 1;
+  color: #8a6840;
+  transition: color 0.2s ease;
+}
+
+.bottom-nav-tab.active .bottom-nav-icon {
+  background: #c9883a;
+  color: #fff8ee;
+}
+
+.bottom-nav-tab.active .bottom-nav-label {
+  color: #c9883a;
+}
+
+.bottom-nav-icon > span {
+  position: relative;
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
+.icon-home::before,
+.icon-home::after,
+.icon-book::before,
+.icon-book::after,
+.icon-docs::before,
+.icon-docs::after,
+.icon-marketing::before,
+.icon-marketing::after,
+.icon-more::before,
+.icon-more::after {
+  content: "";
+  position: absolute;
+}
+
+.icon-home::before {
+  left: 2px;
+  right: 2px;
+  bottom: 1px;
+  height: 7px;
+  border: 1.5px solid currentColor;
+  border-top: 0;
+  border-radius: 0 0 2px 2px;
+}
+
+.icon-home::after {
+  left: 1px;
+  top: 1px;
+  width: 12px;
+  height: 12px;
+  border-top: 1.5px solid currentColor;
+  border-left: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.icon-book::before {
+  inset: 1px 2px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px 4px 4px 2px;
+}
+
+.icon-book::after {
+  top: 2px;
+  bottom: 2px;
+  left: 5px;
+  width: 1.5px;
+  background: currentColor;
+}
+
+.icon-docs::before {
+  inset: 1px 2px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+}
+
+.icon-docs::after {
+  left: 4px;
+  right: 4px;
+  top: 4px;
+  height: 1.5px;
+  background: currentColor;
+  box-shadow: 0 4px 0 currentColor, 0 8px 0 currentColor;
+}
+
+.icon-marketing::before {
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  height: 1.5px;
+  background: currentColor;
+}
+
+.icon-marketing::after {
+  left: 3px;
+  bottom: 3px;
+  width: 8px;
+  height: 8px;
+  border-left: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: skewX(-30deg) rotate(-45deg);
+  box-shadow: 4px -4px 0 -2.5px currentColor, 8px -8px 0 -2.5px currentColor;
+}
+
+.icon-more::before {
+  top: 6px;
+  left: 1px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 5px 0 0 currentColor, 10px 0 0 currentColor;
+}
+
+.icon-more::after {
+  display: none;
 }
 
 .workspace-head {
@@ -237,6 +397,32 @@ body {
 
 .board-card p {
   margin: 0 0 10px;
+}
+
+.placeholder-panel,
+.more-panel {
+  min-height: 220px;
+}
+
+.placeholder-panel h2 {
+  margin-bottom: 0;
+}
+
+.more-actions {
+  margin-bottom: 16px;
+}
+
+.more-links {
+  display: grid;
+  gap: 10px;
+}
+
+.more-link {
+  justify-content: flex-start;
+}
+
+#buildBadge {
+  bottom: 84px !important;
 }
 
 .board-list {

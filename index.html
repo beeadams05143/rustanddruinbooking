@@ -22,19 +22,6 @@
         </div>
       </header>
 
-      <nav class="tabs top-tabs">
-        <button class="tab top-tab active" data-top="login">Sign In</button>
-        <button class="tab top-tab" data-top="home">Dashboard</button>
-        <button class="tab top-tab" data-top="bookkeeping">Booking</button>
-        <button class="tab top-tab" data-top="calendar">Calendar</button>
-        <button class="tab top-tab" data-top="contracts">Contracts</button>
-        <button class="tab top-tab" data-top="workorders">Work Orders</button>
-        <button class="tab top-tab" data-top="shows">Shows</button>
-        <button class="tab top-tab" data-top="musicians">Musicians + Tech Crew</button>
-        <button class="tab top-tab" data-top="troubleshooting">Troubleshooting</button>
-        <button class="tab top-tab" data-top="about">About</button>
-      </nav>
-
       <nav class="tabs section-tabs hidden" id="bookkeepingTabs">
         <button class="tab section-tab active" data-panel="agreement">Step 1: Agreement</button>
         <button class="tab section-tab" data-panel="invoice">Step 2: Invoice</button>
@@ -2116,7 +2103,56 @@
         </section>
       </main>
 
+      <main class="layout single hidden" id="marketingTab">
+        <section class="panel form-panel placeholder-panel">
+          <h2>Marketing Hub — coming soon</h2>
+        </section>
+      </main>
+
+      <main class="layout single hidden" id="moreTab">
+        <section class="panel form-panel more-panel">
+          <h2>More</h2>
+          <p class="muted">Extra tools and account actions.</p>
+
+          <div class="form-section more-actions">
+            <button class="btn" id="moreSignOut" type="button">Sign out</button>
+          </div>
+
+          <div class="form-section more-links">
+            <button class="btn ghost more-link" data-more-panel="calendar" type="button">Calendar</button>
+            <button class="btn ghost more-link" data-more-panel="workorders" type="button">Work Orders</button>
+            <button class="btn ghost more-link" data-more-panel="shows" type="button">Shows</button>
+            <button class="btn ghost more-link" data-more-panel="musicians" type="button">Musicians + Tech Crew</button>
+            <button class="btn ghost more-link" data-more-panel="troubleshooting" type="button">Troubleshooting</button>
+            <button class="btn ghost more-link" data-more-panel="allabout" type="button">About</button>
+          </div>
+        </section>
+      </main>
+
     </div>
+
+    <nav class="bottom-nav hidden" id="bottomNav" aria-label="Primary navigation">
+      <button class="bottom-nav-tab active" data-bottom="home" type="button" aria-label="Home">
+        <span class="bottom-nav-icon" aria-hidden="true"><span class="icon-home"></span></span>
+        <span class="bottom-nav-label">Home</span>
+      </button>
+      <button class="bottom-nav-tab" data-bottom="book" type="button" aria-label="Book">
+        <span class="bottom-nav-icon" aria-hidden="true"><span class="icon-book"></span></span>
+        <span class="bottom-nav-label">Book</span>
+      </button>
+      <button class="bottom-nav-tab" data-bottom="docs" type="button" aria-label="Docs">
+        <span class="bottom-nav-icon" aria-hidden="true"><span class="icon-docs"></span></span>
+        <span class="bottom-nav-label">Docs</span>
+      </button>
+      <button class="bottom-nav-tab" data-bottom="marketing" type="button" aria-label="Marketing">
+        <span class="bottom-nav-icon" aria-hidden="true"><span class="icon-marketing"></span></span>
+        <span class="bottom-nav-label">Marketing</span>
+      </button>
+      <button class="bottom-nav-tab" data-bottom="more" type="button" aria-label="More">
+        <span class="bottom-nav-icon" aria-hidden="true"><span class="icon-more"></span></span>
+        <span class="bottom-nav-label">More</span>
+      </button>
+    </nav>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
