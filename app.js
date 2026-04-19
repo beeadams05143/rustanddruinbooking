@@ -5935,9 +5935,11 @@ function updateContractList() {
   const draftList = document.getElementById("contractDraftList");
   if (!list) return;
   const signedContracts = state.calendar.contracts.filter((contract) => {
-    if (!contract?.file_path) return false;
     const status = String(contract.status || "").toLowerCase();
     const path = String(contract.file_path || "");
+    const isDigitallySigned = Boolean(contract.signed_at && contract.client_signature);
+    if (isDigitallySigned) return true;
+    if (!contract?.file_path) return false;
     return status.includes("signed") || path.startsWith("contracts/");
   });
   if (!signedContracts.length) {
@@ -6364,9 +6366,11 @@ function renderContractsHub() {
 
   const signedContracts = state.calendar.contracts
     .filter((contract) => {
-      if (!contract?.file_path) return false;
       const status = String(contract.status || "").toLowerCase();
       const path = String(contract.file_path || "");
+      const isDigitallySigned = Boolean(contract.signed_at && contract.client_signature);
+      if (isDigitallySigned) return true;
+      if (!contract?.file_path) return false;
       if (status.includes("created") || path.startsWith("created-contracts/")) return false;
       return true;
     })
@@ -6500,7 +6504,10 @@ function renderContractsHub() {
       const card = document.createElement("div");
       card.className = "event-card";
       const header = document.createElement("header");
-      header.innerHTML = `<span>${contract.name || "Contract"}</span><span>Signed · ${contractTimestampLabel(contract)}</span>`;
+      const signedLabel = contract.signed_at
+        ? `Signed digitally · ${contractTimestampLabel(contract)}`
+        : `Signed · ${contractTimestampLabel(contract)}`;
+      header.innerHTML = `<span>${contract.name || "Contract"}</span><span>${signedLabel}</span>`;
       const actions = document.createElement("div");
       actions.className = "event-actions";
       const openBtn = document.createElement("button");
