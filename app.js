@@ -3093,10 +3093,6 @@ function renderAgreementStepUI() {
     }
   }
 
-  const shareContractLinkBtn = document.getElementById("shareContractLink");
-  if (shareContractLinkBtn) {
-    shareContractLinkBtn.disabled = !state.workspace.contractShareId;
-  }
 }
 
 function refreshAgreementCreatedDate() {
@@ -9942,12 +9938,6 @@ function setupListeners() {
     if (topOpenPdfBtn) topOpenPdfBtn.classList.toggle("hidden", !inBookkeeping);
     if (topPrintPdfBtn) topPrintPdfBtn.classList.toggle("hidden", !inBookkeeping);
     if (sharePdfBtn) sharePdfBtn.classList.toggle("hidden", !inBookkeeping);
-    const shareContractLinkBtn = document.getElementById("shareContractLink");
-    if (shareContractLinkBtn) {
-      const showContractShare =
-        target === "agreement" && state.workspace.contractWizardOpen;
-      shareContractLinkBtn.classList.toggle("hidden", !showContractShare);
-    }
     document.querySelectorAll(".section-tab[data-panel]").forEach((btn) => {
       btn.classList.toggle("active", btn.getAttribute("data-panel") === target);
     });
@@ -10428,21 +10418,6 @@ function setupListeners() {
     });
   }
   document.getElementById("sharePdf").addEventListener("click", shareLastPdf);
-  const shareContractLinkBtn = document.getElementById("shareContractLink");
-  if (shareContractLinkBtn) {
-    shareContractLinkBtn.addEventListener("click", async () => {
-      const id = state.workspace.contractShareId;
-      if (!id) return;
-      const url = `https://gigos.netlify.app/contract.html?id=${id}`;
-      const clientName = state.agreement.clientName?.trim() || "the client";
-      const statusEl = document.getElementById("pdfStatus");
-      await copyTextToClipboard(url, {
-        statusEl,
-        successMessage: `Contract link copied! Send this to ${clientName} to sign digitally.`,
-        failureMessage: "Could not copy contract link.",
-      });
-    });
-  }
   const copyContractLinkBtn = document.getElementById("copyContractLinkBtn");
   if (copyContractLinkBtn) {
     copyContractLinkBtn.addEventListener("click", () => {
@@ -11147,8 +11122,6 @@ async function generatePdf(type, options = {}) {
 
   if (type === "agreement") {
     state.workspace.contractShareId = "";
-    const shareContractBtn = document.getElementById("shareContractLink");
-    if (shareContractBtn) shareContractBtn.disabled = true;
     prepareAgreementForOutput();
     refreshAgreementCreatedDate();
     updateAgreementPreview();
