@@ -2543,6 +2543,10 @@ function updateAgreementStepSummary() {
   }
   if (typeLabel) typeLabel.textContent = state.agreement.eventType || "Not set yet";
   if (pricingLabel) {
+    if (!state.agreement.performanceDate || !state.agreement.bandConfig) {
+      pricingLabel.textContent = "";
+      return;
+    }
     const totals = getAgreementTotals();
     const fee = totals.performanceFeeEffective || 0;
     const bandConfig = state.agreement.bandConfig || "";
@@ -2668,8 +2672,8 @@ function createQuoteOptionRowMarkup(option = {}, index = 0) {
           <input data-quote-field="price" type="number" min="0" step="1" placeholder="600" value="${escapeHtml(option.price || "")}" />
         </label>
         <label>
-          Sets
-          <input data-quote-field="sets" placeholder="2 sets" value="${escapeHtml(option.sets || "")}" />
+          Hours
+          <input data-quote-field="sets" placeholder="2 hrs" value="${escapeHtml(option.sets || "")}" />
         </label>
         <label>
           Deposit
@@ -2718,12 +2722,10 @@ function renderQuoteLinkDisplay(link = "") {
   const display = document.getElementById("quoteLinkDisplay");
   const copyBtn = document.getElementById("copyQuoteLinkBtn");
   const openBtn = document.getElementById("openQuoteLinkBtn");
-  const shareBtn = document.getElementById("shareQuoteLinkBtn");
   if (display) display.value = link || "";
   if (wrap) wrap.classList.toggle("hidden", !link);
   if (copyBtn) copyBtn.disabled = !link;
   if (openBtn) openBtn.disabled = !link;
-  if (shareBtn) shareBtn.disabled = !link;
 }
 
 function renderQuoteAcceptedBanner(message = "", showConvert = false) {
@@ -3050,23 +3052,16 @@ function renderAgreementStepUI() {
   const quoteBtn = document.getElementById("createQuoteBtn");
   const contractNote = document.getElementById("contractWizardNote");
   if (saveBtn) {
-    if (state.workspace.bookingSaved) {
-      saveBtn.textContent = "Update Booking";
-    } else if (state.workspace.bookingEventId) {
-      saveBtn.textContent = "Re-save Booking";
-    } else {
-      saveBtn.textContent = "Save Booking";
-    }
+    saveBtn.textContent = state.workspace.bookingSaved ? "Update Booking" : "Save Booking";
   }
   if (contractBtn) {
-    contractBtn.disabled = !state.workspace.bookingSaved;
+    contractBtn.classList.toggle("hidden", !state.workspace.bookingSaved);
     contractBtn.textContent = state.workspace.contractWizardOpen
       ? "Contract Wizard Open"
       : "Generate Contract";
   }
   if (quoteBtn) {
-    quoteBtn.classList.toggle("hidden", !state.workspace.bookingSaved);
-    quoteBtn.disabled = !state.workspace.bookingSaved;
+    quoteBtn.classList.remove("hidden");
   }
   if (contractNote) {
     if (state.workspace.bookingSaved) {
@@ -10325,34 +10320,6 @@ function setupListeners() {
         return;
       }
       window.open(link, "_blank");
-    });
-  }
-  const shareQuoteLinkBtn = document.getElementById("shareQuoteLinkBtn");
-  if (shareQuoteLinkBtn) {
-    shareQuoteLinkBtn.addEventListener("click", async () => {
-      const link = document.getElementById("quoteLinkDisplay")?.value.trim() || "";
-      if (!link) {
-        setQuoteBuilderStatus("Generate a quote link first.", true);
-        return;
-      }
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: "Performance quote from Rust & Ruin",
-            text: "Hi! Here's your performance quote:",
-            url: link,
-          });
-          setQuoteBuilderStatus("Quote share sheet opened.");
-          return;
-        } catch (error) {
-          if (error?.name === "AbortError") return;
-        }
-      }
-      copyTextToClipboard(link, {
-        statusEl: getQuoteBuilderStatusEl(),
-        successMessage: "Share not available here, so the quote link was copied instead.",
-        failureMessage: "Could not share or copy quote link.",
-      });
     });
   }
   const agreementStepBackBtn = document.getElementById("agreementStepBack");
