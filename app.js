@@ -4391,6 +4391,7 @@ function initSupabaseClient() {
   const { data } = state.calendar.client.auth.onAuthStateChange((event, session) => {
     state.calendar.session = session || null;
     syncTopAuthTabLabel();
+    updateLandingHeaderVisibility();
     updateCalendarAuthVisibility();
 
     const loginSignInBtn = document.getElementById("loginSignIn");
@@ -4520,6 +4521,12 @@ function syncTopAuthTabLabel() {
   if (!moreSignOutBtn) return;
   moreSignOutBtn.textContent = state.calendar.session ? "Sign out" : "Signed out";
   moreSignOutBtn.disabled = !state.calendar.session;
+}
+
+function updateLandingHeaderVisibility() {
+  const landingHeader = document.getElementById("landingHeader");
+  if (!landingHeader) return;
+  landingHeader.classList.toggle("hidden", Boolean(state.calendar.session));
 }
 
 function updateCalendarAuthVisibility() {
@@ -4704,6 +4711,7 @@ async function refreshAuthState() {
     safeStorageSet(CALENDAR_AUTH_SEEN_KEY, "1");
   }
   syncTopAuthTabLabel();
+  updateLandingHeaderVisibility();
   updateCalendarAuthVisibility();
   updateSupabaseStatus(state.calendar.session ? "Signed in." : "Signed out.");
   const loginSignInBtn = document.getElementById("loginSignIn");
