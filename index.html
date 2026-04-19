@@ -72,86 +72,60 @@
       <main class="layout single hidden" id="homeTab">
         <section class="panel form-panel dashboard-board">
           <div class="board-head">
-            <div>
-              <p class="board-kicker">Dashboard</p>
-              <h2>Band Managers Desk</h2>
-              <p class="muted">Everything in one place before wheels-up.</p>
-            </div>
-            <div class="board-head-side">
-              <div class="vinyl-art" aria-hidden="true"></div>
-              <div class="show-record" aria-label="Shows booked record">
-                <span class="show-record-title" id="showRecordTitle">Year Total Shows</span>
-                <span>Full: <strong id="showCountFull">0</strong></span>
-                <span>Duo: <strong id="showCountDuo">0</strong></span>
-                <span>Total: <strong id="showCountTotal">0</strong></span>
-              </div>
+            <div class="dashboard-greeting">
+              <h2 id="dashboardGreeting">Good evening, Beth</h2>
+              <p class="dashboard-date" id="dashboardDateLine">Sunday, April 19 · Rust and Ruin</p>
             </div>
           </div>
 
-          <div class="board-grid">
-            <article class="board-card wide pin-red">
-              <h3>Upcoming Shows</h3>
-              <p id="upcomingShowsSummary">Your next 3 upcoming bookings.</p>
+          <div class="dashboard-stats" aria-label="Shows booked record">
+            <article class="dashboard-stat-card">
+              <span class="dashboard-stat-label" id="showRecordTitle">2026 Year Total Shows</span>
+              <strong class="dashboard-stat-number" id="showCountTotal">0</strong>
+              <span class="dashboard-stat-subtext" id="showCountTotalSubtext">Full Band 0 this year</span>
+            </article>
+
+            <article class="dashboard-stat-card">
+              <span class="dashboard-stat-label">Duo Shows</span>
+              <strong class="dashboard-stat-number" id="showCountDuo">0</strong>
+              <span class="dashboard-stat-subtext" id="showCountDuoSubtext">Full Band 0 this year</span>
+            </article>
+          </div>
+
+          <div class="board-grid dashboard-grid">
+            <article class="board-card needs-attention-card">
+              <div class="dashboard-card-head">
+                <h3>Needs attention</h3>
+                <button class="dashboard-card-action" id="homeWorkOrders" type="button">+ Task</button>
+              </div>
+              <p class="dashboard-card-subtext" id="opsProgressSummary">What needs attention this week.</p>
+              <p class="dashboard-card-detail" id="opsProgressDetail">No urgent items right now.</p>
+              <div class="hidden">
+                <strong id="snapshotUpcomingShows">0</strong>
+                <strong id="snapshotContractsPending">0</strong>
+                <strong id="snapshotConfirmationsNeeded">0</strong>
+              </div>
+              <div id="managerChecklistList">
+                <div class="checklist-row">
+                  <span class="dashboard-row-dot" aria-hidden="true"></span>
+                  <span class="checklist-text">No checklist items yet.</span>
+                  <span class="dashboard-badge badge-done">Done</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="board-card upcoming-card">
+              <div class="dashboard-card-head">
+                <h3>Upcoming Shows</h3>
+              </div>
+              <p class="dashboard-card-subtext" id="upcomingShowsSummary">Your next 3 upcoming bookings.</p>
               <ul class="board-list" id="upcomingShowsList">
                 <li>No upcoming bookings yet.</li>
               </ul>
             </article>
-
-            <article class="board-card pin-gold">
-              <h3>Weekly Snapshot</h3>
-              <p id="opsProgressSummary">What needs attention this week.</p>
-              <div class="snapshot-grid">
-                <div class="snapshot-item">
-                  <span class="snapshot-label">Upcoming shows</span>
-                  <strong id="snapshotUpcomingShows">0</strong>
-                </div>
-                <div class="snapshot-item">
-                  <span class="snapshot-label">Contracts pending</span>
-                  <strong id="snapshotContractsPending">0</strong>
-                </div>
-                <div class="snapshot-item">
-                  <span class="snapshot-label">Confirmations needed</span>
-                  <strong id="snapshotConfirmationsNeeded">0</strong>
-                </div>
-              </div>
-              <p class="work-order-meta" id="opsProgressDetail">No urgent items right now.</p>
-            </article>
-
-            <article class="board-card pin-blue">
-              <h3>Quick Actions</h3>
-              <p>Start the next thing fast.</p>
-              <div class="quick-action-stack">
-                <button class="btn board-action primary-action" id="homeNewBooking">New Booking</button>
-                <div class="quick-action-links">
-                  <button class="btn ghost quick-link" id="homeOpenContracts">Contracts</button>
-                  <button class="btn ghost quick-link" id="homeOpenCalendar">Calendar</button>
-                  <button class="btn ghost quick-link" id="homeWorkOrders">Work Orders</button>
-                </div>
-              </div>
-            </article>
-
-            <article class="board-card wide pin-blue">
-              <h3>Manager Checklist</h3>
-              <div id="managerChecklistList">
-                <div class="checklist-row">
-                  <span>No checklist items yet.</span>
-                  <strong>Clear</strong>
-                </div>
-              </div>
-            </article>
-
-            <article class="board-card pin-gold">
-              <h3>Band Profile</h3>
-              <p>Save your reusable booking defaults once so new bookings start faster.</p>
-              <ul class="board-list">
-                <li>Basic contact info</li>
-                <li>Default lineup and hours</li>
-                <li>Rate and deposit defaults</li>
-              </ul>
-              <button class="btn board-action" id="homeBandProfile">Open Band Profile</button>
-              <button class="btn ghost board-action" id="homeEditBandDNA" type="button">Edit bandDNA Profile</button>
-            </article>
           </div>
+
+          <button class="dashboard-booking-btn" id="homeNewBooking" type="button">+ New Booking</button>
         </section>
       </main>
 

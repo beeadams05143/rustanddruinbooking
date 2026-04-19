@@ -3438,6 +3438,37 @@ function findMatchingReceiptForEvent(event, invoice) {
   );
 }
 
+function getDashboardFirstName() {
+  const metadata = state.calendar.session?.user?.user_metadata || {};
+  const rawName =
+    metadata.name ||
+    metadata.full_name ||
+    metadata.first_name ||
+    state.bandDNA.signoffName ||
+    "Beth";
+  const first = String(rawName).trim().split(/\s+/)[0] || "Beth";
+  return first.replace(/[^a-zA-Z'-]/g, "") || "Beth";
+}
+
+function renderDashboardGreeting() {
+  const greetingEl = document.getElementById("dashboardGreeting");
+  const dateEl = document.getElementById("dashboardDateLine");
+  if (!greetingEl || !dateEl) return;
+
+  const now = new Date();
+  const hour = now.getHours();
+  const dayPart = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+  const bandName = state.bandDNA.bandName || "Rust and Ruin";
+  const dateLabel = now.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+
+  greetingEl.textContent = `Good ${dayPart}, ${getDashboardFirstName()}`;
+  dateEl.textContent = `${dateLabel} · ${bandName}`;
+}
+
 function renderUpcomingShowsCard(events) {
   const summary = document.getElementById("upcomingShowsSummary");
   const list = document.getElementById("upcomingShowsList");
@@ -3450,7 +3481,7 @@ function renderUpcomingShowsCard(events) {
   list.classList.add("compact");
   list.innerHTML = "";
   if (!events.length) {
-    list.innerHTML = "<li>No upcoming bookings yet.</li>";
+    list.innerHTML = "<li class=\"dashboard-empty\">No upcoming bookings yet.</li>";
     return;
   }
 
@@ -3459,11 +3490,17 @@ function renderUpcomingShowsCard(events) {
     const dayLabel = start
       ? start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
       : "Date TBD";
+    const status = String(event?.type || "").toLowerCase() === "confirmed" ? "Confirmed" : "Pending";
+    const badgeClass = status === "Confirmed" ? "badge-confirmed" : "badge-pending";
     const item = document.createElement("li");
     item.className = "upcoming-show-item";
     item.innerHTML = `
-      <span class="upcoming-show-date">${dayLabel}</span>
-      <span class="upcoming-show-title">${escapeHtml(event.title || "Untitled show")}</span>
+      <span class="dashboard-row-dot" aria-hidden="true"></span>
+      <div class="upcoming-show-body">
+        <span class="upcoming-show-title">${escapeHtml(event.title || "Untitled show")}</span>
+        <span class="upcoming-show-date">${dayLabel}</span>
+      </div>
+      <span class="dashboard-badge ${badgeClass}">${status}</span>
     `;
     list.appendChild(item);
   });
@@ -3568,50 +3605,63 @@ function renderManagerChecklist(events) {
     openWorkOrders.slice(0, 5).forEach((item) => {
       rows.push({
         text: item.description || item.title || "Untitled task",
-        tag: "Open task",
+        tag: "Now",
+        done: false,
         target: { type: "workorder", id: item.id },
       });
     });
   } else {
     rows.push({
-      text: "Open work orders: 0",
-      tag: "Open",
+      text: "Open work orders",
+      tag: "Done",
+      done: true,
       target: "workorders",
     });
   }
   rows.push(
     {
       text: `Contracts to come back signed (this week): ${missingContracts.length}`,
-      tag: missingContracts.length ? "Required" : "Open",
+      tag: missingContracts.length ? "This week" : "Done",
+      done: missingContracts.length === 0,
       target: "contracts",
     },
     {
       text: `Band member confirmations needed (this week): ${pendingMusicianConfirmations.length}`,
-      tag: pendingMusicianConfirmations.length ? "Required" : "Open",
+      tag: pendingMusicianConfirmations.length ? "This week" : "Done",
+      done: pendingMusicianConfirmations.length === 0,
       target: "calendar",
     },
     {
       text: `Invoices pending send (created this week): ${invoiceSendNeeded.length}`,
-      tag: invoiceSendNeeded.length ? "Send" : "Open",
+      tag: invoiceSendNeeded.length ? "This week" : "Done",
+      done: invoiceSendNeeded.length === 0,
       target: "invoice",
     },
     {
       text: `Receipts pending send (created this week): ${receiptSendNeeded.length}`,
-      tag: receiptSendNeeded.length ? "Send" : "Open",
+      tag: receiptSendNeeded.length ? "This week" : "Done",
+      done: receiptSendNeeded.length === 0,
       target: "receipt",
     },
   );
 
   rows.forEach((row) => {
     const el = document.createElement("div");
-    el.className = "checklist-row";
+    el.className = `checklist-row${row.done ? " done" : ""}`;
+    const dot = document.createElement("span");
+    dot.className = "dashboard-row-dot";
+    dot.setAttribute("aria-hidden", "true");
     const left = document.createElement("span");
+    left.className = "checklist-text";
     left.textContent = row.text;
     const right = document.createElement("button");
     right.type = "button";
-    right.className = "checklist-link";
+    right.className = `checklist-link dashboard-badge ${
+      row.tag === "Now" ? "badge-now" : row.tag === "This week" ? "badge-this-week" : "badge-done"
+    }`;
     right.textContent = row.tag;
     right.addEventListener("click", () => openChecklistTarget(row.target));
+    el.appendChild(dot);
     el.appendChild(left);
     el.appendChild(right);
     wrap.appendChild(el);
@@ -3620,10 +3670,11 @@ function renderManagerChecklist(events) {
 
 async function updateShowRecordCounts() {
   const titleEl = document.getElementById("showRecordTitle");
-  const fullEl = document.getElementById("showCountFull");
   const duoEl = document.getElementById("showCountDuo");
   const totalEl = document.getElementById("showCountTotal");
-  if (!fullEl || !duoEl || !totalEl) return;
+  const totalSubtextEl = document.getElementById("showCountTotalSubtext");
+  const duoSubtextEl = document.getElementById("showCountDuoSubtext");
+  if (!duoEl || !totalEl || !totalSubtextEl || !duoSubtextEl) return;
 
   const currentYear = new Date().getFullYear();
   if (titleEl) titleEl.textContent = `${currentYear} Year Total Shows`;
@@ -3679,12 +3730,14 @@ async function updateShowRecordCounts() {
     { full: 0, duo: 0 }
   );
 
-  fullEl.textContent = String(counts.full);
   duoEl.textContent = String(counts.duo);
   totalEl.textContent = String(bookedShows.length);
+  totalSubtextEl.textContent = `Full Band ${counts.full} this year`;
+  duoSubtextEl.textContent = `Full Band ${counts.full} · ${bookedShows.length} total`;
 }
 
 function updateManagerDesk() {
+  renderDashboardGreeting();
   const upcoming = getUpcomingEvents(3);
   renderUpcomingShowsCard(upcoming);
   renderManagerChecklist(upcoming);
@@ -3697,7 +3750,6 @@ async function updateOpsProgress() {
   const upcomingEl = document.getElementById("snapshotUpcomingShows");
   const contractsEl = document.getElementById("snapshotContractsPending");
   const confirmationsEl = document.getElementById("snapshotConfirmationsNeeded");
-  if (!summary || !detail || !upcomingEl || !contractsEl || !confirmationsEl) return;
 
   const workOrdersTotal = state.workOrders.length;
   const workOrdersDone = state.workOrders.filter((item) => {
@@ -3765,15 +3817,17 @@ async function updateOpsProgress() {
     ? Math.max(0, assignmentsTotal - assignmentsDone)
     : Math.max(0, adjustedShowsTotal - showsDone);
 
-  upcomingEl.textContent = String(upcomingCount);
-  contractsEl.textContent = String(contractsPendingSignature);
-  confirmationsEl.textContent = String(confirmationsNeeded);
+  if (upcomingEl) upcomingEl.textContent = String(upcomingCount);
+  if (contractsEl) contractsEl.textContent = String(contractsPendingSignature);
+  if (confirmationsEl) confirmationsEl.textContent = String(confirmationsNeeded);
 
-  summary.textContent = "What needs attention this week.";
-  detail.textContent =
-    workOrdersOpen || contractsPendingSignature || confirmationsNeeded
-      ? `Work orders open ${workOrdersOpen} • Contracts pending ${contractsPendingSignature} • Confirmations needed ${confirmationsNeeded}`
-      : "No urgent items right now.";
+  if (summary) summary.textContent = "What needs attention this week.";
+  if (detail) {
+    detail.textContent =
+      workOrdersOpen || contractsPendingSignature || confirmationsNeeded
+        ? `Work orders open ${workOrdersOpen} • Contracts pending ${contractsPendingSignature} • Confirmations needed ${confirmationsNeeded}`
+        : "No urgent items right now.";
+  }
   updateManagerDesk();
 }
 
