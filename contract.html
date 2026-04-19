@@ -270,12 +270,16 @@
         const band = escapeHtml(contract.band_name || "Rust and Ruin");
         const dep = formatMoney(contract.deposit_amount ?? 0);
         const methods = escapeHtml(contract.payment_methods || "the payment options in your agreement");
+        const signedAt = escapeHtml(formatDisplayDate(new Date().toISOString()));
         app.innerHTML = `
           <div class="stack success">
             <h1>✓ Contract signed!</h1>
             <p>${band} will be in touch soon about next steps. Your deposit of ${dep} can be paid via ${methods}.</p>
             <p class="meta"><strong>Signed as:</strong> ${escapeHtml(clientName)}</p>
-            <p class="meta"><strong>Signed at:</strong> ${escapeHtml(formatDisplayDate(new Date().toISOString()))}</p>
+            <p class="meta"><strong>Signed at:</strong> ${signedAt}</p>
+            <button type="button" class="primary-btn" onclick="window.print()" style="margin-top:18px">
+              Download / Print signed confirmation
+            </button>
           </div>
         `;
       }
