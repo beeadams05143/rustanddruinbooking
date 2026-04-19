@@ -4326,6 +4326,12 @@ async function autoSaveCreatedAgreementPdf(blob, fileName) {
   }
 
   state.workspace.contractShareId = savedContractId || "";
+  const contractSendWrap = document.getElementById("contractSendWrap");
+  const contractLinkDisplay = document.getElementById("contractLinkDisplay");
+  if (contractSendWrap && contractLinkDisplay && state.workspace.contractShareId) {
+    contractLinkDisplay.value = `https://gigos.netlify.app/contract.html?id=${state.workspace.contractShareId}`;
+    contractSendWrap.classList.remove("hidden");
+  }
   setCreatedContractStatus("Created contract saved.");
   await fetchContracts();
   renderAgreementStepUI();
@@ -10434,6 +10440,52 @@ function setupListeners() {
         statusEl,
         successMessage: `Contract link copied! Send this to ${clientName} to sign digitally.`,
         failureMessage: "Could not copy contract link.",
+      });
+    });
+  }
+  const copyContractLinkBtn = document.getElementById("copyContractLinkBtn");
+  if (copyContractLinkBtn) {
+    copyContractLinkBtn.addEventListener("click", () => {
+      const link = document.getElementById("contractLinkDisplay")?.value.trim() || "";
+      if (!link) return;
+      const clientName = state.agreement.clientName?.trim() || "your client";
+      copyTextToClipboard(link, {
+        statusEl: document.getElementById("contractSendStatus"),
+        successMessage: `Link copied! Send this to ${clientName} to sign digitally.`,
+        failureMessage: "Could not copy the link.",
+      });
+    });
+  }
+  const openContractLinkBtn = document.getElementById("openContractLinkBtn");
+  if (openContractLinkBtn) {
+    openContractLinkBtn.addEventListener("click", () => {
+      const link = document.getElementById("contractLinkDisplay")?.value.trim() || "";
+      if (link) window.open(link, "_blank");
+    });
+  }
+  const shareContractLinkBtn2 = document.getElementById("shareContractLinkBtn2");
+  if (shareContractLinkBtn2) {
+    shareContractLinkBtn2.addEventListener("click", async () => {
+      const link = document.getElementById("contractLinkDisplay")?.value.trim() || "";
+      if (!link) return;
+      const statusEl = document.getElementById("contractSendStatus");
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "Performance contract — Rust & Ruin",
+            text: "Here is your performance contract to review and sign:",
+            url: link,
+          });
+          if (statusEl) statusEl.textContent = "Contract shared.";
+          return;
+        } catch (error) {
+          if (error?.name === "AbortError") return;
+        }
+      }
+      copyTextToClipboard(link, {
+        statusEl,
+        successMessage: "Share not available here, link copied instead.",
+        failureMessage: "Could not share or copy the link.",
       });
     });
   }

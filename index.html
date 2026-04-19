@@ -799,6 +799,21 @@
         <button class="tab" id="sharePdf" disabled>Share PDF</button>
         <button class="tab hidden" id="shareContractLink" type="button" disabled>Share contract link</button>
       </div>
+      <div id="contractSendWrap" class="hidden">
+        <div class="form-section booking-nested-section">
+          <h3>Send contract to client</h3>
+          <p class="inline-help">Copy this link and send it to your client to sign digitally.</p>
+          <div class="form-grid">
+            <input id="contractLinkDisplay" type="text" readonly placeholder="Contract link will appear here" />
+          </div>
+          <div class="inline-actions">
+            <button class="btn" type="button" id="copyContractLinkBtn">Copy link</button>
+            <button class="btn ghost" type="button" id="openContractLinkBtn">Open link</button>
+            <button class="btn ghost" type="button" id="shareContractLinkBtn2">Share</button>
+          </div>
+          <p id="contractSendStatus"></p>
+        </div>
+      </div>
 
       <main class="layout hidden" id="agreementTab">
         <section class="panel form-panel booking-flow-panel">
