@@ -4322,6 +4322,7 @@ async function autoSaveCreatedAgreementPdf(blob, fileName) {
   }
 
   state.workspace.contractShareId = savedContractId || "";
+  startContractSignaturePoll();
   const contractSendWrap = document.getElementById("contractSendWrap");
   const contractLinkDisplay = document.getElementById("contractLinkDisplay");
   if (contractSendWrap && contractLinkDisplay && state.workspace.contractShareId) {
@@ -4331,6 +4332,44 @@ async function autoSaveCreatedAgreementPdf(blob, fileName) {
   setCreatedContractStatus("Created contract saved.");
   await fetchContracts();
   renderAgreementStepUI();
+}
+
+let contractSignaturePollTimer = null;
+
+function stopContractSignaturePoll() {
+  if (contractSignaturePollTimer) {
+    clearInterval(contractSignaturePollTimer);
+    contractSignaturePollTimer = null;
+  }
+}
+
+async function checkContractSignatureStatus() {
+  const shareId = state.workspace.contractShareId;
+  const client = state.calendar.client;
+  if (!shareId || !client || !state.calendar.session) return;
+  const { data, error } = await client
+    .from("contracts")
+    .select("signed_at, client_signature, name")
+    .eq("id", shareId)
+    .single();
+  if (error || !data || !data.signed_at) return;
+  stopContractSignaturePoll();
+  const name = data.client_signature || "your client";
+  const banner = document.getElementById("contractSignedBanner");
+  if (banner) {
+    banner.textContent = `✓ Contract signed by ${name}! Check Signed Contracts to view it.`;
+    banner.classList.remove("hidden");
+  }
+  await fetchContracts();
+  renderAgreementStepUI();
+}
+
+function startContractSignaturePoll() {
+  stopContractSignaturePoll();
+  if (!state.workspace.contractShareId) return;
+  contractSignaturePollTimer = setInterval(() => {
+    if (!document.hidden) checkContractSignatureStatus();
+  }, 30000);
 }
 
 function initSupabaseClient() {
@@ -6837,6 +6876,7 @@ async function saveBookingOnly() {
 }
 
 async function submitAgreement() {
+  stopContractSignaturePoll();
   if (!state.workspace.bookingSaved) {
     setAgreementCalendarStatus("Save the booking first, then generate the contract.", true);
     return;
