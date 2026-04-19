@@ -10431,7 +10431,10 @@ function setupListeners() {
       await copyMessage("pdfStatus", receiptCopyMessageBtn);
     });
   }
-  document.getElementById("sharePdf").addEventListener("click", shareLastPdf);
+  const sharePdfActionBtn = document.getElementById("sharePdf");
+  if (sharePdfActionBtn) {
+    sharePdfActionBtn.addEventListener("click", shareLastPdf);
+  }
   const copyContractLinkBtn = document.getElementById("copyContractLinkBtn");
   if (copyContractLinkBtn) {
     copyContractLinkBtn.addEventListener("click", () => {
@@ -11099,6 +11102,21 @@ function setupListeners() {
       toggleMessage.textContent = body.classList.contains("hidden")
         ? "Show message"
         : "Hide message";
+    });
+  }
+  const copyMessageWithLink = document.getElementById("copyMessageWithLink");
+  if (copyMessageWithLink) {
+    copyMessageWithLink.addEventListener("click", async () => {
+      const body = document.getElementById("messageBody");
+      const text = body?.textContent?.trim() || "";
+      if (!text) return;
+      const originalText = copyMessageWithLink.textContent;
+      const copied = await copyTextToClipboard(text);
+      if (!copied) return;
+      copyMessageWithLink.textContent = "Copied!";
+      window.setTimeout(() => {
+        copyMessageWithLink.textContent = originalText || "Copy Message + Link";
+      }, 2000);
     });
   }
   const preferredTop = state.calendar.session
