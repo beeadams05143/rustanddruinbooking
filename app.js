@@ -4301,10 +4301,7 @@ async function autoSaveCreatedAgreementPdf(blob, fileName) {
       .eq("id", existing[0].id)
       .select("id")
       .single();
-    if (updateError) {
-      setCreatedContractStatus("Saved PDF, but could not update created contract row.", true);
-      return;
-    }
+    if (updateError) { console.error("Contract update 400 details:", JSON.stringify(updateError)); setCreatedContractStatus("Saved PDF, but could not update created contract row.", true); return; }
     savedContractId = updatedRow?.id || existing[0].id || "";
   } else {
     const { data: insertedRow, error: insertError } = await client
@@ -4318,10 +4315,7 @@ async function autoSaveCreatedAgreementPdf(blob, fileName) {
       })
       .select("id")
       .single();
-    if (insertError) {
-      setCreatedContractStatus("Saved PDF, but could not store created contract metadata.", true);
-      return;
-    }
+    if (insertError) { console.error("Contract insert 400 details:", JSON.stringify(insertError)); setCreatedContractStatus("Saved PDF, but could not store created contract metadata.", true); return; }
     savedContractId = insertedRow?.id || "";
   }
 
