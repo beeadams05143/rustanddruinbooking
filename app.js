@@ -4402,7 +4402,11 @@ function initSupabaseClient() {
       safeStorageSet(CALENDAR_AUTH_SEEN_KEY, "1");
       updateSupabaseStatus("Signed in.");
       if (switchTopView) {
-        switchTopView(state.workspace.top || "home");
+        const nextTop =
+          state.workspace.top && state.workspace.top !== "login"
+            ? state.workspace.top
+            : "home";
+        switchTopView(nextTop);
       }
       queueSupabaseSyncRefresh();
     } else if (event === "SIGNED_OUT") {
