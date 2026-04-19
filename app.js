@@ -1926,7 +1926,13 @@ function buildMessage(type) {
   }
 
   const subject = `Rust and Ruin Performance Agreement – ${eventDate}`;
-  const body = `Hello ${clientName},\n\nThank you so much for the opportunity to work with you. We're truly excited and really look forward to performing for you.\n\nAttached is your contract for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. To secure your date, please sign the contract and send the signed copy back to us.\n\nYou're welcome to sign in whichever way is easiest for you:\n- sign with your finger or stylus on your phone or tablet and send back a screenshot\n- print it, sign it, and send us a photo or scan\n- sign the hard copy and mail it back to us\n\nPlease let us know if you have any questions at all. We're happy to help and look forward to working with you.\n\nThanks,\nBeth and Josh\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
+  const contractLink = state.workspace.contractShareId
+    ? `https://gigos.netlify.app/contract.html?id=${state.workspace.contractShareId}`
+    : "";
+  const signingInstructions = contractLink
+    ? `To sign digitally, click this link:\n${contractLink}\n\nYou can type your full legal name and click 'I agree and sign this contract.' Your typed name serves as your legal signature and will be recorded with a timestamp.`
+    : `You're welcome to sign in whichever way is easiest for you:\n- sign with your finger or stylus on your phone or tablet and send back a screenshot\n- print it, sign it, and send us a photo or scan\n- sign the hard copy and mail it back to us`;
+  const body = `Hello ${clientName},\n\nThank you so much for the opportunity to work with you. We're truly excited and really look forward to performing for you.\n\nAttached is your contract for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. To secure your date, please sign the contract and send the signed copy back to us.\n\n${signingInstructions}\n\nPlease let us know if you have any questions at all. We're happy to help and look forward to working with you.\n\nThanks,\nBeth and Josh\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
   return { title: "Agreement Message", subject, body };
 }
 
