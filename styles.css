@@ -1071,9 +1071,7 @@ body {
 }
 
 .agreement-step-footer {
-  position: sticky;
-  bottom: 14px;
-  z-index: 9;
+  position: static;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2133,7 +2131,6 @@ input[type="file"] {
   }
 
   .agreement-step-footer {
-    bottom: 8px;
     padding: 12px;
   }
 
