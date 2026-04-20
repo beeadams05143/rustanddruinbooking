@@ -10393,6 +10393,7 @@ function setupListeners() {
   const bookHubNewBookingBtn = document.getElementById("bookHubNewBooking");
   if (bookHubNewBookingBtn) {
     bookHubNewBookingBtn.addEventListener("click", () => {
+      resetAgreementForm();
       state.activeTab = "agreement";
       switchTop("bookkeeping");
     });
