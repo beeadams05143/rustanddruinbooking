@@ -1193,6 +1193,25 @@ const MARKETING_SOCIAL_TEMPLATES = [
   { category: "GET TO KNOW US", title: "Song Request", text: "We want to know — what song do you ALWAYS want to hear us play? Drop it in the comments 🎵👇" },
   { category: "GET TO KNOW US", title: "Milestone", text: "We just hit [MILESTONE — like our 100th show, 5 years together, etc]! 🎉 Thank you to every venue, every fan, and every person who has believed in us. Here's to many more 🎸🙏" },
 ];
+const WORK_ORDER_SOCIAL_POST_TEMPLATES = [
+  { category: "SHOW", text: "We are playing [VENUE] on [DATE]. Come see us live. Doors at [TIME]. Come early stay late." },
+  { category: "SHOW", text: "This [DAY] we will be at [VENUE] starting at [TIME]. Come hang it is going to be a great night." },
+  { category: "SHOW", text: "What a night at [VENUE]. Thanks to everyone who came out and made it so special. You are why we do this." },
+  { category: "SHOW", text: "Just booked [VENUE] on [DATE]. Cannot wait to play this one. More dates dropping soon." },
+  { category: "SHOW", text: "We still have some open [MONTH] dates. Looking for live music for your venue or event? Send us a DM." },
+  { category: "SHOW", text: "Rust and Ruin is booking for [SEASON]. We play pubs breweries private events and weddings. Reach out if you want live music that gets people moving." },
+  { category: "BEHIND THE SCENES", text: "Practice day today. Working on some new stuff and cannot wait to bring it to the stage. Stay tuned." },
+  { category: "BEHIND THE SCENES", text: "Load in day. Hauling gear setting up and getting ready to make some noise tonight at [VENUE]. See you there." },
+  { category: "BEHIND THE SCENES", text: "Soundcheck done. [VENUE] is sounding great tonight. Doors open at [TIME] so come early and grab a good spot." },
+  { category: "BEHIND THE SCENES", text: "That is a wrap at [VENUE]. What an incredible crowd tonight. Thanks for singing along dancing and making our night. See you next time." },
+  { category: "BEHIND THE SCENES", text: "Just another day in the life of Rust and Ruin. [ADD YOUR CAPTION HERE]." },
+  { category: "BEHIND THE SCENES", text: "On the road to [VENUE]. Good music good vibes and good company. Tonight is going to be a great one." },
+  { category: "BEHIND THE SCENES", text: "Getting everything dialed in before tonight at [VENUE]. The little details matter. See you on the dance floor." },
+  { category: "GET TO KNOW US", text: "In case you do not know us we are Rust and Ruin a Vermont-based acoustic duo with a full band option. We play Americana classic favorites and originals with an easygoing feel-good vibe. Come find us live." },
+  { category: "GET TO KNOW US", text: "Throwback to [EVENT OR VENUE]. Some nights just stick with you. Thanks for being part of our story." },
+  { category: "GET TO KNOW US", text: "We want to know what song do you always want to hear us play. Drop it in the comments." },
+  { category: "GET TO KNOW US", text: "We just hit [MILESTONE]. Thank you to every venue every fan and every person who has believed in us. Here is to many more." },
+];
 const SEEDED_BOOKED_EVENTS = [
   { date: "2026-01-03", start: "19:00", end: "22:00", title: "Killarney's", type: "Confirmed" },
   { date: "2026-01-06", start: "13:00", end: "14:00", title: "Mertens House", type: "Confirmed" },
@@ -8184,9 +8203,14 @@ function switchPromoChannel(channel = "email") {
   });
   const builderWrap = document.getElementById("promoBuilderWrap");
   const followUpWrap = document.getElementById("followUpsWrap");
-  if (builderWrap) builderWrap.classList.toggle("hidden", channel === "followups");
+  const socialPostsPanel = document.getElementById("socialPostsPanel");
+  if (builderWrap) builderWrap.classList.toggle("hidden", channel === "followups" || channel === "socialposts");
   if (followUpWrap) followUpWrap.classList.toggle("hidden", channel !== "followups");
-  if (channel !== "followups") {
+  if (socialPostsPanel) socialPostsPanel.classList.toggle("hidden", channel !== "socialposts");
+  if (channel === "socialposts") {
+    renderSocialPostsPanel();
+  }
+  if (channel !== "followups" && channel !== "socialposts") {
     updatePromoGeneratedMessage(true);
   }
   saveDraft();
@@ -8478,6 +8502,7 @@ function renderWorkOrderWorkspace() {
   renderBandProfile();
   renderPromoTemplates();
   renderFollowUps();
+  renderSocialPostsPanel();
   renderEpkSummary();
 }
 
@@ -9858,6 +9883,24 @@ function renderMarketingTab() {
       <span class="marketing-social-feedback" aria-live="polite"></span>
     `;
     grid.appendChild(card);
+  });
+}
+
+function renderSocialPostsPanel() {
+  const list = document.getElementById("socialPostsCardList");
+  if (!list) return;
+  list.innerHTML = "";
+  WORK_ORDER_SOCIAL_POST_TEMPLATES.forEach((template, index) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.dataset.socialPostIndex = String(index);
+    card.style.cssText = "background:#fdf0e3;border:1px solid #e8a855;border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer;width:100%;text-align:left;display:block;";
+    card.innerHTML = `
+      <div style="font-size:10px;text-transform:uppercase;color:#f47c20;font-weight:600;margin-bottom:4px;">${escapeHtml(template.category)}</div>
+      <div style="font-size:13px;color:#2c1a00;line-height:1.5;">${escapeHtml(template.text)}</div>
+      <div data-social-post-feedback style="font-size:12px;color:#f47c20;font-weight:600;min-height:18px;margin-top:8px;"></div>
+    `;
+    list.appendChild(card);
   });
 }
 
@@ -11330,6 +11373,23 @@ function setupListeners() {
         window.setTimeout(() => {
           if (statusEl.textContent === `${template.title} copied.`) statusEl.textContent = "";
         }, 1200);
+      }
+    });
+  }
+  const socialPostsCardList = document.getElementById("socialPostsCardList");
+  if (socialPostsCardList) {
+    socialPostsCardList.addEventListener("click", async (event) => {
+      const card = event.target.closest("button[data-social-post-index]");
+      if (!card) return;
+      const template = WORK_ORDER_SOCIAL_POST_TEMPLATES[Number(card.dataset.socialPostIndex)];
+      if (!template) return;
+      await copyTextToClipboard(template.text);
+      const feedback = card.querySelector("[data-social-post-feedback]");
+      if (feedback) {
+        feedback.textContent = "Copied";
+        window.setTimeout(() => {
+          if (feedback.textContent === "Copied") feedback.textContent = "";
+        }, 2000);
       }
     });
   }
