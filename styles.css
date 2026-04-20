@@ -214,10 +214,15 @@ body {
 
 .dashboard-greeting h2 {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(2rem, 5vw, 2.7rem);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 32px;
   line-height: 1.02;
   color: #f0ede8;
+}
+
+#contractsHubTab .form-panel > h2 {
+  color: #f47c20;
+  font-family: Georgia, "Times New Roman", serif;
 }
 
 .dashboard-date {
@@ -2497,7 +2502,7 @@ input[type="file"] {
   }
 
   .dashboard-greeting h2 {
-    font-size: 1.9rem;
+    font-size: 32px;
   }
 
   .dashboard-date {
