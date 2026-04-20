@@ -3469,6 +3469,160 @@ function renderDashboardGreeting() {
   dateEl.textContent = `${dateLabel} · ${bandName}`;
 }
 
+function getBookHubMonthEvents() {
+  const monthStart = getCalendarMonth();
+  const rangeStart = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1, 0, 0, 0, 0);
+  const rangeEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0, 23, 59, 59, 999);
+  return mergeSeededCalendarEvents(state.calendar.events, rangeStart, rangeEnd).filter((event) => {
+    const start = new Date(event.start_time || 0);
+    return Number.isFinite(start.getTime()) && start >= rangeStart && start <= rangeEnd;
+  });
+}
+
+function getBookHubBlackoutKeys() {
+  const keys = new Set();
+
+  state.calendar.events.forEach((event) => {
+    if (String(event?.type || "").toLowerCase() !== "blackout") return;
+    const start = new Date(event.start_time || 0);
+    const end = new Date(event.end_time || event.start_time || 0);
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return;
+    const cursor = startOfDay(start);
+    const endDay = startOfDay(end);
+    while (cursor <= endDay) {
+      keys.add(formatDateInput(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  });
+
+  state.calendar.blackouts.forEach((item) => {
+    const start = new Date(item.start_time || 0);
+    const end = new Date(item.end_time || item.start_time || 0);
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return;
+    const cursor = startOfDay(start);
+    const endDay = startOfDay(end);
+    while (cursor <= endDay) {
+      keys.add(formatDateInput(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  });
+
+  return keys;
+}
+
+function renderBookHubCalendar() {
+  const title = document.getElementById("bookHubCalendarTitle");
+  const grid = document.getElementById("bookHubCalendarGrid");
+  const summary = document.getElementById("bookHubCalendarSummary");
+  if (!title || !grid || !summary) return;
+
+  const monthStart = getCalendarMonth();
+  const monthEvents = getBookHubMonthEvents();
+  const blackoutKeys = getBookHubBlackoutKeys();
+  const monthName = monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const eventDateKeys = new Set();
+  monthEvents.forEach((event) => {
+    if (String(event.type || "").toLowerCase() === "blackout") return;
+    const start = new Date(event.start_time || 0);
+    const end = new Date(event.end_time || event.start_time || 0);
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return;
+    const cursor = startOfDay(start);
+    const endDay = startOfDay(end);
+    while (cursor <= endDay) {
+      eventDateKeys.add(formatDateInput(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  });
+
+  title.textContent = monthName;
+  summary.textContent = monthEvents.length
+    ? `${eventDateKeys.size} show date${eventDateKeys.size === 1 ? "" : "s"} highlighted this month.`
+    : "No show dates saved for this month yet.";
+  grid.innerHTML = "";
+
+  const startWeekday = monthStart.getDay();
+  const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
+  const prevMonthDays = new Date(monthStart.getFullYear(), monthStart.getMonth(), 0).getDate();
+
+  for (let i = 0; i < 42; i += 1) {
+    const cell = document.createElement("div");
+    cell.className = "book-hub-day";
+
+    let dayNumber = i - startWeekday + 1;
+    let cellMonth = monthStart.getMonth();
+    let cellYear = monthStart.getFullYear();
+
+    if (dayNumber <= 0) {
+      dayNumber = prevMonthDays + dayNumber;
+      cellMonth -= 1;
+      cell.classList.add("muted");
+    } else if (dayNumber > daysInMonth) {
+      dayNumber -= daysInMonth;
+      cellMonth += 1;
+      cell.classList.add("muted");
+    }
+
+    const cellDate = new Date(cellYear, cellMonth, dayNumber);
+    const cellKey = formatDateInput(cellDate);
+    cell.textContent = String(dayNumber);
+
+    if (blackoutKeys.has(cellKey)) {
+      cell.classList.add("is-blackout");
+    } else if (eventDateKeys.has(cellKey)) {
+      cell.classList.add("is-show");
+    }
+
+    grid.appendChild(cell);
+  }
+}
+
+function renderBookHubWorkOrders() {
+  const list = document.getElementById("bookHubWorkOrdersList");
+  const summary = document.getElementById("bookHubWorkOrdersSummary");
+  if (!list || !summary) return;
+
+  const openOrders = state.workOrders.filter((item) => {
+    const status = String(item?.status || "").toLowerCase();
+    return !(status === "completed" || item?.completed === true);
+  });
+
+  summary.textContent = openOrders.length
+    ? `${openOrders.length} open task${openOrders.length === 1 ? "" : "s"} right now.`
+    : "Current open tasks.";
+  list.innerHTML = "";
+
+  if (!openOrders.length) {
+    list.innerHTML = "<p class=\"muted\">No open work orders right now.</p>";
+    return;
+  }
+
+  openOrders.slice(0, 4).forEach((order) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "book-hub-task";
+    row.innerHTML = `
+      <span class="book-hub-task-dot" aria-hidden="true"></span>
+      <span class="book-hub-task-copy">
+        <strong>${escapeHtml(order.description || order.title || "Untitled task")}</strong>
+        <span>${escapeHtml(order.category || "Other")}</span>
+      </span>
+      <span class="book-hub-task-badge">Open</span>
+    `;
+    row.addEventListener("click", () => {
+      state.workOrderView.focusId = order.id || "";
+      state.workOrderView.showCreate = false;
+      if (switchTopView) switchTopView("workorders");
+      renderWorkOrders();
+    });
+    list.appendChild(row);
+  });
+}
+
+function renderBookHub() {
+  renderBookHubCalendar();
+  renderBookHubWorkOrders();
+}
+
 function renderUpcomingShowsCard(events) {
   const summary = document.getElementById("upcomingShowsSummary");
   const list = document.getElementById("upcomingShowsList");
@@ -5021,7 +5175,10 @@ function getCalendarMonth() {
 function renderCalendar() {
   const grid = document.getElementById("calendarGrid");
   const title = document.getElementById("calendarTitle");
-  if (!grid || !title) return;
+  if (!grid || !title) {
+    renderBookHubCalendar();
+    return;
+  }
 
   const monthStart = getCalendarMonth();
   const monthName = monthStart.toLocaleString(undefined, { month: "long", year: "numeric" });
@@ -5167,6 +5324,8 @@ function renderCalendar() {
 
     grid.appendChild(cell);
   }
+
+  renderBookHubCalendar();
 }
 
 function populateCalendarForm(dateValue) {
@@ -8247,7 +8406,10 @@ function renderWorkOrderWorkspace() {
 
 function renderWorkOrders() {
   const list = document.getElementById("workOrderList");
-  if (!list) return;
+  if (!list) {
+    renderBookHubWorkOrders();
+    return;
+  }
   const createSection = document.getElementById("workOrderNewSection");
   const showAllBtn = document.getElementById("workOrderShowAll");
   const hasFocus = Boolean(state.workOrderView?.focusId);
@@ -8261,6 +8423,7 @@ function renderWorkOrders() {
   if (!state.workOrders.length) {
     list.innerHTML = "<p class=\"muted\">No work orders yet.</p>";
     updateOpsProgress();
+    renderBookHubWorkOrders();
     return;
   }
 
@@ -8271,6 +8434,7 @@ function renderWorkOrders() {
   if (hasFocus && !rows.length) {
     list.innerHTML = "<p class=\"muted\">That task is no longer available.</p>";
     updateOpsProgress();
+    renderBookHubWorkOrders();
     return;
   }
 
@@ -8353,6 +8517,7 @@ function renderWorkOrders() {
     list.appendChild(card);
   });
   updateOpsProgress();
+  renderBookHubWorkOrders();
 }
 
 async function submitWorkOrder() {
@@ -9973,6 +10138,7 @@ function setupListeners() {
     if (!workspaceTitle || !workspaceCrumb) return;
     const panelNames = {
       login: "Sign In",
+      bookhub: "Book",
       home: "Dashboard",
       onboarding: "Band Setup",
       bandprofile: "Band Profile",
@@ -10012,6 +10178,7 @@ function setupListeners() {
     if (!target) return;
     state.activeTab = target;
     document.getElementById("loginTab").classList.toggle("hidden", target !== "login");
+    document.getElementById("bookHubTab").classList.toggle("hidden", target !== "bookhub");
     if (homeTab) homeTab.classList.toggle("hidden", target !== "home");
     if (onboardingTab) onboardingTab.classList.toggle("hidden", target !== "onboarding");
     document.getElementById("bandProfileTab").classList.toggle("hidden", target !== "bandprofile");
@@ -10040,6 +10207,9 @@ function setupListeners() {
     }
     if (target === "bandprofile") {
       renderReusableBandProfile();
+    }
+    if (target === "bookhub") {
+      renderBookHub();
     }
     if (target === "agreement") {
       renderAgreementStepUI();
@@ -10092,7 +10262,7 @@ function setupListeners() {
     if (bottomNav) {
       bottomNav.classList.toggle("hidden", topTarget === "login" || topTarget === "onboarding");
     }
-    if (bookkeepingTabs) bookkeepingTabs.classList.toggle("hidden", navTarget !== "book");
+    if (bookkeepingTabs) bookkeepingTabs.classList.toggle("hidden", true);
     if (scheduleTabs) scheduleTabs.classList.toggle("hidden", topTarget !== "calendar");
     if (aboutTabs) aboutTabs.classList.toggle("hidden", topTarget !== "about");
 
@@ -10123,7 +10293,11 @@ function setupListeners() {
       return;
     }
     if (topTarget === "contracts") {
-      switchPanel("contractshub");
+      const valid =
+        state.activeTab === "contractshub" ||
+        state.activeTab === "contracts" ||
+        state.activeTab === "contractscreated";
+      switchPanel(valid ? state.activeTab : "contractshub");
       return;
     }
     if (topTarget === "shows") {
@@ -10141,13 +10315,12 @@ function setupListeners() {
 
     if (topTarget === "bookkeeping") {
       const valid =
+        state.activeTab === "bookhub" ||
         state.activeTab === "agreement" ||
         state.activeTab === "quotebuilder" ||
         state.activeTab === "invoice" ||
-        state.activeTab === "receipt" ||
-        state.activeTab === "contracts" ||
-        state.activeTab === "contractscreated";
-      switchPanel(valid ? state.activeTab : "agreement");
+        state.activeTab === "receipt";
+      switchPanel(valid ? state.activeTab : "bookhub");
       return;
     }
     if (topTarget === "calendar") {
@@ -10191,8 +10364,7 @@ function setupListeners() {
     tab.addEventListener("click", () => {
       const target = tab.getAttribute("data-bottom");
       if (target === "book") {
-        resetAgreementForm();
-        state.activeTab = "agreement";
+        state.activeTab = "bookhub";
         switchTop("bookkeeping");
         return;
       }
@@ -10221,6 +10393,31 @@ function setupListeners() {
       switchTop("bookkeeping");
     });
   }
+  const bookHubNewBookingBtn = document.getElementById("bookHubNewBooking");
+  if (bookHubNewBookingBtn) {
+    bookHubNewBookingBtn.addEventListener("click", () => {
+      resetAgreementForm();
+      state.activeTab = "agreement";
+      switchTop("bookkeeping");
+    });
+  }
+  const bookHubCreateQuoteBtn = document.getElementById("bookHubCreateQuote");
+  if (bookHubCreateQuoteBtn) {
+    bookHubCreateQuoteBtn.addEventListener("click", () => {
+      state.activeTab = "quotebuilder";
+      switchTop("bookkeeping");
+      switchPanel("quotebuilder");
+    });
+  }
+  const bookHubNewTaskBtn = document.getElementById("bookHubNewTask");
+  if (bookHubNewTaskBtn) {
+    bookHubNewTaskBtn.addEventListener("click", () => {
+      state.workOrderView.focusId = "";
+      state.workOrderView.showCreate = true;
+      switchTop("workorders");
+      renderWorkOrders();
+    });
+  }
   const homeOpenContractsBtn = document.getElementById("homeOpenContracts");
   if (homeOpenContractsBtn) {
     homeOpenContractsBtn.addEventListener("click", () => {
@@ -10247,6 +10444,22 @@ function setupListeners() {
     homeEditBandDNABtn.addEventListener("click", () => {
       state.onboardingStep = 1;
       switchTop("onboarding");
+    });
+  }
+  const docsOpenSignedContractsBtn = document.getElementById("docsOpenSignedContracts");
+  if (docsOpenSignedContractsBtn) {
+    docsOpenSignedContractsBtn.addEventListener("click", () => {
+      state.activeTab = "contracts";
+      switchTop("contracts");
+      switchPanel("contracts");
+    });
+  }
+  const docsOpenCreatedContractsBtn = document.getElementById("docsOpenCreatedContracts");
+  if (docsOpenCreatedContractsBtn) {
+    docsOpenCreatedContractsBtn.addEventListener("click", () => {
+      state.activeTab = "contractscreated";
+      switchTop("contracts");
+      switchPanel("contractscreated");
     });
   }
 

@@ -596,6 +596,219 @@ body {
   outline: none;
 }
 
+.book-hub-panel {
+  display: grid;
+  gap: 14px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.book-hub-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.book-hub-primary,
+.book-hub-secondary,
+.book-hub-card-action,
+.book-hub-task {
+  font: inherit;
+}
+
+.book-hub-primary {
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  padding: 16px 20px;
+  background: #c9883a;
+  color: #fff8ee;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.book-hub-secondary {
+  width: 100%;
+  border: 1px solid #d4a96a;
+  border-radius: 999px;
+  padding: 14px 20px;
+  background: transparent;
+  color: #8a6840;
+  font-size: 0.98rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.book-hub-card {
+  border: 0.5px solid #d4a96a;
+  border-radius: 12px;
+  background: #fff8ee;
+  padding: 16px;
+}
+
+.book-hub-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.book-hub-card h2 {
+  margin: 0 0 4px;
+  font-size: 1.1rem;
+  color: #2c1a00;
+}
+
+.book-hub-card .muted {
+  color: #8a6840;
+}
+
+.book-hub-card-action {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #c9883a;
+  color: #fff8ee;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.book-hub-calendar-title {
+  margin-bottom: 12px;
+  color: #2c1a00;
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.book-hub-calendar-weekdays,
+.book-hub-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.book-hub-calendar-weekdays {
+  margin-bottom: 8px;
+}
+
+.book-hub-calendar-weekdays span {
+  text-align: center;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a6840;
+}
+
+.book-hub-day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border-radius: 10px;
+  border: 0.5px solid rgba(212, 169, 106, 0.32);
+  background: rgba(255, 248, 238, 0.82);
+  color: #2c1a00;
+  font-size: 0.92rem;
+}
+
+.book-hub-day.muted {
+  color: rgba(138, 104, 64, 0.48);
+  background: rgba(255, 248, 238, 0.5);
+}
+
+.book-hub-day.is-show {
+  border-color: #c9883a;
+  background: rgba(201, 136, 58, 0.18);
+  color: #8e5414;
+  font-weight: 700;
+}
+
+.book-hub-day.is-blackout {
+  border-color: #e4b69c;
+  background: #f0c8b0;
+  color: #9d5d3a;
+  font-weight: 700;
+}
+
+.book-hub-work-orders {
+  display: grid;
+  gap: 10px;
+}
+
+.book-hub-task {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 0.5px solid rgba(212, 169, 106, 0.45);
+  border-radius: 12px;
+  background: rgba(255, 248, 238, 0.72);
+  color: #2c1a00;
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.book-hub-task-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 0.3rem;
+  background: #c9883a;
+  flex: 0 0 auto;
+}
+
+.book-hub-task-copy {
+  display: grid;
+  gap: 3px;
+  flex: 1 1 auto;
+}
+
+.book-hub-task-copy strong {
+  color: #2c1a00;
+}
+
+.book-hub-task-copy span {
+  color: #8a6840;
+  font-size: 0.86rem;
+}
+
+.book-hub-task-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(201, 136, 58, 0.16);
+  color: #9e5d16;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.book-hub-primary:hover,
+.book-hub-primary:focus-visible,
+.book-hub-secondary:hover,
+.book-hub-secondary:focus-visible,
+.book-hub-card-action:hover,
+.book-hub-card-action:focus-visible,
+.book-hub-task:hover,
+.book-hub-task:focus-visible {
+  filter: brightness(0.98);
+  outline: none;
+}
+
+.docs-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .sound-lines {
   height: 50px;
   border-radius: 10px;
@@ -2269,6 +2482,11 @@ input[type="file"] {
     grid-template-columns: 1fr;
   }
 
+  .book-hub-calendar-weekdays,
+  .book-hub-calendar-grid {
+    gap: 6px;
+  }
+
   .vinyl-art {
     width: 96px;
     height: 96px;
@@ -2298,6 +2516,19 @@ input[type="file"] {
 
   .dashboard-booking-btn {
     bottom: 84px;
+  }
+
+  .book-hub-day {
+    min-height: 34px;
+    font-size: 0.84rem;
+  }
+
+  .book-hub-card-head {
+    flex-direction: column;
+  }
+
+  .book-hub-card-action {
+    align-self: flex-start;
   }
 
   .work-order-head {

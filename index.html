@@ -22,14 +22,6 @@
         </div>
       </header>
 
-      <nav class="tabs section-tabs hidden" id="bookkeepingTabs">
-        <button class="tab section-tab active" data-panel="agreement">Step 1: Agreement</button>
-        <button class="tab section-tab" data-panel="invoice">Step 2: Invoice</button>
-        <button class="tab section-tab" data-panel="receipt">Step 3: Receipt</button>
-        <button class="tab section-tab" data-panel="contracts">Signed Contracts</button>
-        <button class="tab section-tab" data-panel="contractscreated">Contracts Created</button>
-      </nav>
-
       <nav class="tabs section-tabs hidden" id="scheduleTabs">
         <button class="tab section-tab active" data-panel="calendar">Event Calendar</button>
       </nav>
@@ -67,6 +59,49 @@
             <button class="btn ghost" id="loginMagicLink">Email magic link</button>
             <p id="loginStatus" class="muted"></p>
           </div>
+        </section>
+      </main>
+      <main class="layout single hidden" id="bookHubTab">
+        <section class="panel form-panel book-hub-panel">
+          <div class="book-hub-actions">
+            <button class="book-hub-primary" id="bookHubNewBooking" type="button">+ New Booking</button>
+            <button class="book-hub-secondary" id="bookHubCreateQuote" type="button">Create a Quote</button>
+          </div>
+
+          <article class="book-hub-card">
+            <div class="book-hub-card-head">
+              <div>
+                <h2>Calendar</h2>
+                <p class="muted" id="bookHubCalendarSummary">This month at a glance.</p>
+              </div>
+            </div>
+            <div class="book-hub-calendar">
+              <div class="book-hub-calendar-title" id="bookHubCalendarTitle">Month Year</div>
+              <div class="book-hub-calendar-weekdays">
+                <span>Sun</span>
+                <span>Mon</span>
+                <span>Tue</span>
+                <span>Wed</span>
+                <span>Thu</span>
+                <span>Fri</span>
+                <span>Sat</span>
+              </div>
+              <div class="book-hub-calendar-grid" id="bookHubCalendarGrid"></div>
+            </div>
+          </article>
+
+          <article class="book-hub-card">
+            <div class="book-hub-card-head">
+              <div>
+                <h2>Work Orders</h2>
+                <p class="muted" id="bookHubWorkOrdersSummary">Current open tasks.</p>
+              </div>
+              <button class="book-hub-card-action" id="bookHubNewTask" type="button">+ new</button>
+            </div>
+            <div class="book-hub-work-orders" id="bookHubWorkOrdersList">
+              <p class="muted">No open work orders right now.</p>
+            </div>
+          </article>
         </section>
       </main>
       <main class="layout single hidden" id="homeTab">
@@ -1768,6 +1803,11 @@
           <h2>Contracts</h2>
           <p class="muted">Manage pending and signed contracts in one place.</p>
           <p id="contractsHubStatus" class="muted"></p>
+
+          <div class="form-section docs-actions">
+            <button class="btn ghost" id="docsOpenSignedContracts" type="button">Signed Contracts</button>
+            <button class="btn ghost" id="docsOpenCreatedContracts" type="button">Contracts Created</button>
+          </div>
 
           <div class="form-section">
             <h3>Drafts / Contracts Pending Signature</h3>
