@@ -9175,10 +9175,10 @@ function renderMusicianShowCabinet() {
   const contactParts = [activeMusician.email, activeMusician.phone].filter(Boolean);
   summary.innerHTML = `
     <div class="cabinet-summary-top">
-      <strong>${musicianDisplayName(activeMusician)}</strong>
+      <strong style="font-size:22px;font-weight:700;color:#2c1a00;font-family:Georgia, 'Times New Roman', serif;margin:0 0 4px;">${activeMusician.name || musicianDisplayName(activeMusician)}</strong>
       <span class="musician-card-status">${statusLabel}</span>
     </div>
-    <p>${activeMusician.role || "No role set"}</p>
+    <p style="color:#8a6840;font-size:14px;margin:0 0 8px;">${activeMusician.role || "No role set"}</p>
     <p>${contactParts.length ? contactParts.join(" · ") : "No contact info"}</p>
     ${activeMusician.notes ? `<p>${activeMusician.notes}</p>` : ""}
   `;
