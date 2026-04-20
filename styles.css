@@ -273,28 +273,6 @@ body {
   display: none;
 }
 
-.workspace-head {
-  margin-bottom: 20px;
-  border: 1px solid var(--stroke);
-  border-radius: 16px;
-  padding: 14px 18px;
-  background: #fff8ec;
-}
-
-.workspace-kicker {
-  margin: 0 0 4px;
-  font-size: 0.72rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.workspace-head h2 {
-  margin: 0 0 4px;
-  font-family: var(--font-display);
-  font-size: clamp(1.3rem, 2.4vw, 1.8rem);
-}
-
 .home-panel {
   text-align: center;
 }
@@ -603,11 +581,13 @@ body {
   background: transparent;
   border: 0;
   box-shadow: none;
+  max-width: 100%;
 }
 
 .book-hub-actions {
   display: grid;
   gap: 10px;
+  width: 100%;
 }
 
 .book-hub-primary,
@@ -620,10 +600,10 @@ body {
 .book-hub-primary {
   width: 100%;
   border: 0;
-  border-radius: 999px;
+  border-radius: 24px;
   padding: 16px 20px;
   background: #c9883a;
-  color: #fff8ee;
+  color: #fff;
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
@@ -631,8 +611,8 @@ body {
 
 .book-hub-secondary {
   width: 100%;
-  border: 1px solid #d4a96a;
-  border-radius: 999px;
+  border: 1px solid #c9883a;
+  border-radius: 24px;
   padding: 14px 20px;
   background: transparent;
   color: #8a6840;

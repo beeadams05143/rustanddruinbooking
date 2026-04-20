@@ -3735,7 +3735,7 @@ function renderManagerChecklist(events) {
     }
     if (target === "contracts") {
       state.activeTab = "contracts";
-      switchTopView("bookkeeping");
+      switchTopView("contracts");
       return;
     }
     if (target === "invoice") {
@@ -10072,7 +10072,6 @@ function setupListeners() {
     });
   }
 
-  const bookkeepingTabs = document.getElementById("bookkeepingTabs");
   const scheduleTabs = document.getElementById("scheduleTabs");
   const aboutTabs = document.getElementById("aboutTabs");
   const bottomNav = document.getElementById("bottomNav");
@@ -10129,12 +10128,8 @@ function setupListeners() {
   };
 
   const updateWorkspaceHead = (topTarget, panelTarget) => {
-    const workspaceHead = document.querySelector(".workspace-head");
     const workspaceTitle = document.getElementById("workspaceTitle");
     const workspaceCrumb = document.getElementById("workspaceCrumb");
-    if (workspaceHead) {
-      workspaceHead.classList.toggle("hidden", topTarget === "home" && panelTarget === "home");
-    }
     if (!workspaceTitle || !workspaceCrumb) return;
     const panelNames = {
       login: "Sign In",
@@ -10262,7 +10257,6 @@ function setupListeners() {
     if (bottomNav) {
       bottomNav.classList.toggle("hidden", topTarget === "login" || topTarget === "onboarding");
     }
-    if (bookkeepingTabs) bookkeepingTabs.classList.toggle("hidden", true);
     if (scheduleTabs) scheduleTabs.classList.toggle("hidden", topTarget !== "calendar");
     if (aboutTabs) aboutTabs.classList.toggle("hidden", topTarget !== "about");
 
@@ -10396,7 +10390,6 @@ function setupListeners() {
   const bookHubNewBookingBtn = document.getElementById("bookHubNewBooking");
   if (bookHubNewBookingBtn) {
     bookHubNewBookingBtn.addEventListener("click", () => {
-      resetAgreementForm();
       state.activeTab = "agreement";
       switchTop("bookkeeping");
     });
@@ -10407,15 +10400,6 @@ function setupListeners() {
       state.activeTab = "quotebuilder";
       switchTop("bookkeeping");
       switchPanel("quotebuilder");
-    });
-  }
-  const bookHubNewTaskBtn = document.getElementById("bookHubNewTask");
-  if (bookHubNewTaskBtn) {
-    bookHubNewTaskBtn.addEventListener("click", () => {
-      state.workOrderView.focusId = "";
-      state.workOrderView.showCreate = true;
-      switchTop("workorders");
-      renderWorkOrders();
     });
   }
   const homeOpenContractsBtn = document.getElementById("homeOpenContracts");
