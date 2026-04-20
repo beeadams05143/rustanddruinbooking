@@ -3465,7 +3465,7 @@ function renderDashboardGreeting() {
     day: "numeric",
   });
 
-  greetingEl.textContent = `Good ${dayPart}, ${getDashboardFirstName()}`;
+  greetingEl.innerHTML = `<span style="background: linear-gradient(to right, #d4621a, #f47c20, #f5a623); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Good ${dayPart}, ${getDashboardFirstName()}</span>`;
   dateEl.textContent = `${dateLabel} · ${bandName}`;
 }
 
