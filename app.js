@@ -9222,9 +9222,12 @@ function renderMusicianShowCabinet() {
     const card = document.createElement("div");
     card.className = "event-card";
     const header = document.createElement("header");
-    header.innerHTML = `<span>${entry.show_title || "Untitled show"}</span><span>${entry.status || "Booked"}</span>`;
+    header.innerHTML = `
+      <span class="musician-show-title">${entry.show_title || "Untitled show"}</span>
+      <span class="musician-show-status">${entry.status || "Booked"}</span>
+    `;
     const dateMeta = document.createElement("div");
-    dateMeta.className = "event-meta";
+    dateMeta.className = "event-meta musician-show-date";
     dateMeta.textContent = entry.show_date ? formatDate(entry.show_date) : "No date";
     card.appendChild(header);
     card.appendChild(dateMeta);

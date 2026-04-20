@@ -2206,10 +2206,19 @@ textarea {
 }
 
 .blackout-section::before {
+  content: none;
+}
+
+.blackout-section h3 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.blackout-section h3::after {
   content: "Availability Block";
-  position: absolute;
-  top: 12px;
-  right: 16px;
+  position: static;
   padding: 5px 10px;
   border-radius: 999px;
   background: rgba(200, 90, 63, 0.12);
@@ -2218,6 +2227,7 @@ textarea {
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .blackout-actions {
@@ -2468,6 +2478,40 @@ input[type="file"] {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+#musicianShowList .event-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.musician-show-title {
+  color: #2c1a00;
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 1;
+}
+
+.musician-show-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #f47c20;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 1;
+}
+
+.musician-show-date {
+  color: #8a5010;
+  font-size: 13px;
+  opacity: 1;
 }
 
 
@@ -2822,6 +2866,10 @@ input[type="file"] {
 
   .cabinet-summary-top {
     align-items: flex-start;
+  }
+
+  .blackout-section h3 {
+    flex-direction: column;
   }
 
   .assignment-row {
