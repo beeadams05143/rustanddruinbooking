@@ -56,6 +56,7 @@ body {
   font-family: var(--font-display);
   font-size: clamp(2rem, 3vw, 3rem);
   margin: 0 0 8px;
+  color: #f47c20;
 }
 
 .logo {
@@ -70,6 +71,8 @@ body {
   margin: 0;
   color: #f0ede8;
   max-width: 520px;
+  font-size: 0.98rem;
+  font-weight: 400;
 }
 
 .band-card {
@@ -177,6 +180,25 @@ body {
 
 .home-panel {
   text-align: center;
+}
+
+#loginTab {
+  background: #1e1e24;
+}
+
+#loginTab .home-panel {
+  background: #28282f;
+  border: 0.5px solid #3a3a44;
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+#loginTab .home-panel h2 {
+  color: #f0ede8;
+}
+
+#loginTab .home-panel > .muted {
+  color: #888888;
 }
 
 .dashboard-board {
@@ -907,6 +929,10 @@ body {
   margin-top: 16px;
 }
 
+#loginTab label {
+  color: #f0ede8;
+}
+
 .home-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(180px, 1fr));
@@ -1463,6 +1489,12 @@ textarea {
   color: var(--ink);
 }
 
+#loginTab input {
+  background: #f5efe3;
+  border: 0.5px solid #d4a96a;
+  color: #2c1a00;
+}
+
 button.primary {
   width: fit-content;
 }
@@ -1759,6 +1791,14 @@ textarea {
   cursor: pointer;
 }
 
+#loginTab .btn,
+#loginTab .btn.ghost {
+  background: #f47c20;
+  color: #ffffff;
+  border: none;
+  border-radius: 24px;
+}
+
 .btn.ghost {
   background: transparent;
   color: var(--ink);
@@ -1788,6 +1828,11 @@ textarea {
   color: #b53b2b;
   font-weight: 600;
   margin: 0;
+}
+
+#loginStatus,
+#loginTab .warning {
+  color: #f47c20;
 }
 
 .pin-field {
