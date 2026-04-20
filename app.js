@@ -9763,27 +9763,21 @@ async function renderBookedDatesList() {
     const monthList = document.createElement("div");
     monthList.className = "event-list";
     events.forEach((event) => {
-      const confirmedNames = getConfirmedMusicianNamesForEvent(event);
       const lineup = getShowLineupLabel(event);
       const card = document.createElement("div");
-      card.className = "event-card";
-      const header = document.createElement("header");
-      header.innerHTML = `<span>${event.title || eventTypeLabel(event.type)}</span><span>${eventTypeLabel(event.type)}</span>`;
+      card.className = "event-card shows-booked-card";
+      const title = document.createElement("strong");
+      title.className = "shows-booked-title";
+      title.textContent = event.title || eventTypeLabel(event.type);
       const meta = document.createElement("div");
-      meta.className = "event-meta";
+      meta.className = "event-meta shows-booked-datetime";
       meta.textContent = formatShowDateTimeWithWeekday(event.start_time);
       const lineupMeta = document.createElement("div");
-      lineupMeta.className = "event-meta";
-      lineupMeta.textContent = `Lineup: ${lineup}`;
-      const roster = document.createElement("div");
-      roster.className = "event-meta";
-      roster.textContent = confirmedNames.length
-        ? `Confirmed: ${confirmedNames.join(", ")}`
-        : "No confirmed musicians yet.";
-      card.appendChild(header);
+      lineupMeta.className = "event-meta shows-booked-lineup";
+      lineupMeta.textContent = lineup;
+      card.appendChild(title);
       card.appendChild(meta);
       card.appendChild(lineupMeta);
-      card.appendChild(roster);
       monthList.appendChild(card);
     });
     monthCard.appendChild(monthList);

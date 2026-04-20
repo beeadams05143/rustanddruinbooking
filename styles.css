@@ -2514,6 +2514,29 @@ input[type="file"] {
   opacity: 1;
 }
 
+.shows-booked-card {
+  display: grid;
+  gap: 6px;
+}
+
+.shows-booked-title {
+  color: #2c1a00;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.shows-booked-datetime {
+  color: #f47c20;
+  font-size: 13px;
+  opacity: 1;
+}
+
+.shows-booked-lineup {
+  color: #8a6840;
+  font-size: 12px;
+  opacity: 1;
+}
+
 
 @media (max-width: 900px) {
   .layout {
