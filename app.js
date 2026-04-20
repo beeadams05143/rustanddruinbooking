@@ -1174,6 +1174,25 @@ const SEEDED_MUSICIAN_BLACKOUTS = [
   { musician_name: "Gary", start_date: "2026-08-21", end_date: "2026-08-22" },
   { musician_name: "Todd", start_date: "2026-10-03", end_date: "2026-10-03" },
 ];
+const MARKETING_SOCIAL_TEMPLATES = [
+  { category: "SHOW", title: "Show Announcement", text: "We're playing [VENUE] on [DATE]! Come see us live 🎸 Doors at [TIME]. Come early, stay late." },
+  { category: "SHOW", title: "Show Reminder", text: "This [DAY]! We'll be at [VENUE] starting at [TIME]. Come hang — it's going to be a great night 🎶" },
+  { category: "SHOW", title: "Show Recap", text: "What a night at [VENUE]! Thanks to everyone who came out and made it so special. You are why we do this 🙏🎸" },
+  { category: "SHOW", title: "New Booking", text: "Just booked [VENUE] on [DATE]! Can't wait to play this one. More dates dropping soon — stay tuned 🎵" },
+  { category: "SHOW", title: "Available Dates", text: "We still have some open [MONTH] dates! If you're looking for live music for your venue or event, send us a DM 🎸" },
+  { category: "SHOW", title: "General Promo", text: "Rust and Ruin is booking for [SEASON]! We play pubs, breweries, private events, weddings and more. Reach out if you want live music that gets people moving 🎶" },
+  { category: "BEHIND THE SCENES", title: "Practice Day", text: "Practice day at the [LOCATION] 🎸 Working on some new stuff today — can't wait to bring it to the stage. Stay tuned!" },
+  { category: "BEHIND THE SCENES", title: "Loading In", text: "Load in day ✅ Hauling gear, setting up, and getting ready to make some noise tonight at [VENUE]. See you there!" },
+  { category: "BEHIND THE SCENES", title: "Soundcheck", text: "Soundcheck done ✅ [VENUE] is sounding great tonight. Doors open at [TIME] — come early and grab a good spot 🎶" },
+  { category: "BEHIND THE SCENES", title: "After the Show", text: "That's a wrap at [VENUE]! What an incredible crowd tonight. Thanks for singing along, dancing, and making our night. See you next time 🙏🎸" },
+  { category: "BEHIND THE SCENES", title: "Candid Moment", text: "Just another [DAY] in the life of Rust and Ruin 😄 [ADD YOUR CAPTION HERE] 🎸" },
+  { category: "BEHIND THE SCENES", title: "Road Trip", text: "On the road to [VENUE] 🚗🎸 [MILES] miles, good music, and good vibes. Tonight is going to be a great one!" },
+  { category: "BEHIND THE SCENES", title: "Gear Setup", text: "Getting everything dialed in before tonight's show at [VENUE] 🎛️ The little details matter. See you on the dance floor!" },
+  { category: "GET TO KNOW US", title: "Meet the Band", text: "In case you don't know us — we're Rust and Ruin, a Vermont-based acoustic duo with a full band option. We play Americana, classic favorites, and originals with an easygoing feel-good vibe 🎶 Come find us live!" },
+  { category: "GET TO KNOW US", title: "Throwback", text: "Throwback to [EVENT/VENUE] 📸 Some nights just stick with you. Thanks for being part of our story 🙏🎸" },
+  { category: "GET TO KNOW US", title: "Song Request", text: "We want to know — what song do you ALWAYS want to hear us play? Drop it in the comments 🎵👇" },
+  { category: "GET TO KNOW US", title: "Milestone", text: "We just hit [MILESTONE — like our 100th show, 5 years together, etc]! 🎉 Thank you to every venue, every fan, and every person who has believed in us. Here's to many more 🎸🙏" },
+];
 const SEEDED_BOOKED_EVENTS = [
   { date: "2026-01-03", start: "19:00", end: "22:00", title: "Killarney's", type: "Confirmed" },
   { date: "2026-01-06", start: "13:00", end: "14:00", title: "Mertens House", type: "Confirmed" },
@@ -9823,6 +9842,25 @@ function renderAboutTab() {
   aboutTab.insertBefore(logoImg, aboutTab.firstChild);
 }
 
+function renderMarketingTab() {
+  const grid = document.getElementById("marketingSocialTemplatesGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  MARKETING_SOCIAL_TEMPLATES.forEach((template, index) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "marketing-social-card";
+    card.dataset.templateIndex = String(index);
+    card.innerHTML = `
+      <span class="marketing-social-category">${escapeHtml(template.category)}</span>
+      <strong class="marketing-social-title">${escapeHtml(template.title)}</strong>
+      <span class="marketing-social-text">${escapeHtml(template.text)}</span>
+      <span class="marketing-social-feedback" aria-live="polite"></span>
+    `;
+    grid.appendChild(card);
+  });
+}
+
 async function renderAvailableDatesList() {
   const list = document.getElementById("availableDatesList");
   if (!list) return;
@@ -10325,6 +10363,9 @@ function setupListeners() {
     }
     if (target === "allabout") {
       renderAboutTab();
+    }
+    if (target === "marketing") {
+      renderMarketingTab();
     }
     if (target === "agreement") {
       renderAgreementStepUI();
@@ -11256,6 +11297,40 @@ function setupListeners() {
       saveDraft();
       renderPromoTemplates();
       setPromoStatus("Template deleted.");
+    });
+  }
+
+  const marketingOpenPromoBuilder = document.getElementById("marketingOpenPromoBuilder");
+  if (marketingOpenPromoBuilder) {
+    marketingOpenPromoBuilder.addEventListener("click", () => {
+      switchTop("workorders");
+      switchWorkOrderSection("promo");
+      renderWorkOrderWorkspace();
+    });
+  }
+  const marketingSocialTemplatesGrid = document.getElementById("marketingSocialTemplatesGrid");
+  if (marketingSocialTemplatesGrid) {
+    marketingSocialTemplatesGrid.addEventListener("click", async (event) => {
+      const card = event.target.closest("button.marketing-social-card[data-template-index]");
+      if (!card) return;
+      const index = Number(card.dataset.templateIndex);
+      const template = MARKETING_SOCIAL_TEMPLATES[index];
+      if (!template) return;
+      await copyTextToClipboard(template.text);
+      const feedback = card.querySelector(".marketing-social-feedback");
+      if (feedback) {
+        feedback.textContent = "Copied!";
+        window.setTimeout(() => {
+          if (feedback.textContent === "Copied!") feedback.textContent = "";
+        }, 1200);
+      }
+      const statusEl = document.getElementById("marketingSocialStatus");
+      if (statusEl) {
+        statusEl.textContent = `${template.title} copied.`;
+        window.setTimeout(() => {
+          if (statusEl.textContent === `${template.title} copied.`) statusEl.textContent = "";
+        }, 1200);
+      }
     });
   }
 

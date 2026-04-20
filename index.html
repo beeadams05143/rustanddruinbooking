@@ -2107,8 +2107,21 @@
       </main>
 
       <main class="layout single hidden" id="marketingTab">
-        <section class="panel form-panel placeholder-panel">
-          <h2>Marketing Hub — coming soon</h2>
+        <section class="panel form-panel marketing-panel">
+          <div class="form-section">
+            <h3 class="marketing-section-title">Promo + Outreach Builder</h3>
+            <p class="marketing-section-subtitle">Open the existing builder to create outreach messages, save templates, and manage your promo drafts.</p>
+            <div class="inline-actions">
+              <button class="btn" id="marketingOpenPromoBuilder" type="button">Open Promo + Outreach Builder</button>
+            </div>
+          </div>
+
+          <div class="form-section marketing-social-section">
+            <h3 class="marketing-section-title">Social Post Templates</h3>
+            <p class="marketing-section-subtitle">Tap any template to copy it. Fill in the brackets before posting.</p>
+            <div id="marketingSocialTemplatesGrid" class="marketing-social-grid"></div>
+            <p id="marketingSocialStatus" class="muted marketing-social-status" aria-live="polite"></p>
+          </div>
         </section>
       </main>
 
