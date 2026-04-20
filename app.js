@@ -3627,8 +3627,8 @@ function renderBookHub() {
     header.id = "bookHubGreetingHeader";
     header.style.cssText = "padding: 24px 16px 8px; text-align: left;";
     header.innerHTML = `
-      <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 4px; background: linear-gradient(to right, #d4621a, #f47c20, #f5a623); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Fill the calendar.</h1>
-      <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 8px; background: linear-gradient(to right, #f47c20, #f5a623, #f5c48a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Hit the stage.</h1>
+      <h1 style="font-size: 32px; font-weight: 700; margin: 0 0 4px; font-family: Georgia, 'Times New Roman', serif; background: linear-gradient(to right, #d4621a, #f47c20, #f5a623); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Fill the calendar.</h1>
+      <h1 style="font-size: 32px; font-weight: 700; margin: 0 0 8px; font-family: Georgia, 'Times New Roman', serif; background: linear-gradient(to right, #f47c20, #f5a623, #f5c48a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Hit the stage.</h1>
       <p style="font-size: 14px; color: #f0ede8; margin: 0;">Book your next show.</p>
     `;
     container.insertBefore(header, container.firstChild);
