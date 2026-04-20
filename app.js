@@ -3618,6 +3618,21 @@ function renderBookHubWorkOrders() {
   });
 }
 
+function prependGradientSectionHeader(container, headerId, firstLine, secondLine, subtitle) {
+  if (!container) return;
+  const existingHeader = document.getElementById(headerId);
+  if (existingHeader) existingHeader.remove();
+  const header = document.createElement("div");
+  header.id = headerId;
+  header.style.cssText = "padding: 24px 16px 8px; text-align: left;";
+  header.innerHTML = `
+    <h1 style="font-size: 32px; font-weight: 700; margin: 0 0 4px; font-family: Georgia, 'Times New Roman', serif; background: linear-gradient(to right, #d4621a, #f47c20, #f5a623); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${firstLine}</h1>
+    <h1 style="font-size: 32px; font-weight: 700; margin: 0 0 8px; font-family: Georgia, 'Times New Roman', serif; background: linear-gradient(to right, #f47c20, #f5a623, #f5c48a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${secondLine}</h1>
+    <p style="font-size: 14px; color: #f0ede8; margin: 0 0 16px;">${subtitle}</p>
+  `;
+  container.insertBefore(header, container.firstChild);
+}
+
 function renderBookHub() {
   const container = document.querySelector("#bookHubTab .book-hub-panel");
   if (container) {
@@ -8212,6 +8227,14 @@ function focusPromoMessageEditor() {
 function renderFollowUps() {
   const list = document.getElementById("followUpList");
   if (!list) return;
+  const container = document.getElementById("followUpsWrap");
+  prependGradientSectionHeader(
+    container,
+    "followUpsGreetingHeader",
+    "Don't let a",
+    "good lead go cold.",
+    "Track venues, festivals and applications you are following up on."
+  );
   const todayKey = new Date().toISOString().slice(0, 10);
   const entries = [...(state.workOrderWorkspace.followUps || [])].sort((a, b) => {
     return String(a.nextFollowUp || "").localeCompare(String(b.nextFollowUp || ""));
@@ -8440,6 +8463,14 @@ function renderWorkOrderWorkspace() {
 
 function renderWorkOrders() {
   const list = document.getElementById("workOrderList");
+  const container = document.querySelector("#workOrdersTab .panel.form-panel");
+  prependGradientSectionHeader(
+    container,
+    "workOrdersGreetingHeader",
+    "Get it done.",
+    "Hit the stage.",
+    "Tasks, outreach and everything in between."
+  );
   if (!list) {
     renderBookHubWorkOrders();
     return;
@@ -8856,6 +8887,14 @@ function populateMusicianSelects() {
 }
 
 function renderMusicianList() {
+  const container = document.querySelector("#musiciansTab .panel.form-panel");
+  prependGradientSectionHeader(
+    container,
+    "musiciansGreetingHeader",
+    "Your crew.",
+    "Your sound.",
+    "Manage your team roster, blackouts and show files."
+  );
   populateMusicianSelects();
   renderMusicianShowCabinet();
 }
@@ -9840,6 +9879,14 @@ async function renderAvailableDatesList() {
 }
 
 function renderAssignmentSummaryLists() {
+  const container = document.querySelector("#showsTab .panel.form-panel");
+  prependGradientSectionHeader(
+    container,
+    "showsGreetingHeader",
+    "The gig log.",
+    "Every show, every stage.",
+    "Your full show history pulled from the calendar."
+  );
   renderAssignmentList();
   void renderBookedDatesList();
   void renderAvailableDatesList();
