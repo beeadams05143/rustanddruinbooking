@@ -6623,8 +6623,22 @@ function editDraftContract(contract) {
 }
 
 function renderContractsHub() {
+  const container = document.querySelector("#contractsHubTab .panel.form-panel");
   const pendingList = document.getElementById("contractsHubPendingList");
   const signedList = document.getElementById("contractsHubSignedList");
+  if (container) {
+    const existingHeader = document.getElementById("contractsHubGreetingHeader");
+    if (existingHeader) existingHeader.remove();
+    const header = document.createElement("div");
+    header.id = "contractsHubGreetingHeader";
+    header.style.cssText = "padding: 24px 16px 8px; text-align: left;";
+    header.innerHTML = `
+      <h1 style="font-size: 32px; font-weight: 700; margin: 0 0 4px; font-family: Georgia, 'Times New Roman', serif; background: linear-gradient(to right, #d4621a, #f47c20, #f5a623); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Lock it in.</h1>
+      <h1 style="font-size: 32px; font-weight: 700; margin: 0 0 8px; font-family: Georgia, 'Times New Roman', serif; background: linear-gradient(to right, #f47c20, #f5a623, #f5c48a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Hit the stage.</h1>
+      <p style="font-size: 14px; color: #f0ede8; margin: 0 0 16px;">Manage pending and signed contracts in one place.</p>
+    `;
+    container.insertBefore(header, container.firstChild);
+  }
   if (!pendingList || !signedList) return;
 
   const pendingContracts = state.calendar.contracts
