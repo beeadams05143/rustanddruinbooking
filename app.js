@@ -6363,7 +6363,8 @@ function updateCreatedContractList() {
     const card = document.createElement("div");
     card.className = "event-card";
     const header = document.createElement("header");
-    header.innerHTML = `<span>${contract.name || "Created contract"}</span><span>${formatShortDateTime(
+    header.style.cssText = "display:flex;flex-direction:column;gap:6px;align-items:flex-start;";
+    header.innerHTML = `<span style="color:#2c1a00;font-weight:600;font-size:15px;">${contract.name || "Created contract"} <span style="display:inline-flex;align-items:center;justify-content:center;background:#f47c20;color:#ffffff;font-size:11px;padding:2px 8px;border-radius:10px;">Draft</span></span><span style="color:#f47c20;font-size:13px;">${formatShortDateTime(
       contract.uploaded_at
     )}</span>`;
     const actions = document.createElement("div");
