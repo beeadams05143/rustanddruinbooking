@@ -10072,6 +10072,7 @@ function setupListeners() {
     });
   }
 
+  const bookkeepingTabs = document.getElementById("bookkeepingTabs");
   const scheduleTabs = document.getElementById("scheduleTabs");
   const aboutTabs = document.getElementById("aboutTabs");
   const bottomNav = document.getElementById("bottomNav");
@@ -10257,6 +10258,7 @@ function setupListeners() {
     if (bottomNav) {
       bottomNav.classList.toggle("hidden", topTarget === "login" || topTarget === "onboarding");
     }
+    if (bookkeepingTabs) bookkeepingTabs.classList.add("hidden");
     if (scheduleTabs) scheduleTabs.classList.toggle("hidden", topTarget !== "calendar");
     if (aboutTabs) aboutTabs.classList.toggle("hidden", topTarget !== "about");
 
@@ -10360,6 +10362,7 @@ function setupListeners() {
       if (target === "book") {
         state.activeTab = "bookhub";
         switchTop("bookkeeping");
+        switchPanel("bookhub");
         return;
       }
       if (target === "docs") {
