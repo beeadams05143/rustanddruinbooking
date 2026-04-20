@@ -10406,6 +10406,15 @@ function setupListeners() {
       switchPanel("quotebuilder");
     });
   }
+  const bookHubNewTaskBtn = document.getElementById("bookHubNewTask");
+  if (bookHubNewTaskBtn) {
+    bookHubNewTaskBtn.addEventListener("click", () => {
+      state.workOrderView.focusId = "";
+      state.workOrderView.showCreate = true;
+      switchTop("workorders");
+      renderWorkOrders();
+    });
+  }
   const homeOpenContractsBtn = document.getElementById("homeOpenContracts");
   if (homeOpenContractsBtn) {
     homeOpenContractsBtn.addEventListener("click", () => {

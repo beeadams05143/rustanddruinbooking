@@ -60,6 +60,48 @@
             <button class="book-hub-primary" id="bookHubNewBooking" type="button">+ New Booking</button>
             <button class="book-hub-secondary" id="bookHubCreateQuote" type="button">Create a Quote</button>
           </div>
+
+          <article
+            class="book-hub-card"
+            id="bookHubCalendarCard"
+            style="background:#fff8ee;border:0.5px solid #d4a96a;border-radius:12px;padding:16px;margin:12px 0;"
+          >
+            <div class="book-hub-card-head">
+              <div>
+                <h2>Calendar</h2>
+                <p class="muted" id="bookHubCalendarSummary">This month at a glance.</p>
+              </div>
+            </div>
+            <div class="book-hub-calendar">
+              <div class="book-hub-calendar-title" id="bookHubCalendarTitle">Month Year</div>
+              <div class="book-hub-calendar-weekdays">
+                <span>Sun</span>
+                <span>Mon</span>
+                <span>Tue</span>
+                <span>Wed</span>
+                <span>Thu</span>
+                <span>Fri</span>
+                <span>Sat</span>
+              </div>
+              <div class="book-hub-calendar-grid" id="bookHubCalendarGrid"></div>
+            </div>
+          </article>
+
+          <article
+            class="book-hub-card"
+            style="background:#fff8ee;border:0.5px solid #d4a96a;border-radius:12px;padding:16px;margin:12px 0;"
+          >
+            <div class="book-hub-card-head">
+              <div>
+                <h2>Work Orders</h2>
+                <p class="muted" id="bookHubWorkOrdersSummary">Current open tasks.</p>
+              </div>
+              <button class="book-hub-card-action" id="bookHubNewTask" type="button">+ New</button>
+            </div>
+            <div class="book-hub-work-orders" id="bookHubWorkOrdersList">
+              <p class="muted">No open work orders right now.</p>
+            </div>
+          </article>
         </section>
       </main>
       <main class="layout single hidden" id="homeTab">
@@ -2091,8 +2133,6 @@
           </div>
 
           <div class="form-section more-links">
-            <button class="btn ghost more-link" data-more-panel="calendar" type="button">Calendar</button>
-            <button class="btn ghost more-link" data-more-panel="workorders" type="button">Work Orders</button>
             <button class="btn ghost more-link" data-more-panel="shows" type="button">Shows</button>
             <button class="btn ghost more-link" data-more-panel="musicians" type="button">Musicians + Tech Crew</button>
             <button class="btn ghost more-link" data-more-panel="troubleshooting" type="button">Troubleshooting</button>
