@@ -9219,19 +9219,38 @@ function renderMusicianShowCabinet() {
     return;
   }
 
+  const listHeading = document.createElement("h3");
+  const musicianName = musicianDisplayName(activeMusician);
+  listHeading.textContent = `${musicianName}${/s$/i.test(musicianName) ? "'" : "'s"} Shows`;
+  listHeading.style.cssText = "font-size:18px;font-weight:700;color:#2c1a00;font-family:Georgia, 'Times New Roman', serif;margin:12px 0 8px;padding:0 8px;";
+  list.appendChild(listHeading);
+
   entries.forEach((entry) => {
     const card = document.createElement("div");
     card.className = "event-card";
-    const header = document.createElement("header");
-    header.innerHTML = `
-      <span class="musician-show-title">${entry.show_title || "Untitled show"}</span>
-      <span class="musician-show-status">${entry.status || "Booked"}</span>
-    `;
+    const title = document.createElement("div");
+    title.className = "musician-show-title";
+    title.style.cssText = "font-size:17px;font-weight:700;color:#2c1a00;";
+    title.textContent = entry.show_title || "Untitled show";
     const dateMeta = document.createElement("div");
     dateMeta.className = "event-meta musician-show-date";
+    dateMeta.style.cssText = "color:#f47c20;font-size:13px;opacity:1;";
     dateMeta.textContent = entry.show_date ? formatDate(entry.show_date) : "No date";
-    card.appendChild(header);
+    const statusBadge = document.createElement("span");
+    statusBadge.className = "musician-show-status";
+    statusBadge.style.cssText = "display:inline-flex;align-items:center;justify-content:center;background:#f47c20;color:#ffffff;font-size:12px;padding:2px 8px;border-radius:10px;white-space:nowrap;";
+    statusBadge.textContent = entry.status || "Booked";
+    card.appendChild(title);
     card.appendChild(dateMeta);
+    card.appendChild(statusBadge);
+    const noteText = String(entry.notes || "");
+    if (/full band/i.test(noteText) || /\bduo\b/i.test(noteText)) {
+      const lineupLabel = document.createElement("div");
+      lineupLabel.className = "event-meta";
+      lineupLabel.style.cssText = "color:#8a6840;font-size:12px;opacity:1;";
+      lineupLabel.textContent = /full band/i.test(noteText) ? "Full Band" : "Duo";
+      card.appendChild(lineupLabel);
+    }
     if (entry.notes && !isInternalSeededNote(entry.notes)) {
       const notes = document.createElement("div");
       notes.className = "event-meta";
@@ -9764,17 +9783,20 @@ async function renderBookedDatesList() {
     const monthList = document.createElement("div");
     monthList.className = "event-list";
     events.forEach((event) => {
-      const lineup = getShowLineupLabel(event);
+      const lineup = isFullBandShowEvent(event) ? "Full Band" : "Duo";
       const card = document.createElement("div");
       card.className = "event-card shows-booked-card";
       const title = document.createElement("strong");
       title.className = "shows-booked-title";
+      title.style.cssText = "font-size:17px;font-weight:700;color:#2c1a00;";
       title.textContent = event.title || eventTypeLabel(event.type);
       const meta = document.createElement("div");
       meta.className = "event-meta shows-booked-datetime";
+      meta.style.cssText = "color:#f47c20;font-size:13px;opacity:1;";
       meta.textContent = formatShowDateTimeWithWeekday(event.start_time);
       const lineupMeta = document.createElement("div");
       lineupMeta.className = "event-meta shows-booked-lineup";
+      lineupMeta.style.cssText = "color:#8a6840;font-size:12px;opacity:1;";
       lineupMeta.textContent = lineup;
       card.appendChild(title);
       card.appendChild(meta);
@@ -9784,6 +9806,21 @@ async function renderBookedDatesList() {
     monthCard.appendChild(monthList);
     list.appendChild(monthCard);
   });
+}
+
+function renderAboutTab() {
+  const aboutTab = document.getElementById("allaboutTab");
+  if (!aboutTab) return;
+  const existingDynamicLogo = document.getElementById("aboutTabDynamicLogo");
+  if (existingDynamicLogo) existingDynamicLogo.remove();
+  const existingLogo = aboutTab.querySelector('img[src="logo.jpeg"]');
+  if (existingLogo) existingLogo.remove();
+  const logoImg = document.createElement("img");
+  logoImg.id = "aboutTabDynamicLogo";
+  logoImg.src = "logo.jpeg";
+  logoImg.alt = "GigOS";
+  logoImg.style.cssText = "width:120px;border-radius:16px;display:block;margin:24px auto 16px auto;";
+  aboutTab.insertBefore(logoImg, aboutTab.firstChild);
 }
 
 async function renderAvailableDatesList() {
@@ -10285,6 +10322,9 @@ function setupListeners() {
     }
     if (target === "bookhub") {
       renderBookHub();
+    }
+    if (target === "allabout") {
+      renderAboutTab();
     }
     if (target === "agreement") {
       renderAgreementStepUI();
