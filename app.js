@@ -6642,6 +6642,10 @@ function renderContractsHub() {
     container.insertBefore(header, container.firstChild);
   }
   if (!pendingList || !signedList) return;
+  const pendingSection = pendingList.closest(".form-section");
+  const signedSection = signedList.closest(".form-section");
+  if (pendingSection) pendingSection.classList.add("contracts-hub-section");
+  if (signedSection) signedSection.classList.add("contracts-hub-section");
 
   const pendingContracts = state.calendar.contracts
     .filter((contract) => {

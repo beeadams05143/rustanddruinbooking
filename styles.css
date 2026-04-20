@@ -2105,6 +2105,31 @@ textarea {
   white-space: normal;
 }
 
+#contractsHubTab .contracts-hub-section {
+  background: #f5efe3;
+  border: 1px solid #d4a96a;
+  border-radius: 14px;
+}
+
+#contractsHubTab .contracts-hub-section h3 {
+  color: #f47c20;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+#contractsHubTab .event-card {
+  background: #fdf0e3;
+  border: 1px solid #e8a855;
+  border-radius: 12px;
+}
+
+#contractsHubTab .event-actions .btn {
+  background: transparent;
+  border: 1px solid #e8a855;
+  color: #8a5010;
+  border-radius: 20px;
+  box-shadow: none;
+}
+
 .musician-roster-list {
   gap: 10px;
 }
