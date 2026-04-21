@@ -1175,25 +1175,6 @@ const SEEDED_MUSICIAN_BLACKOUTS = [
   { musician_name: "Gary", start_date: "2026-08-21", end_date: "2026-08-22" },
   { musician_name: "Todd", start_date: "2026-10-03", end_date: "2026-10-03" },
 ];
-const MARKETING_SOCIAL_TEMPLATES = [
-  { category: "SHOW", title: "Show Announcement", text: "We're playing [VENUE] on [DATE]! Come see us live 🎸 Doors at [TIME]. Come early, stay late." },
-  { category: "SHOW", title: "Show Reminder", text: "This [DAY]! We'll be at [VENUE] starting at [TIME]. Come hang — it's going to be a great night 🎶" },
-  { category: "SHOW", title: "Show Recap", text: "What a night at [VENUE]! Thanks to everyone who came out and made it so special. You are why we do this 🙏🎸" },
-  { category: "SHOW", title: "New Booking", text: "Just booked [VENUE] on [DATE]! Can't wait to play this one. More dates dropping soon — stay tuned 🎵" },
-  { category: "SHOW", title: "Available Dates", text: "We still have some open [MONTH] dates! If you're looking for live music for your venue or event, send us a DM 🎸" },
-  { category: "SHOW", title: "General Promo", text: "Rust and Ruin is booking for [SEASON]! We play pubs, breweries, private events, weddings and more. Reach out if you want live music that gets people moving 🎶" },
-  { category: "BEHIND THE SCENES", title: "Practice Day", text: "Practice day at the [LOCATION] 🎸 Working on some new stuff today — can't wait to bring it to the stage. Stay tuned!" },
-  { category: "BEHIND THE SCENES", title: "Loading In", text: "Load in day ✅ Hauling gear, setting up, and getting ready to make some noise tonight at [VENUE]. See you there!" },
-  { category: "BEHIND THE SCENES", title: "Soundcheck", text: "Soundcheck done ✅ [VENUE] is sounding great tonight. Doors open at [TIME] — come early and grab a good spot 🎶" },
-  { category: "BEHIND THE SCENES", title: "After the Show", text: "That's a wrap at [VENUE]! What an incredible crowd tonight. Thanks for singing along, dancing, and making our night. See you next time 🙏🎸" },
-  { category: "BEHIND THE SCENES", title: "Candid Moment", text: "Just another [DAY] in the life of Rust and Ruin 😄 [ADD YOUR CAPTION HERE] 🎸" },
-  { category: "BEHIND THE SCENES", title: "Road Trip", text: "On the road to [VENUE] 🚗🎸 [MILES] miles, good music, and good vibes. Tonight is going to be a great one!" },
-  { category: "BEHIND THE SCENES", title: "Gear Setup", text: "Getting everything dialed in before tonight's show at [VENUE] 🎛️ The little details matter. See you on the dance floor!" },
-  { category: "GET TO KNOW US", title: "Meet the Band", text: "In case you don't know us — we're Rust and Ruin, a Vermont-based acoustic duo with a full band option. We play Americana, classic favorites, and originals with an easygoing feel-good vibe 🎶 Come find us live!" },
-  { category: "GET TO KNOW US", title: "Throwback", text: "Throwback to [EVENT/VENUE] 📸 Some nights just stick with you. Thanks for being part of our story 🙏🎸" },
-  { category: "GET TO KNOW US", title: "Song Request", text: "We want to know — what song do you ALWAYS want to hear us play? Drop it in the comments 🎵👇" },
-  { category: "GET TO KNOW US", title: "Milestone", text: "We just hit [MILESTONE — like our 100th show, 5 years together, etc]! 🎉 Thank you to every venue, every fan, and every person who has believed in us. Here's to many more 🎸🙏" },
-];
 const WORK_ORDER_SOCIAL_POST_TEMPLATES = [
   { category: "SHOW", title: "Show Announcement", warm: "We are playing at [VENUE] on [DATE] and we would love to see you there. Doors at [TIME]. Come early grab a drink and let us play you something good. #livemusicvt #rustandruin #[VENUE]", funny: "Guess who is playing at [VENUE] on [DATE]? Us. Obviously. Doors at [TIME]. Come watch us pretend we are rock stars. #livemusicvt #rustandruin", hype: "IT IS SHOW DAY. We are taking over [VENUE] on [DATE]. Doors at [TIME]. Be there or regret it forever. #livemusic #rustandruin #showday" },
   { category: "SHOW", title: "Show Reminder", warm: "Just a friendly reminder that we are playing tonight at [VENUE]. Doors at [TIME]. Come as you are and stay as long as you want. #livemusicvt #rustandruin", funny: "Hey. HEY. We are playing TONIGHT at [VENUE]. Doors at [TIME]. Put on pants and come see us. #livemusic #rustandruin #tonight", hype: "TONIGHT. [VENUE]. [TIME]. Do not make us play to an empty room. Get there. #shownight #livemusic #rustandruin" },
@@ -8198,20 +8179,16 @@ function switchWorkOrderSection(section = "tasks") {
 }
 
 function switchPromoChannel(channel = "email") {
+  if (channel === "socialposts") channel = "email";
   state.workOrderWorkspace.promoChannel = channel;
   document.querySelectorAll("[data-promo-channel]").forEach((btn) => {
     btn.classList.toggle("active", btn.getAttribute("data-promo-channel") === channel);
   });
   const builderWrap = document.getElementById("promoBuilderWrap");
   const followUpWrap = document.getElementById("followUpsWrap");
-  const socialPostsPanel = document.getElementById("socialPostsPanel");
-  if (builderWrap) builderWrap.classList.toggle("hidden", channel === "followups" || channel === "socialposts");
+  if (builderWrap) builderWrap.classList.toggle("hidden", channel === "followups");
   if (followUpWrap) followUpWrap.classList.toggle("hidden", channel !== "followups");
-  if (socialPostsPanel) socialPostsPanel.classList.toggle("hidden", channel !== "socialposts");
-  if (channel === "socialposts") {
-    renderSocialPostsPanel();
-  }
-  if (channel !== "followups" && channel !== "socialposts") {
+  if (channel !== "followups") {
     updatePromoGeneratedMessage(true);
   }
   saveDraft();
@@ -8503,7 +8480,6 @@ function renderWorkOrderWorkspace() {
   renderBandProfile();
   renderPromoTemplates();
   renderFollowUps();
-  renderSocialPostsPanel();
   renderEpkSummary();
 }
 
@@ -9869,33 +9845,28 @@ function renderAboutTab() {
 }
 
 function renderMarketingTab() {
+  const container = document.querySelector("#marketingTab .panel.form-panel");
   const grid = document.getElementById("marketingSocialTemplatesGrid");
-  if (!grid) return;
-  grid.innerHTML = "";
-  MARKETING_SOCIAL_TEMPLATES.forEach((template, index) => {
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "marketing-social-card";
-    card.dataset.templateIndex = String(index);
-    card.innerHTML = `
-      <span class="marketing-social-category">${escapeHtml(template.category)}</span>
-      <strong class="marketing-social-title">${escapeHtml(template.title)}</strong>
-      <span class="marketing-social-text">${escapeHtml(template.text)}</span>
-      <span class="marketing-social-feedback" aria-live="polite"></span>
+  if (container) {
+    const existingHeader = document.getElementById("marketingGreetingHeader");
+    if (existingHeader) existingHeader.remove();
+    const header = document.createElement("div");
+    header.id = "marketingGreetingHeader";
+    header.style.cssText = "padding: 24px 16px 8px; text-align: left;";
+    header.innerHTML = `
+      <h1 style="font-size: 32px; font-weight: 700; margin: 0 0 4px; font-family: Georgia, 'Times New Roman', serif; background: linear-gradient(to right, #d4621a, #f47c20, #f5a623); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Reach out.</h1>
+      <h1 style="font-size: 32px; font-weight: 700; margin: 0 0 8px; font-family: Georgia, 'Times New Roman', serif; background: linear-gradient(to right, #f47c20, #f5a623, #f5c48a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Stand out.</h1>
+      <p style="font-size: 15px; color: #f0ede8; margin: 0 0 16px; font-family: Georgia, 'Times New Roman', serif;">Tools to promote your band and fill your calendar.</p>
     `;
-    grid.appendChild(card);
-  });
-}
-
-function renderSocialPostsPanel() {
-  const list = document.getElementById("socialPostsCardList");
-  if (!list) return;
+    container.insertBefore(header, container.firstChild);
+  }
+  if (!grid) return;
   const currentVoice = ["warm", "funny", "hype"].includes(state.workOrderWorkspace.socialPostsVoice)
     ? state.workOrderWorkspace.socialPostsVoice
     : "warm";
-  list.innerHTML = "";
+  grid.innerHTML = "";
   const voiceRow = document.createElement("div");
-  voiceRow.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px;";
+  voiceRow.style.cssText = "display:flex;flex-wrap:wrap;gap:0;margin:0 0 16px;";
   [
     { id: "warm", label: "Warm" },
     { id: "funny", label: "Funny" },
@@ -9903,28 +9874,28 @@ function renderSocialPostsPanel() {
   ].forEach((voice) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.dataset.socialVoice = voice.id;
+    btn.dataset.marketingSocialVoice = voice.id;
+    btn.textContent = voice.label;
     const isActive = currentVoice === voice.id;
     btn.style.cssText = isActive
-      ? "background:#f47c20;color:#ffffff;border:1px solid #f47c20;border-radius:999px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer;"
-      : "background:transparent;color:#8a5010;border:1px solid #e8a855;border-radius:999px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer;";
-    btn.textContent = voice.label;
+      ? "background:#f47c20;color:white;border:none;border-radius:20px;padding:8px 20px;font-size:13px;font-weight:600;cursor:pointer;margin-right:8px;"
+      : "background:transparent;border:1px solid #e8a855;color:#8a5010;border-radius:20px;padding:8px 20px;font-size:13px;cursor:pointer;margin-right:8px;";
     voiceRow.appendChild(btn);
   });
-  list.appendChild(voiceRow);
+  grid.appendChild(voiceRow);
   WORK_ORDER_SOCIAL_POST_TEMPLATES.forEach((template, index) => {
     const card = document.createElement("button");
     card.type = "button";
-    card.dataset.socialPostIndex = String(index);
-    card.style.cssText = "background:#fdf0e3;border:1px solid #e8a855;border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer;width:100%;text-align:left;display:block;";
+    card.className = "marketing-social-card";
+    card.dataset.marketingTemplateIndex = String(index);
     const text = template[currentVoice] || template.warm;
     card.innerHTML = `
-      <div style="font-size:10px;text-transform:uppercase;color:#f47c20;font-weight:600;margin-bottom:4px;">${escapeHtml(template.category)}</div>
-      <div style="font-size:15px;color:#2c1a00;font-weight:700;margin-bottom:4px;">${escapeHtml(template.title)}</div>
-      <div style="font-size:13px;color:#2c1a00;line-height:1.5;">${escapeHtml(text)}</div>
-      <div data-social-post-feedback style="font-size:12px;color:#f47c20;font-weight:600;min-height:18px;margin-top:8px;"></div>
+      <span class="marketing-social-category">${escapeHtml(template.category)}</span>
+      <strong class="marketing-social-title">${escapeHtml(template.title)}</strong>
+      <span class="marketing-social-text">${escapeHtml(typeof personalizeSocialPost === "function" ? personalizeSocialPost(text) : text)}</span>
+      <span class="marketing-social-feedback" aria-live="polite"></span>
     `;
-    list.appendChild(card);
+    grid.appendChild(card);
   });
 }
 
@@ -11378,52 +11349,36 @@ function setupListeners() {
   const marketingSocialTemplatesGrid = document.getElementById("marketingSocialTemplatesGrid");
   if (marketingSocialTemplatesGrid) {
     marketingSocialTemplatesGrid.addEventListener("click", async (event) => {
-      const card = event.target.closest("button.marketing-social-card[data-template-index]");
+      const voiceButton = event.target.closest("button[data-marketing-social-voice]");
+      if (voiceButton) {
+        const voice = voiceButton.dataset.marketingSocialVoice || "warm";
+        state.workOrderWorkspace.socialPostsVoice = voice;
+        renderMarketingTab();
+        saveDraft();
+        return;
+      }
+      const card = event.target.closest("button.marketing-social-card[data-marketing-template-index]");
       if (!card) return;
-      const index = Number(card.dataset.templateIndex);
-      const template = MARKETING_SOCIAL_TEMPLATES[index];
+      const index = Number(card.dataset.marketingTemplateIndex);
+      const template = WORK_ORDER_SOCIAL_POST_TEMPLATES[index];
       if (!template) return;
-      await copyTextToClipboard(template.text);
+      const currentVoice = ["warm", "funny", "hype"].includes(state.workOrderWorkspace.socialPostsVoice)
+        ? state.workOrderWorkspace.socialPostsVoice
+        : "warm";
+      const text = template[currentVoice] || template.warm;
+      await copyTextToClipboard(typeof personalizeSocialPost === "function" ? personalizeSocialPost(text) : text);
       const feedback = card.querySelector(".marketing-social-feedback");
       if (feedback) {
-        feedback.textContent = "Copied!";
+        feedback.textContent = "Copied";
         window.setTimeout(() => {
-          if (feedback.textContent === "Copied!") feedback.textContent = "";
-        }, 1200);
+          if (feedback.textContent === "Copied") feedback.textContent = "";
+        }, 2000);
       }
       const statusEl = document.getElementById("marketingSocialStatus");
       if (statusEl) {
         statusEl.textContent = `${template.title} copied.`;
         window.setTimeout(() => {
           if (statusEl.textContent === `${template.title} copied.`) statusEl.textContent = "";
-        }, 1200);
-      }
-    });
-  }
-  const socialPostsCardList = document.getElementById("socialPostsCardList");
-  if (socialPostsCardList) {
-    socialPostsCardList.addEventListener("click", async (event) => {
-      const voiceButton = event.target.closest("button[data-social-voice]");
-      if (voiceButton) {
-        const voice = voiceButton.dataset.socialVoice || "warm";
-        state.workOrderWorkspace.socialPostsVoice = voice;
-        renderSocialPostsPanel();
-        saveDraft();
-        return;
-      }
-      const card = event.target.closest("button[data-social-post-index]");
-      if (!card) return;
-      const template = WORK_ORDER_SOCIAL_POST_TEMPLATES[Number(card.dataset.socialPostIndex)];
-      if (!template) return;
-      const currentVoice = ["warm", "funny", "hype"].includes(state.workOrderWorkspace.socialPostsVoice)
-        ? state.workOrderWorkspace.socialPostsVoice
-        : "warm";
-      await copyTextToClipboard(template[currentVoice] || template.warm);
-      const feedback = card.querySelector("[data-social-post-feedback]");
-      if (feedback) {
-        feedback.textContent = "Copied";
-        window.setTimeout(() => {
-          if (feedback.textContent === "Copied") feedback.textContent = "";
         }, 2000);
       }
     });
