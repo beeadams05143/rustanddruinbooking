@@ -191,6 +191,7 @@ function createInitialWorkOrderWorkspaceState() {
   return {
     section: "tasks",
     promoChannel: "email",
+    socialPostsVoice: "warm",
     epkSection: "profile",
     promoBuilder: createInitialPromoBuilderState(),
     promoTemplates: [],
@@ -1194,23 +1195,23 @@ const MARKETING_SOCIAL_TEMPLATES = [
   { category: "GET TO KNOW US", title: "Milestone", text: "We just hit [MILESTONE — like our 100th show, 5 years together, etc]! 🎉 Thank you to every venue, every fan, and every person who has believed in us. Here's to many more 🎸🙏" },
 ];
 const WORK_ORDER_SOCIAL_POST_TEMPLATES = [
-  { category: "SHOW", text: "We are playing [VENUE] on [DATE]. Come see us live. Doors at [TIME]. Come early stay late." },
-  { category: "SHOW", text: "This [DAY] we will be at [VENUE] starting at [TIME]. Come hang it is going to be a great night." },
-  { category: "SHOW", text: "What a night at [VENUE]. Thanks to everyone who came out and made it so special. You are why we do this." },
-  { category: "SHOW", text: "Just booked [VENUE] on [DATE]. Cannot wait to play this one. More dates dropping soon." },
-  { category: "SHOW", text: "We still have some open [MONTH] dates. Looking for live music for your venue or event? Send us a DM." },
-  { category: "SHOW", text: "Rust and Ruin is booking for [SEASON]. We play pubs breweries private events and weddings. Reach out if you want live music that gets people moving." },
-  { category: "BEHIND THE SCENES", text: "Practice day today. Working on some new stuff and cannot wait to bring it to the stage. Stay tuned." },
-  { category: "BEHIND THE SCENES", text: "Load in day. Hauling gear setting up and getting ready to make some noise tonight at [VENUE]. See you there." },
-  { category: "BEHIND THE SCENES", text: "Soundcheck done. [VENUE] is sounding great tonight. Doors open at [TIME] so come early and grab a good spot." },
-  { category: "BEHIND THE SCENES", text: "That is a wrap at [VENUE]. What an incredible crowd tonight. Thanks for singing along dancing and making our night. See you next time." },
-  { category: "BEHIND THE SCENES", text: "Just another day in the life of Rust and Ruin. [ADD YOUR CAPTION HERE]." },
-  { category: "BEHIND THE SCENES", text: "On the road to [VENUE]. Good music good vibes and good company. Tonight is going to be a great one." },
-  { category: "BEHIND THE SCENES", text: "Getting everything dialed in before tonight at [VENUE]. The little details matter. See you on the dance floor." },
-  { category: "GET TO KNOW US", text: "In case you do not know us we are Rust and Ruin a Vermont-based acoustic duo with a full band option. We play Americana classic favorites and originals with an easygoing feel-good vibe. Come find us live." },
-  { category: "GET TO KNOW US", text: "Throwback to [EVENT OR VENUE]. Some nights just stick with you. Thanks for being part of our story." },
-  { category: "GET TO KNOW US", text: "We want to know what song do you always want to hear us play. Drop it in the comments." },
-  { category: "GET TO KNOW US", text: "We just hit [MILESTONE]. Thank you to every venue every fan and every person who has believed in us. Here is to many more." },
+  { category: "SHOW", title: "Show Announcement", warm: "We are playing at [VENUE] on [DATE] and we would love to see you there. Doors at [TIME]. Come early grab a drink and let us play you something good. #livemusicvt #rustandruin #[VENUE]", funny: "Guess who is playing at [VENUE] on [DATE]? Us. Obviously. Doors at [TIME]. Come watch us pretend we are rock stars. #livemusicvt #rustandruin", hype: "IT IS SHOW DAY. We are taking over [VENUE] on [DATE]. Doors at [TIME]. Be there or regret it forever. #livemusic #rustandruin #showday" },
+  { category: "SHOW", title: "Show Reminder", warm: "Just a friendly reminder that we are playing tonight at [VENUE]. Doors at [TIME]. Come as you are and stay as long as you want. #livemusicvt #rustandruin", funny: "Hey. HEY. We are playing TONIGHT at [VENUE]. Doors at [TIME]. Put on pants and come see us. #livemusic #rustandruin #tonight", hype: "TONIGHT. [VENUE]. [TIME]. Do not make us play to an empty room. Get there. #shownight #livemusic #rustandruin" },
+  { category: "SHOW", title: "Show Recap", warm: "Last night at [VENUE] was something special. Thank you to everyone who came out and made it such a great night. You all are the reason we keep doing this. #livemusicvt #rustandruin #thankyou", funny: "We played last night at [VENUE] and honestly we killed it. You were also great. Good job everyone. #livemusic #rustandruin", hype: "WHAT A NIGHT at [VENUE]. The energy was unreal. Thank you for showing up and going all in with us. Already counting down to the next one. #livemusic #rustandruin #bestcrowd" },
+  { category: "SHOW", title: "New Booking", warm: "So excited to share that we just booked [VENUE] on [DATE]. Cannot wait to bring the music to this one. More dates coming soon. #livemusicvt #rustandruin #newshow", funny: "We did a thing. Just booked [VENUE] on [DATE]. Mark your calendars. Tell your friends. Tell strangers. #newshow #rustandruin #livemusic", hype: "JUST BOOKED [VENUE] on [DATE] and we are PUMPED. This one is going to be a banger. Stay tuned for more. #newshow #livemusic #rustandruin" },
+  { category: "SHOW", title: "Available Dates", warm: "We still have some open dates in [MONTH] and would love to find the right fit. If you are looking for live music for your venue or event send us a message. #livemusicvt #bookrustandruin", funny: "Our calendar has some suspicious empty spots in [MONTH]. Know anyone who needs live music? We are asking for ourselves. #bookus #livemusic #rustandruin", hype: "[MONTH] is filling up fast but we still have a few dates left. If you want live music that actually gets people moving slide into our DMs. #bookrustandruin #livemusic" },
+  { category: "SHOW", title: "General Promo", warm: "Rust and Ruin is available for pubs breweries private events weddings and more. We bring the music and the good vibes wherever we go. Reach out to chat about your event. #livemusicvt #rustandruin #bookus", funny: "We play music. People enjoy it. You could enjoy it too. Hire us for your venue or event and we promise not to be weird about it. #bookus #rustandruin #livemusic", hype: "Want live music that actually moves the room? Rust and Ruin plays pubs breweries private events and weddings and we bring serious energy every single time. DM us to book. #bookrustandruin #livemusic #vermont" },
+  { category: "BEHIND THE SCENES", title: "Practice Day", warm: "Practice day today. Working through some new material and loving every minute of it. Cannot wait to bring it to the stage soon. #practicemakesperfect #rustandruin #livemusic", funny: "It is practice day which means Beth is judging Josh and Josh is judging Beth and we both pretend everything is fine. Progress. #bandlife #rustandruin #practice", hype: "Practice day and we are LOCKED IN. New stuff in the works and it is sounding fire. Stay tuned. #newmusic #rustandruin #bandlife" },
+  { category: "BEHIND THE SCENES", title: "Loading In", warm: "Load in day at [VENUE]. Getting everything set up and ready for tonight. Come see the finished product later. Doors at [TIME]. #livemusicvt #rustandruin #showright", funny: "Nothing says glamorous rock star life like hauling heavy gear up questionable staircases. See you tonight at [VENUE]. #bandlife #rustandruin #glamorous", hype: "LOAD IN MODE ACTIVATED. [VENUE] you are not ready for tonight. Doors at [TIME]. Be there. #showday #rustandruin #livemusic" },
+  { category: "BEHIND THE SCENES", title: "Soundcheck", warm: "Soundcheck done and everything is sounding great at [VENUE] tonight. Doors open at [TIME]. Come early and settle in. #livemusicvt #rustandruin", funny: "Soundcheck complete. We said check one two approximately forty seven times and now we are ready. See you tonight at [VENUE]. #soundcheck #rustandruin #bandlife", hype: "Soundcheck DONE and this room is going to sound incredible tonight. [VENUE] at [TIME]. Get there early. #shownight #rustandruin #livemusic" },
+  { category: "BEHIND THE SCENES", title: "After the Show", warm: "That is a wrap at [VENUE]. What an incredible night. Thank you to everyone who came out and made it so special. We will see you again soon. #livemusicvt #rustandruin #thankyou", funny: "We survived another show and honestly so did you. Thanks for coming to [VENUE] and pretending our originals were your favorites. #bandlife #rustandruin #livemusic", hype: "THAT WAS ELECTRIC. [VENUE] you absolutely delivered tonight. Thank you for the energy the singing and the dancing. Already ready for the next one. #bestcrowd #rustandruin #livemusic" },
+  { category: "BEHIND THE SCENES", title: "Candid Moment", warm: "Just a little behind the scenes moment from life as Rust and Ruin. [ADD YOUR CAPTION]. #rustandruin #bandlife #livemusic", funny: "This is what peak professionalism looks like. [ADD YOUR CAPTION]. #bandlife #rustandruin #behindthescenes", hype: "No filters no script just us doing what we love. [ADD YOUR CAPTION]. #rustandruin #reallife #livemusic" },
+  { category: "BEHIND THE SCENES", title: "Road Trip", warm: "On our way to [VENUE] and the anticipation is real. Good music on the road good music on the stage tonight. #rustandruin #roadtrip #livemusic", funny: "Current status driving to [VENUE] and hoping we remembered everything. We definitely forgot something. #bandlife #rustandruin #roadtrip", hype: "ROAD TRIP TO [VENUE] and we are bringing everything we have got tonight. See you there. #showday #rustandruin #livemusic" },
+  { category: "BEHIND THE SCENES", title: "Gear Setup", warm: "Getting everything set up for tonight at [VENUE]. The details matter and we take pride in every single one. Doors at [TIME]. #livemusicvt #rustandruin", funny: "Forty five minutes of setup for ninety minutes of music. The math is not mathing but we love it anyway. See you tonight at [VENUE]. #bandlife #rustandruin #gearnerds", hype: "Setup mode. Every cable every mic every amp dialed in perfectly for tonight at [VENUE]. We take this seriously. #showday #rustandruin #livemusic" },
+  { category: "GET TO KNOW US", title: "Meet the Band", warm: "In case you are new here we are Rust and Ruin. A Vermont-based acoustic duo with a full band option. We play Americana classic favorites and originals and we love what we do. Come find us live sometime. #rustandruin #livemusic #vermont", funny: "Hi we are Rust and Ruin. Beth sings Josh plays guitar and together we have convinced hundreds of people to stay at bars longer than they planned. Come see us. #rustandruin #livemusic #meettheband", hype: "We are Rust and Ruin and we have been playing 100 plus shows a year because we cannot stop and we will not stop. Come experience it live. #rustandruin #livemusic #vermont" },
+  { category: "GET TO KNOW US", title: "Throwback", warm: "Throwing it back to [EVENT OR VENUE]. What a memory. Grateful for every show and every crowd that has come along for the ride. #throwback #rustandruin #livemusic", funny: "Throwback to [EVENT OR VENUE] when we were younger and possibly better looking. Some things never change. #throwback #rustandruin #bandlife", hype: "THROWBACK to [EVENT OR VENUE] and one of our favorite shows ever. Every gig adds to the story. #throwback #rustandruin #livemusic" },
+  { category: "GET TO KNOW US", title: "Song Request", warm: "We want to know what song you always want to hear us play. Drop it in the comments and we will do our best to make it happen. #rustandruin #songrequest #livemusic", funny: "Okay be honest. What song do you desperately wish we would play. No judgment. Mostly. Drop it below. #songrequest #rustandruin #livemusic", hype: "SONG REQUEST TIME. What do you want to hear at our next show. Tell us in the comments and we will see what we can do. #songrequest #rustandruin #livemusic" },
+  { category: "GET TO KNOW US", title: "Milestone", warm: "We just hit [MILESTONE] and we are so grateful for every person who has been part of this journey. Thank you from the bottom of our hearts. #rustandruin #grateful #livemusic", funny: "We just hit [MILESTONE] which means we have officially done this too many times to quit now. Thank you for enabling us. #rustandruin #bandlife #milestone", hype: "[MILESTONE] AND WE ARE JUST GETTING STARTED. Thank you to every venue every fan and everyone who has believed in us. The best is yet to come. #rustandruin #milestone #livemusic" },
 ];
 const SEEDED_BOOKED_EVENTS = [
   { date: "2026-01-03", start: "19:00", end: "22:00", title: "Killarney's", type: "Confirmed" },
@@ -9889,15 +9890,38 @@ function renderMarketingTab() {
 function renderSocialPostsPanel() {
   const list = document.getElementById("socialPostsCardList");
   if (!list) return;
+  const currentVoice = ["warm", "funny", "hype"].includes(state.workOrderWorkspace.socialPostsVoice)
+    ? state.workOrderWorkspace.socialPostsVoice
+    : "warm";
   list.innerHTML = "";
+  const voiceRow = document.createElement("div");
+  voiceRow.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px;";
+  [
+    { id: "warm", label: "Warm" },
+    { id: "funny", label: "Funny" },
+    { id: "hype", label: "Hype" },
+  ].forEach((voice) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.dataset.socialVoice = voice.id;
+    const isActive = currentVoice === voice.id;
+    btn.style.cssText = isActive
+      ? "background:#f47c20;color:#ffffff;border:1px solid #f47c20;border-radius:999px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer;"
+      : "background:transparent;color:#8a5010;border:1px solid #e8a855;border-radius:999px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer;";
+    btn.textContent = voice.label;
+    voiceRow.appendChild(btn);
+  });
+  list.appendChild(voiceRow);
   WORK_ORDER_SOCIAL_POST_TEMPLATES.forEach((template, index) => {
     const card = document.createElement("button");
     card.type = "button";
     card.dataset.socialPostIndex = String(index);
     card.style.cssText = "background:#fdf0e3;border:1px solid #e8a855;border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer;width:100%;text-align:left;display:block;";
+    const text = template[currentVoice] || template.warm;
     card.innerHTML = `
       <div style="font-size:10px;text-transform:uppercase;color:#f47c20;font-weight:600;margin-bottom:4px;">${escapeHtml(template.category)}</div>
-      <div style="font-size:13px;color:#2c1a00;line-height:1.5;">${escapeHtml(template.text)}</div>
+      <div style="font-size:15px;color:#2c1a00;font-weight:700;margin-bottom:4px;">${escapeHtml(template.title)}</div>
+      <div style="font-size:13px;color:#2c1a00;line-height:1.5;">${escapeHtml(text)}</div>
       <div data-social-post-feedback style="font-size:12px;color:#f47c20;font-weight:600;min-height:18px;margin-top:8px;"></div>
     `;
     list.appendChild(card);
@@ -11379,11 +11403,22 @@ function setupListeners() {
   const socialPostsCardList = document.getElementById("socialPostsCardList");
   if (socialPostsCardList) {
     socialPostsCardList.addEventListener("click", async (event) => {
+      const voiceButton = event.target.closest("button[data-social-voice]");
+      if (voiceButton) {
+        const voice = voiceButton.dataset.socialVoice || "warm";
+        state.workOrderWorkspace.socialPostsVoice = voice;
+        renderSocialPostsPanel();
+        saveDraft();
+        return;
+      }
       const card = event.target.closest("button[data-social-post-index]");
       if (!card) return;
       const template = WORK_ORDER_SOCIAL_POST_TEMPLATES[Number(card.dataset.socialPostIndex)];
       if (!template) return;
-      await copyTextToClipboard(template.text);
+      const currentVoice = ["warm", "funny", "hype"].includes(state.workOrderWorkspace.socialPostsVoice)
+        ? state.workOrderWorkspace.socialPostsVoice
+        : "warm";
+      await copyTextToClipboard(template[currentVoice] || template.warm);
       const feedback = card.querySelector("[data-social-post-feedback]");
       if (feedback) {
         feedback.textContent = "Copied";
