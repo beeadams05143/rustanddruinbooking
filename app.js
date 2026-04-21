@@ -4227,13 +4227,31 @@ function updateInvoiceList() {
   state.billing.invoices.forEach((invoice) => {
     const card = document.createElement("div");
     card.className = "event-card";
+    card.style.cssText = "background:#fdf0e3;border:1px solid #e8a855;";
     const header = document.createElement("header");
-    header.innerHTML = `<span>${invoice.invoice_number}</span><span>${invoice.paid ? "Paid" : "Unpaid"}</span>`;
+    header.style.cssText = "display:flex;justify-content:space-between;align-items:flex-start;gap:12px;";
+    const copy = document.createElement("div");
+    copy.style.cssText = "display:grid;gap:4px;";
+    const title = document.createElement("strong");
+    title.style.cssText = "color:#2c1a00;font-size:17px;font-weight:700;";
+    title.textContent = invoice.client_name || invoice.invoice_number || "Invoice";
+    const number = document.createElement("div");
+    number.style.cssText = "color:#f47c20;font-size:13px;font-weight:600;";
+    number.textContent = invoice.invoice_number || "Invoice";
     const meta = document.createElement("div");
     meta.className = "event-meta";
-    meta.textContent = `${invoice.client_name || "Client"} · ${formatShortDateTime(
-      invoice.created_at
-    )}`;
+    meta.style.cssText = "color:#8a6840;font-size:12px;opacity:1;";
+    meta.textContent = formatShortDateTime(invoice.issue_date || invoice.created_at);
+    copy.appendChild(title);
+    copy.appendChild(number);
+    copy.appendChild(meta);
+    const badge = document.createElement("span");
+    badge.style.cssText = invoice.paid
+      ? "align-self:flex-start;background:#f47c20;color:white;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;"
+      : "align-self:flex-start;background:transparent;color:#8a5010;border:1px solid #e8a855;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;";
+    badge.textContent = invoice.paid ? "Paid" : "Unpaid";
+    header.appendChild(copy);
+    header.appendChild(badge);
     const actions = document.createElement("div");
     actions.className = "event-actions";
     if (invoice.file_path) {
@@ -4267,7 +4285,6 @@ function updateInvoiceList() {
     });
     actions.appendChild(toggle);
     card.appendChild(header);
-    card.appendChild(meta);
     card.appendChild(actions);
     list.appendChild(card);
   });
@@ -4286,13 +4303,31 @@ function updateReceiptList() {
   state.billing.receipts.forEach((receipt) => {
     const card = document.createElement("div");
     card.className = "event-card";
+    card.style.cssText = "background:#fdf0e3;border:1px solid #e8a855;";
     const header = document.createElement("header");
-    header.innerHTML = `<span>${receipt.receipt_number}</span><span>${receipt.paid ? "Paid" : "Unpaid"}</span>`;
+    header.style.cssText = "display:flex;justify-content:space-between;align-items:flex-start;gap:12px;";
+    const copy = document.createElement("div");
+    copy.style.cssText = "display:grid;gap:4px;";
+    const title = document.createElement("strong");
+    title.style.cssText = "color:#2c1a00;font-size:17px;font-weight:700;";
+    title.textContent = receipt.client_name || receipt.receipt_number || "Receipt";
+    const number = document.createElement("div");
+    number.style.cssText = "color:#f47c20;font-size:13px;font-weight:600;";
+    number.textContent = receipt.receipt_number || "Receipt";
     const meta = document.createElement("div");
     meta.className = "event-meta";
-    meta.textContent = `${receipt.client_name || "Client"} · ${formatShortDateTime(
-      receipt.created_at
-    )}`;
+    meta.style.cssText = "color:#8a6840;font-size:12px;opacity:1;";
+    meta.textContent = formatShortDateTime(receipt.payment_date || receipt.created_at);
+    copy.appendChild(title);
+    copy.appendChild(number);
+    copy.appendChild(meta);
+    const badge = document.createElement("span");
+    badge.style.cssText = receipt.paid
+      ? "align-self:flex-start;background:#f47c20;color:white;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;"
+      : "align-self:flex-start;background:transparent;color:#8a5010;border:1px solid #e8a855;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;";
+    badge.textContent = receipt.paid ? "Paid" : "Unpaid";
+    header.appendChild(copy);
+    header.appendChild(badge);
     const actions = document.createElement("div");
     actions.className = "event-actions";
     if (receipt.file_path) {
@@ -4326,7 +4361,6 @@ function updateReceiptList() {
     });
     actions.appendChild(toggle);
     card.appendChild(header);
-    card.appendChild(meta);
     card.appendChild(actions);
     list.appendChild(card);
   });
