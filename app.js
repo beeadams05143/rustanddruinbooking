@@ -3273,10 +3273,11 @@ function getInvoiceTotals() {
   const depositDue = toNumber(state.invoice.depositDue);
   const depositPaid = toNumber(state.invoice.depositPaid);
   const addons = toNumber(state.invoice.addons);
-  const totalDue = performanceFee + addons + depositDue;
-  const displayTotal = state.invoice.totalOverride
-    ? toMoney(toNumber(state.invoice.totalOverride))
-    : toMoney(totalDue > 0 ? totalDue : 0);
+  const totalOverride = toNumber(state.invoice.totalOverride);
+  const totalDue = totalOverride > 0
+    ? totalOverride
+    : performanceFee + addons + depositDue;
+  const displayTotal = toMoney(totalDue > 0 ? totalDue : 0);
   return { performanceFee, depositDue, depositPaid, addons, totalDue, displayTotal };
 }
 
@@ -4234,7 +4235,7 @@ function updateInvoiceList() {
     copy.style.cssText = "display:grid;gap:4px;";
     const title = document.createElement("strong");
     title.style.cssText = "color:#2c1a00;font-size:17px;font-weight:700;";
-    title.textContent = invoice.client_name || invoice.description || invoice.invoice_number;
+    title.textContent = invoice.client_name || invoice.description || "";
     const number = document.createElement("div");
     number.style.cssText = "color:#f47c20;font-size:13px;font-weight:600;";
     number.textContent = invoice.invoice_number || "Invoice";
@@ -12109,12 +12110,14 @@ async function generatePdf(type, options = {}) {
     if (statusEl) {
       statusEl.textContent = "Opening print dialog — use Share then Print, or Save to Files as PDF";
     }
+    updateInvoicePreview();
     window.print();
     return;
   }
 
   if (!window.html2canvas || !window.jspdf) {
     statusEl.textContent = "PDF tools not loaded. Using Print instead.";
+    updateInvoicePreview();
     window.print();
     return;
   }
