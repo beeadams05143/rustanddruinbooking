@@ -98,6 +98,17 @@
             </div>
           </div>
 
+          <article class="board-card attention-feed-card">
+            <div class="dashboard-card-head">
+              <h3>Needs Your Attention</h3>
+              <span class="dashboard-badge badge-now hidden" id="homeAttentionCount">0</span>
+            </div>
+            <p class="dashboard-card-subtext" id="homeAttentionSummary">No booking follow-ups are waiting right now.</p>
+            <div class="attention-list" id="homeAttentionList">
+              <div class="attention-empty">Nothing needs your attention right now.</div>
+            </div>
+          </article>
+
           <div class="dashboard-stats" aria-label="Shows booked record">
             <article class="dashboard-stat-card">
               <span class="dashboard-stat-label" id="showRecordTitle">2026 Year Total Shows</span>
@@ -2159,6 +2170,7 @@
               <path d="M6.5 9.5V20h11V9.5" />
               <path d="M10 20v-6h4v6" />
             </svg>
+            <span class="bottom-nav-count hidden" id="homeNavAttentionCount">0</span>
           </span>
           <span class="bottom-nav-label">Home</span>
         </button>

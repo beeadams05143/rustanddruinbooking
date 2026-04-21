@@ -150,10 +150,28 @@ body {
   width: 28px;
   height: 28px;
   display: inline-flex;
+  position: relative;
   align-items: center;
   justify-content: center;
   color: rgba(255, 255, 255, 0.6);
   transition: color 0.2s ease;
+}
+
+.bottom-nav-count {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #d64028;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
 }
 
 .bottom-nav-label {
@@ -476,6 +494,86 @@ body {
 .dashboard-empty {
   color: #8a6840;
   padding: 8px 0 2px;
+}
+
+.attention-feed-card {
+  margin-bottom: 18px;
+}
+
+.attention-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.attention-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(232, 168, 85, 0.38);
+}
+
+.attention-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.attention-title {
+  color: #2c1a00;
+  font-size: 0.98rem;
+}
+
+.attention-meta {
+  color: #8a6840;
+  font-size: 0.84rem;
+}
+
+.attention-action {
+  white-space: nowrap;
+}
+
+.attention-empty {
+  color: #8a6840;
+  padding: 6px 0 2px;
+}
+
+.badge-stage-quote-sent {
+  background: rgba(193, 122, 58, 0.14);
+  color: #8b4a1a;
+}
+
+.badge-stage-quote-accepted {
+  background: rgba(223, 169, 74, 0.22);
+  color: #9a6a10;
+}
+
+.badge-stage-contract-sent {
+  background: rgba(128, 106, 196, 0.16);
+  color: #5f49a4;
+}
+
+.badge-stage-contract-signed {
+  background: rgba(66, 134, 170, 0.16);
+  color: #256884;
+}
+
+.badge-stage-invoiced {
+  background: rgba(244, 124, 32, 0.16);
+  color: #b55b14;
+}
+
+.badge-stage-paid {
+  background: rgba(76, 154, 97, 0.18);
+  color: #2f7b46;
+}
+
+.shows-stage-pill {
+  margin-top: 10px;
+  width: fit-content;
 }
 
 .dashboard-booking-btn {

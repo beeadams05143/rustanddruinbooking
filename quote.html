@@ -425,6 +425,20 @@
         confirmModal.setAttribute('aria-hidden', 'true');
       }
 
+      async function updateRelatedShowAcceptance(quote, option, acceptedAt) {
+        if (!quote?.event_id) return;
+        const { error } = await supabaseClient
+          .from('events')
+          .update({
+            quote_accepted_at: acceptedAt,
+            accepted_lineup: option?.label || '',
+          })
+          .eq('id', quote.event_id);
+        if (error) {
+          console.warn('Could not update booking-flow fields on event record:', error);
+        }
+      }
+
       async function confirmChoice() {
         if (!currentQuote || selectedIndex === null) return;
         const clientName = confirmNameInput.value.trim();
@@ -434,11 +448,14 @@
         }
 
         modalStatus.textContent = 'Confirming your selection...';
+        const acceptedAt = new Date().toISOString();
+        const options = getRenderableOptions(currentQuote.options);
+        const chosenOption = options[selectedIndex] || null;
         const { error } = await supabaseClient.from('quotes').update({
           status: 'accepted',
           chosen_option_index: selectedIndex,
           chosen_by_name: clientName,
-          chosen_at: new Date().toISOString()
+          chosen_at: acceptedAt
         }).eq('id', quoteId);
 
         if (error) {
@@ -446,15 +463,15 @@
           return;
         }
 
+        await updateRelatedShowAcceptance(currentQuote, chosenOption, acceptedAt);
+
         currentQuote.status = 'accepted';
         currentQuote.chosen_option_index = selectedIndex;
         currentQuote.chosen_by_name = clientName;
-        currentQuote.chosen_at = new Date().toISOString();
+        currentQuote.chosen_at = acceptedAt;
         closeConfirmModal();
         const meta = getQuoteMetadata(currentQuote.options);
-        const options = getRenderableOptions(currentQuote.options);
         const bandName = meta.band_name || 'The band';
-        const chosenOption = options[selectedIndex] || null;
 
         app.innerHTML = `
           <section class="success stack">

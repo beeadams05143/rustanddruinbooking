@@ -374,10 +374,11 @@
           }
           signBtn.disabled = true;
           signStatus.textContent = "Signing…";
+          const signedAt = new Date().toISOString();
           const { error } = await supabaseClient
             .from("contracts")
             .update({
-              signed_at: new Date().toISOString(),
+              signed_at: signedAt,
               client_signature: clientName,
               signed_ip: null,
             })
@@ -387,6 +388,20 @@
             signBtn.disabled = false;
             return;
           }
+          if (contract?.event_id) {
+            const { error: eventError } = await supabaseClient
+              .from("events")
+              .update({
+                contract_signed_at: signedAt,
+                contract_signer_name: clientName,
+              })
+              .eq("id", contract.event_id);
+            if (eventError) {
+              console.warn("Could not update booking-flow fields on event record:", eventError);
+            }
+          }
+          contract.signed_at = signedAt;
+          contract.client_signature = clientName;
           renderSuccess(contract, clientName);
         });
       }

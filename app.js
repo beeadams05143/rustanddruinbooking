@@ -3521,6 +3521,224 @@ function findMatchingReceiptForEvent(event, invoice) {
   );
 }
 
+async function fetchQuoteRowsForBookingFlow() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) return [];
+  const { data, error } = await client
+    .from("quotes")
+    .select("id,event_id,status,chosen_option_index,chosen_by_name,chosen_at,options,created_at")
+    .not("event_id", "is", null)
+    .order("created_at", { ascending: false });
+  if (error || !Array.isArray(data)) return [];
+  return data;
+}
+
+function buildQuoteMapByEventId(quotes = []) {
+  const map = new Map();
+  quotes.forEach((quote) => {
+    const eventId = String(quote?.event_id || "").trim();
+    if (!eventId || map.has(eventId)) return;
+    map.set(eventId, quote);
+  });
+  return map;
+}
+
+function getQuoteAcceptedLineup(quote) {
+  const options = Array.isArray(quote?.options) ? quote.options : [];
+  const selected = options[Number(quote?.chosen_option_index)];
+  return selected?.label || "";
+}
+
+function getLinkedContractForEvent(event) {
+  if (!event?.id) return null;
+  const linked = state.calendar.contracts
+    .filter((contract) => contract?.event_id === event.id)
+    .sort((a, b) => new Date(b.signed_at || b.uploaded_at || b.created_at || 0) - new Date(a.signed_at || a.uploaded_at || a.created_at || 0));
+  return linked[0] || null;
+}
+
+function getBookingFlowStage(event, quoteMap = new Map()) {
+  const quote = quoteMap.get(String(event?.id || "")) || null;
+  const contract = getLinkedContractForEvent(event);
+  const invoice = findMatchingInvoiceForEvent(event);
+  const receipt = invoice ? findMatchingReceiptForEvent(event, invoice) : findMatchingReceiptForEvent(event, {});
+  const quoteSent = Boolean(quote);
+  const quoteAccepted = Boolean(
+    event?.quote_accepted_at ||
+    event?.accepted_lineup ||
+    (quote && String(quote.status || "").toLowerCase() === "accepted")
+  );
+  const acceptedLineup =
+    String(event?.accepted_lineup || "").trim() ||
+    getQuoteAcceptedLineup(quote);
+  const contractSent = Boolean(event?.contract_sent_at || contract);
+  const contractSigned = Boolean(
+    event?.contract_signed_at ||
+    event?.contract_signer_name ||
+    contract?.signed_at ||
+    contract?.client_signature ||
+    String(contract?.status || "").toLowerCase().includes("signed")
+  );
+  const invoiced = Boolean(event?.invoice_sent_at || invoice);
+  const paid = Boolean(invoice?.paid || receipt?.paid);
+
+  if (paid) {
+    return {
+      label: "Paid",
+      className: "badge-stage-paid",
+      quoteSent,
+      quoteAccepted,
+      contractSent,
+      contractSigned,
+      invoiced,
+      paid,
+      acceptedLineup,
+    };
+  }
+  if (invoiced) {
+    return {
+      label: "Invoiced",
+      className: "badge-stage-invoiced",
+      quoteSent,
+      quoteAccepted,
+      contractSent,
+      contractSigned,
+      invoiced,
+      paid,
+      acceptedLineup,
+    };
+  }
+  if (contractSigned) {
+    return {
+      label: "Contract signed",
+      className: "badge-stage-contract-signed",
+      quoteSent,
+      quoteAccepted,
+      contractSent,
+      contractSigned,
+      invoiced,
+      paid,
+      acceptedLineup,
+    };
+  }
+  if (contractSent) {
+    return {
+      label: "Contract sent",
+      className: "badge-stage-contract-sent",
+      quoteSent,
+      quoteAccepted,
+      contractSent,
+      contractSigned,
+      invoiced,
+      paid,
+      acceptedLineup,
+    };
+  }
+  if (quoteAccepted) {
+    return {
+      label: "Quote accepted",
+      className: "badge-stage-quote-accepted",
+      quoteSent,
+      quoteAccepted,
+      contractSent,
+      contractSigned,
+      invoiced,
+      paid,
+      acceptedLineup,
+    };
+  }
+  if (quoteSent) {
+    return {
+      label: "Quote sent",
+      className: "badge-stage-quote-sent",
+      quoteSent,
+      quoteAccepted,
+      contractSent,
+      contractSigned,
+      invoiced,
+      paid,
+      acceptedLineup,
+    };
+  }
+  return {
+    label: "",
+    className: "",
+    quoteSent,
+    quoteAccepted,
+    contractSent,
+    contractSigned,
+    invoiced,
+    paid,
+    acceptedLineup,
+  };
+}
+
+async function openBookingFlowNotificationTarget(event, target) {
+  if (!event) return;
+  selectEventForEdit(event, formatDateInput(new Date(event.start_time || Date.now())));
+  if (target === "agreement") {
+    await openAgreementForCalendarEvent(event);
+    return;
+  }
+  if (target === "invoice") {
+    await openAgreementForCalendarEvent(event);
+    openInvoiceFromAgreement();
+    return;
+  }
+  if (target === "shows") {
+    if (switchTopView) switchTopView("shows");
+  }
+}
+
+function renderNeedsYourAttention(notifications = []) {
+  const list = document.getElementById("homeAttentionList");
+  const summary = document.getElementById("homeAttentionSummary");
+  const badge = document.getElementById("homeAttentionCount");
+  const navBadge = document.getElementById("homeNavAttentionCount");
+  if (!list || !summary || !badge || !navBadge) return;
+
+  const count = notifications.length;
+  badge.textContent = String(count);
+  badge.classList.toggle("hidden", count === 0);
+  navBadge.textContent = String(count);
+  navBadge.classList.toggle("hidden", count === 0);
+
+  summary.textContent = count
+    ? `${count} booking follow-up${count === 1 ? "" : "s"} waiting on you.`
+    : "No booking follow-ups are waiting right now.";
+
+  list.innerHTML = "";
+  if (!count) {
+    list.innerHTML = "<div class=\"attention-empty\">Nothing needs your attention right now.</div>";
+    return;
+  }
+
+  notifications.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "attention-item";
+    const copy = document.createElement("div");
+    copy.className = "attention-copy";
+    const title = document.createElement("strong");
+    title.className = "attention-title";
+    title.textContent = item.title;
+    const meta = document.createElement("div");
+    meta.className = "attention-meta";
+    meta.textContent = item.meta;
+    copy.appendChild(title);
+    copy.appendChild(meta);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn ghost attention-action";
+    button.textContent = item.actionLabel;
+    button.addEventListener("click", () => {
+      openBookingFlowNotificationTarget(item.event, item.target);
+    });
+    row.appendChild(copy);
+    row.appendChild(button);
+    list.appendChild(row);
+  });
+}
+
 function getDashboardFirstName() {
   const metadata = state.calendar.session?.user?.user_metadata || {};
   const rawName =
@@ -4182,6 +4400,48 @@ async function updateOpsProgress() {
         ? `Work orders open ${workOrdersOpen} • Contracts pending ${contractsPendingSignature} • Confirmations needed ${confirmationsNeeded}`
         : "No urgent items right now.";
   }
+  const quoteMap = buildQuoteMapByEventId(await fetchQuoteRowsForBookingFlow());
+  const now = new Date();
+  const upcomingWindowEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const notifications = state.calendar.events
+    .filter((event) => String(event?.type || "").toLowerCase() !== "blackout")
+    .map((event) => {
+      const stage = getBookingFlowStage(event, quoteMap);
+      const start = eventStartDate(event);
+      const showDate = start ? formatShowDateTimeWithWeekday(event.start_time) : "Date TBD";
+      const clientName = event.title || "Unknown client";
+      if (stage.quoteAccepted && !stage.contractSent) {
+        return {
+          event,
+          title: "Quote accepted — send contract",
+          meta: `${clientName} · ${showDate}${stage.acceptedLineup ? ` · ${stage.acceptedLineup}` : ""}`,
+          actionLabel: "Open contract",
+          target: "agreement",
+        };
+      }
+      if (stage.contractSigned && !stage.invoiced) {
+        return {
+          event,
+          title: "Contract signed — send invoice",
+          meta: `${clientName} · ${showDate}`,
+          actionLabel: "Open invoice",
+          target: "invoice",
+        };
+      }
+      if (start && start >= now && start <= upcomingWindowEnd && !stage.paid) {
+        return {
+          event,
+          title: "Show coming up — invoice still unpaid",
+          meta: `${clientName} · ${showDate}`,
+          actionLabel: "Open invoice",
+          target: "invoice",
+        };
+      }
+      return null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(a.event?.start_time || 0) - new Date(b.event?.start_time || 0));
+  renderNeedsYourAttention(notifications);
   updateManagerDesk();
 }
 
@@ -10017,6 +10277,7 @@ async function renderBookedDatesList() {
   if (!list) return;
   const today = startOfDay(new Date());
   const endDate = new Date(today.getFullYear(), today.getMonth() + 12, 0, 23, 59, 59, 999);
+  const quoteMap = buildQuoteMapByEventId(await fetchQuoteRowsForBookingFlow());
   const visibleLocalIds = new Set(state.calendar.events.map((event) => event.id).filter(Boolean));
   const hiddenSeededKeys = new Set(state.calendar.hiddenSeededEventKeys || []);
   const booked = (await getShowsRangeEvents(today, endDate))
@@ -10067,6 +10328,10 @@ async function renderBookedDatesList() {
       lineupMeta.className = "event-meta shows-booked-lineup";
       lineupMeta.style.cssText = "color:#8a6840;font-size:12px;opacity:1;";
       lineupMeta.textContent = lineup;
+      const stage = getBookingFlowStage(event, quoteMap);
+      const stageBadge = document.createElement("span");
+      stageBadge.className = `dashboard-badge shows-stage-pill ${stage.className || "badge-done"}`;
+      stageBadge.textContent = stage.label || "Quote sent";
       const actions = document.createElement("div");
       actions.style.cssText = "display:flex;justify-content:flex-end;margin-top:10px;";
       const deleteButton = createConfirmDeleteButton(async () => {
@@ -10082,6 +10347,7 @@ async function renderBookedDatesList() {
       card.appendChild(title);
       card.appendChild(meta);
       card.appendChild(lineupMeta);
+      card.appendChild(stageBadge);
       card.appendChild(actions);
       monthList.appendChild(card);
     });
