@@ -4234,7 +4234,7 @@ function updateInvoiceList() {
     copy.style.cssText = "display:grid;gap:4px;";
     const title = document.createElement("strong");
     title.style.cssText = "color:#2c1a00;font-size:17px;font-weight:700;";
-    title.textContent = invoice.client_name || invoice.invoice_number || "Invoice";
+    title.textContent = invoice.client_name || "Client";
     const number = document.createElement("div");
     number.style.cssText = "color:#f47c20;font-size:13px;font-weight:600;";
     number.textContent = invoice.invoice_number || "Invoice";
@@ -12087,7 +12087,7 @@ async function generatePdf(type, options = {}) {
       if (statusEl) statusEl.textContent = "Popup blocked. Allow popups to open the print dialog.";
       return;
     }
-    const previewHtml = target.outerHTML;
+    const previewHtml = target.innerHTML;
     const stylesHref = new URL("styles.css", window.location.href).href;
     const printDoc = `<!doctype html>
 <html lang="en">
@@ -12097,18 +12097,15 @@ async function generatePdf(type, options = {}) {
     <title>Print Preview</title>
     <link rel="stylesheet" href="${stylesHref}" />
   </head>
-  <body class="pdf-export">
+  <body class="pdf-export" onload="setTimeout(() => window.print(), 150)">
     <main class="layout single">
       <section class="panel preview-panel" style="padding:0;margin:0;border:none;background:transparent;box-shadow:none;">
-        ${previewHtml}
+        <div id="${escapeHtml(target.id)}" class="${escapeHtml(target.className || "")}">
+          ${previewHtml}
+        </div>
       </section>
     </main>
     <script>
-      window.addEventListener("load", () => {
-        setTimeout(() => {
-          window.print();
-        }, 150);
-      });
       window.addEventListener("afterprint", () => {
         window.close();
       });
