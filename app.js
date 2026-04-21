@@ -3575,13 +3575,20 @@ function renderBookHubCalendar() {
   const monthStart = getCalendarMonth();
   const monthEvents = getBookHubMonthEvents();
   const blackoutKeys = getBookHubBlackoutKeys();
+  const existingDetail = document.getElementById("bookHubCalendarDetail");
+  const selectedDetailDate = grid.dataset.selectedDate || "";
   const monthName = monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   const eventDateKeys = new Set();
+  const eventsByDateKey = new Map();
   monthEvents.forEach((event) => {
     if (String(event.type || "").toLowerCase() === "blackout") return;
     const start = new Date(event.start_time || 0);
     const end = new Date(event.end_time || event.start_time || 0);
     if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return;
+    const dateKey = formatDateInput(start);
+    const existing = eventsByDateKey.get(dateKey) || [];
+    existing.push(event);
+    eventsByDateKey.set(dateKey, existing);
     const cursor = startOfDay(start);
     const endDay = startOfDay(end);
     while (cursor <= endDay) {
@@ -3595,6 +3602,10 @@ function renderBookHubCalendar() {
     ? `${eventDateKeys.size} show date${eventDateKeys.size === 1 ? "" : "s"} highlighted this month.`
     : "No show dates saved for this month yet.";
   grid.innerHTML = "";
+  if (existingDetail) existingDetail.remove();
+  if (selectedDetailDate && !eventsByDateKey.has(selectedDetailDate)) {
+    grid.dataset.selectedDate = "";
+  }
 
   const startWeekday = monthStart.getDay();
   const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
@@ -3628,7 +3639,69 @@ function renderBookHubCalendar() {
       cell.classList.add("is-show");
     }
 
+    if (cellKey === selectedDetailDate && eventsByDateKey.has(cellKey)) {
+      cell.style.outline = "2px solid #f47c20";
+      cell.style.outlineOffset = "-2px";
+    }
+
+    if (eventsByDateKey.has(cellKey)) {
+      cell.style.cursor = "pointer";
+      cell.addEventListener("click", () => {
+        grid.dataset.selectedDate = grid.dataset.selectedDate === cellKey ? "" : cellKey;
+        renderBookHubCalendar();
+      });
+    }
+
     grid.appendChild(cell);
+  }
+
+  if (grid.dataset.selectedDate && eventsByDateKey.has(grid.dataset.selectedDate)) {
+    const detailPanel = document.createElement("div");
+    detailPanel.id = "bookHubCalendarDetail";
+    detailPanel.dataset.selectedDate = grid.dataset.selectedDate;
+    detailPanel.style.cssText = "margin-top:14px;background:#fdf0e3;border:1px solid #e8a855;border-radius:14px;padding:14px;display:grid;gap:10px;";
+    const dayEvents = (eventsByDateKey.get(grid.dataset.selectedDate) || []).sort(
+      (a, b) => new Date(a.start_time || 0) - new Date(b.start_time || 0)
+    );
+    dayEvents.forEach((event) => {
+      const card = document.createElement("div");
+      card.style.cssText = "background:white;border:1px solid #f0c793;border-radius:12px;padding:12px;display:grid;gap:8px;";
+      const showTitle = document.createElement("strong");
+      showTitle.style.cssText = "font-size:16px;font-weight:700;color:#2c1a00;";
+      showTitle.textContent = event.title || eventTypeLabel(event.type);
+      const showTime = document.createElement("div");
+      showTime.style.cssText = "color:#5a3a1a;font-size:13px;";
+      showTime.textContent = formatShowDateTimeWithWeekday(event.start_time);
+      const actions = document.createElement("div");
+      actions.style.cssText = "display:flex;gap:8px;justify-content:flex-end;";
+      const editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.className = "btn ghost";
+      editButton.textContent = "Edit";
+      editButton.addEventListener("click", () => {
+        if (switchTopView) switchTopView("calendar");
+        selectEventForEdit(event, grid.dataset.selectedDate || "");
+      });
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "btn ghost";
+      deleteButton.style.cssText = "border-color:#e58a4a;color:#9a3f00;";
+      deleteButton.textContent = "Delete";
+      deleteButton.addEventListener("click", async () => {
+        deleteButton.disabled = true;
+        deleteButton.textContent = "Deleting...";
+        await deleteCalendarEvent(event);
+        renderBookHubCalendar();
+        await renderBookedDatesList();
+      });
+      actions.appendChild(editButton);
+      actions.appendChild(deleteButton);
+      card.appendChild(showTitle);
+      card.appendChild(showTime);
+      card.appendChild(actions);
+      detailPanel.appendChild(card);
+    });
+    grid.insertAdjacentElement("afterend", detailPanel);
   }
 }
 
@@ -9896,6 +9969,7 @@ async function renderBookedDatesList() {
       const lineup = isFullBandShowEvent(event) ? "Full Band" : "Duo";
       const card = document.createElement("div");
       card.className = "event-card shows-booked-card";
+      card.style.position = "relative";
       const title = document.createElement("strong");
       title.className = "shows-booked-title";
       title.style.cssText = "font-size:17px;font-weight:700;color:#2c1a00;";
@@ -9908,9 +9982,37 @@ async function renderBookedDatesList() {
       lineupMeta.className = "event-meta shows-booked-lineup";
       lineupMeta.style.cssText = "color:#8a6840;font-size:12px;opacity:1;";
       lineupMeta.textContent = lineup;
+      const actions = document.createElement("div");
+      actions.style.cssText = "display:flex;justify-content:flex-end;margin-top:10px;";
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "btn ghost";
+      deleteButton.style.cssText = "border-color:#e58a4a;color:#9a3f00;";
+      deleteButton.textContent = "Delete";
+      deleteButton.addEventListener("click", async () => {
+        if (deleteButton.dataset.confirming === "true") {
+          deleteButton.disabled = true;
+          deleteButton.textContent = "Deleting...";
+          card.style.opacity = "0.65";
+          await deleteCalendarEvent(event);
+          await renderBookedDatesList();
+          renderBookHubCalendar();
+          return;
+        }
+        deleteButton.dataset.confirming = "true";
+        deleteButton.textContent = "Are you sure?";
+        window.setTimeout(() => {
+          if (deleteButton.dataset.confirming === "true") {
+            deleteButton.dataset.confirming = "false";
+            deleteButton.textContent = "Delete";
+          }
+        }, 2500);
+      });
+      actions.appendChild(deleteButton);
       card.appendChild(title);
       card.appendChild(meta);
       card.appendChild(lineupMeta);
+      card.appendChild(actions);
       monthList.appendChild(card);
     });
     monthCard.appendChild(monthList);
