@@ -1,6 +1,7 @@
 const depositDefault = 50;
 const additionalSongFee = 50;
 const AGREEMENT_STEP_COUNT = 5;
+let showHubFocusStep = "";
 
 function createInitialAgreementState() {
   return {
@@ -3557,137 +3558,126 @@ function getLinkedContractForEvent(event) {
   return linked[0] || null;
 }
 
-function getBookingFlowStage(event, quoteMap = new Map()) {
+function getBookingFlowDetails(event, quoteMap = new Map()) {
   const quote = quoteMap.get(String(event?.id || "")) || null;
   const contract = getLinkedContractForEvent(event);
   const invoice = findMatchingInvoiceForEvent(event);
   const receipt = invoice ? findMatchingReceiptForEvent(event, invoice) : findMatchingReceiptForEvent(event, {});
+  const quoteSentAt = event?.quote_sent_at || quote?.created_at || "";
   const quoteSent = Boolean(quote);
+  const quoteAcceptedAt = event?.quote_accepted_at || quote?.chosen_at || "";
   const quoteAccepted = Boolean(
-    event?.quote_accepted_at ||
+    quoteAcceptedAt ||
     event?.accepted_lineup ||
     (quote && String(quote.status || "").toLowerCase() === "accepted")
   );
   const acceptedLineup =
     String(event?.accepted_lineup || "").trim() ||
     getQuoteAcceptedLineup(quote);
-  const contractSent = Boolean(event?.contract_sent_at || contract);
+  const contractSentAt = event?.contract_sent_at || "";
+  const contractSent = Boolean(contractSentAt || contract);
+  const contractSignedAt = event?.contract_signed_at || contract?.signed_at || "";
   const contractSigned = Boolean(
-    event?.contract_signed_at ||
+    contractSignedAt ||
     event?.contract_signer_name ||
     contract?.signed_at ||
     contract?.client_signature ||
     String(contract?.status || "").toLowerCase().includes("signed")
   );
-  const invoiced = Boolean(event?.invoice_sent_at || invoice);
+  const contractSignerName = String(
+    event?.contract_signer_name || contract?.client_signature || ""
+  ).trim();
+  const invoiceSentAt = event?.invoice_sent_at || "";
+  const invoiced = Boolean(invoiceSentAt || invoice);
   const paid = Boolean(invoice?.paid || receipt?.paid);
+  const invoicePaidAt =
+    receipt?.payment_date ||
+    receipt?.created_at ||
+    invoice?.updated_at ||
+    invoice?.created_at ||
+    "";
+  const receiptSentAt = event?.receipt_sent_at || "";
+  return {
+    quote,
+    contract,
+    invoice,
+    receipt,
+    quoteSent,
+    quoteSentAt,
+    quoteAccepted,
+    quoteAcceptedAt,
+    acceptedLineup,
+    contractSent,
+    contractSentAt,
+    contractSigned,
+    contractSignedAt,
+    contractSignerName,
+    invoiced,
+    invoiceSentAt,
+    paid,
+    invoicePaidAt,
+    receiptSentAt,
+  };
+}
 
-  if (paid) {
+function getBookingFlowStage(event, quoteMap = new Map()) {
+  const details = getBookingFlowDetails(event, quoteMap);
+
+  if (details.paid) {
     return {
       label: "Paid",
       className: "badge-stage-paid",
-      quoteSent,
-      quoteAccepted,
-      contractSent,
-      contractSigned,
-      invoiced,
-      paid,
-      acceptedLineup,
+      ...details,
     };
   }
-  if (invoiced) {
+  if (details.invoiced) {
     return {
       label: "Invoiced",
       className: "badge-stage-invoiced",
-      quoteSent,
-      quoteAccepted,
-      contractSent,
-      contractSigned,
-      invoiced,
-      paid,
-      acceptedLineup,
+      ...details,
     };
   }
-  if (contractSigned) {
+  if (details.contractSigned) {
     return {
       label: "Contract signed",
       className: "badge-stage-contract-signed",
-      quoteSent,
-      quoteAccepted,
-      contractSent,
-      contractSigned,
-      invoiced,
-      paid,
-      acceptedLineup,
+      ...details,
     };
   }
-  if (contractSent) {
+  if (details.contractSent) {
     return {
       label: "Contract sent",
       className: "badge-stage-contract-sent",
-      quoteSent,
-      quoteAccepted,
-      contractSent,
-      contractSigned,
-      invoiced,
-      paid,
-      acceptedLineup,
+      ...details,
     };
   }
-  if (quoteAccepted) {
+  if (details.quoteAccepted) {
     return {
       label: "Quote accepted",
       className: "badge-stage-quote-accepted",
-      quoteSent,
-      quoteAccepted,
-      contractSent,
-      contractSigned,
-      invoiced,
-      paid,
-      acceptedLineup,
+      ...details,
     };
   }
-  if (quoteSent) {
+  if (details.quoteSent) {
     return {
       label: "Quote sent",
       className: "badge-stage-quote-sent",
-      quoteSent,
-      quoteAccepted,
-      contractSent,
-      contractSigned,
-      invoiced,
-      paid,
-      acceptedLineup,
+      ...details,
     };
   }
   return {
     label: "",
     className: "",
-    quoteSent,
-    quoteAccepted,
-    contractSent,
-    contractSigned,
-    invoiced,
-    paid,
-    acceptedLineup,
+    ...details,
   };
 }
 
 async function openBookingFlowNotificationTarget(event, target) {
   if (!event) return;
   selectEventForEdit(event, formatDateInput(new Date(event.start_time || Date.now())));
-  if (target === "agreement") {
-    await openAgreementForCalendarEvent(event);
-    return;
-  }
-  if (target === "invoice") {
-    await openAgreementForCalendarEvent(event);
-    openInvoiceFromAgreement();
-    return;
-  }
-  if (target === "shows") {
-    if (switchTopView) switchTopView("shows");
-  }
+  showHubFocusStep = target || "";
+  if (switchTopView) switchTopView("shows");
+  await renderBookedDatesList();
 }
 
 function renderNeedsYourAttention(notifications = []) {
@@ -4410,30 +4400,39 @@ async function updateOpsProgress() {
       const start = eventStartDate(event);
       const showDate = start ? formatShowDateTimeWithWeekday(event.start_time) : "Date TBD";
       const clientName = event.title || "Unknown client";
-      if (stage.quoteAccepted && !stage.contractSent) {
+      if (stage.quoteAccepted && !stage.contractSentAt) {
         return {
           event,
-          title: "Quote accepted — send contract",
-          meta: `${clientName} · ${showDate}${stage.acceptedLineup ? ` · ${stage.acceptedLineup}` : ""}`,
-          actionLabel: "Open contract",
-          target: "agreement",
+          title: `${clientName} — quote accepted, send contract`,
+          meta: `${showDate}${stage.acceptedLineup ? ` · ${stage.acceptedLineup}` : ""}`,
+          actionLabel: "Open show",
+          target: "contract",
         };
       }
-      if (stage.contractSigned && !stage.invoiced) {
+      if (stage.contractSigned && !stage.invoiceSentAt) {
         return {
           event,
-          title: "Contract signed — send invoice",
-          meta: `${clientName} · ${showDate}`,
-          actionLabel: "Open invoice",
+          title: `${clientName} — contract signed, send invoice`,
+          meta: showDate,
+          actionLabel: "Open show",
           target: "invoice",
+        };
+      }
+      if (stage.paid && !stage.receiptSentAt) {
+        return {
+          event,
+          title: `${clientName} — payment received, send receipt`,
+          meta: showDate,
+          actionLabel: "Open show",
+          target: "receipt",
         };
       }
       if (start && start >= now && start <= upcomingWindowEnd && !stage.paid) {
         return {
           event,
-          title: "Show coming up — invoice still unpaid",
-          meta: `${clientName} · ${showDate}`,
-          actionLabel: "Open invoice",
+          title: `${clientName} — show this week, invoice still unpaid`,
+          meta: showDate,
+          actionLabel: "Open show",
           target: "invoice",
         };
       }
@@ -10275,9 +10274,252 @@ function renderAssignmentList() {
 async function renderBookedDatesList() {
   const list = document.getElementById("bookedDatesList");
   if (!list) return;
+  const client = state.calendar.client;
   const today = startOfDay(new Date());
   const endDate = new Date(today.getFullYear(), today.getMonth() + 12, 0, 23, 59, 59, 999);
   const quoteMap = buildQuoteMapByEventId(await fetchQuoteRowsForBookingFlow());
+  const formatPipelineTime = (value, emptyLabel) => value ? formatShortDateTime(value) : emptyLabel;
+  const updateShowFlowFields = async (eventId, fields) => {
+    if (!client || !state.calendar.session || !eventId || !fields || !Object.keys(fields).length) return;
+    const { error } = await client.from("events").update(fields).eq("id", eventId);
+    if (error) {
+      console.warn("Could not update show flow fields:", error);
+      return;
+    }
+    const match = state.calendar.events.find((item) => item.id === eventId);
+    if (match) Object.assign(match, fields);
+  };
+  const createSignedStorageLink = async (path, expiresIn = 3600) => {
+    if (!client || !state.calendar.session || !path) return "";
+    const { data, error } = await client
+      .storage
+      .from("signed-contracts")
+      .createSignedUrl(path, expiresIn);
+    if (error || !data?.signedUrl) return "";
+    return data.signedUrl;
+  };
+  const buildShowQuoteOptions = (event) => {
+    const lineupLabel = getShowLineupLabel(event);
+    const matchingLineup = (Array.isArray(state.bandDNA.lineups) ? state.bandDNA.lineups : [])
+      .find((lineup) => String(lineup?.name || "").toLowerCase() === lineupLabel.toLowerCase());
+    const count = getLineupMusicianCount(lineupLabel, matchingLineup || {});
+    const start = new Date(event?.start_time || 0);
+    const end = new Date(event?.end_time || event?.start_time || 0);
+    const hours = Number.isFinite(start.getTime()) && Number.isFinite(end.getTime())
+      ? Math.max(1, hoursBetweenTimes(formatTimeInput(start), formatTimeInput(end)))
+      : Math.max(1, Number(state.bandDNA.minimumHours || 2));
+    const ratePerHour = toNumber(matchingLineup?.rate) || (toNumber(state.bandDNA.musicianHourlyRate || 50) * count);
+    return [{
+      label: `${lineupLabel} · ${formatHourValue(hours)} hrs`,
+      sets: `${formatHourValue(hours)} hrs`,
+      price: String(Math.max(0, ratePerHour * hours)),
+      deposit: String(toNumber(state.bandDNA.defaultDeposit || depositDefault)),
+      detail: `${formatHourValue(hours)} hrs · Sound system included`,
+      featured: true,
+    }];
+  };
+  const withShowDraftState = async (event, callback) => {
+    const previousAgreement = { ...state.agreement };
+    const previousInvoice = { ...state.invoice };
+    const previousReceipt = { ...state.receipt };
+    const previousWorkspace = { ...state.workspace };
+    const previousActiveTab = state.activeTab;
+    try {
+      const start = new Date(event?.start_time || Date.now());
+      const end = new Date(event?.end_time || event?.start_time || Date.now());
+      state.agreement = {
+        ...createInitialAgreementState(),
+        clientName: event?.title || "",
+        performanceDate: formatDateInput(start),
+        performanceTime: formatTimeInput(start),
+        performanceEndTime: formatTimeInput(end),
+        eventType: event?.type || "",
+        bandConfig: getShowLineupLabel(event),
+      };
+      state.workspace.bookingSaved = Boolean(event?.id);
+      state.workspace.bookingEventId = event?.id || "";
+      syncAgreementForm();
+      updatePerformanceHoursFromTimes();
+      updateAgreementPreview();
+      return await callback();
+    } finally {
+      state.agreement = previousAgreement;
+      state.invoice = previousInvoice;
+      state.receipt = previousReceipt;
+      state.workspace = previousWorkspace;
+      state.activeTab = previousActiveTab;
+      syncAgreementForm();
+      syncInvoiceForm();
+      syncReceiptForm();
+      updateAgreementPreview();
+      updateInvoicePreview();
+      updateReceiptPreview();
+    }
+  };
+  const copyQuoteLinkForShow = async (event, statusEl) => {
+    if (!client || !state.calendar.session || !event?.id) return;
+    let quote = await fetchExistingQuoteForEvent(event.id);
+    if (!quote) {
+      const payload = {
+        event_id: event.id,
+        client_name: event.title || "",
+        client_email: "",
+        venue_name: "",
+        event_date: formatDateInput(new Date(event.start_time || Date.now())),
+        options: [
+          ...buildShowQuoteOptions(event),
+          {
+            __meta: {
+              band_name: state.bandDNA.bandName || "",
+              contact_email: state.bandDNA.contactEmail || "",
+            },
+          },
+        ],
+        status: "draft",
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      };
+      const { data, error } = await client.from("quotes").insert(payload).select("*").single();
+      if (error || !data) {
+        if (statusEl) {
+          statusEl.textContent = "Could not generate quote link.";
+          statusEl.classList.add("warning");
+        }
+        return;
+      }
+      quote = data;
+    }
+    const copied = await copyTextToClipboard(getQuoteBuilderLink(quote.id), {
+      statusEl,
+      successMessage: "Quote link copied.",
+      failureMessage: "Could not copy quote link.",
+    });
+    if (!copied) return;
+    await updateShowFlowFields(event.id, { quote_sent_at: new Date().toISOString() });
+    await renderBookedDatesList();
+    await updateOpsProgress();
+  };
+  const copyContractLinkForShow = async (event, statusEl) => {
+    if (!client || !state.calendar.session || !event?.id) return;
+    let contractId = "";
+    await withShowDraftState(event, async () => {
+      await upsertPendingContractForEvent(event.id, event.title || event.type);
+      await fetchContracts();
+      const contract = getLinkedContractForEvent(event);
+      if (!contract?.id) return;
+      contractId = contract.id;
+      const payload = buildAgreementContractDigitalPayload();
+      await client
+        .from("contracts")
+        .update({
+          ...payload,
+          name: `${event.title || event.type || "Event"} Agreement`,
+          status: contract.status || "Pending signature",
+        })
+        .eq("id", contract.id);
+    });
+    if (!contractId) {
+      if (statusEl) {
+        statusEl.textContent = "Could not generate contract link.";
+        statusEl.classList.add("warning");
+      }
+      return;
+    }
+    const copied = await copyTextToClipboard(`https://gigos.netlify.app/contract.html?id=${contractId}`, {
+      statusEl,
+      successMessage: "Contract link copied.",
+      failureMessage: "Could not copy contract link.",
+    });
+    if (!copied) return;
+    await updateShowFlowFields(event.id, { contract_sent_at: new Date().toISOString() });
+    await fetchContracts();
+    await renderBookedDatesList();
+    await updateOpsProgress();
+  };
+  const copyInvoiceLinkForShow = async (event, statusEl) => {
+    if (!client || !state.calendar.session || !event?.id) return;
+    await withShowDraftState(event, async () => {
+      seedInvoiceFromAgreement();
+      state.activeTab = "invoice";
+      syncInvoiceForm();
+      updateInvoicePreview();
+      await generatePdf("invoice");
+    });
+    await fetchInvoices();
+    const invoice = findMatchingInvoiceForEvent(event);
+    const link = await createSignedStorageLink(invoice?.pdf_path || invoice?.file_path || invoice?.storage_path || "", 3600);
+    if (!link) {
+      if (statusEl) {
+        statusEl.textContent = "Could not create invoice link.";
+        statusEl.classList.add("warning");
+      }
+      return;
+    }
+    const copied = await copyTextToClipboard(link, {
+      statusEl,
+      successMessage: "Invoice link copied.",
+      failureMessage: "Could not copy invoice link.",
+    });
+    if (!copied) return;
+    await updateShowFlowFields(event.id, { invoice_sent_at: new Date().toISOString() });
+    await renderBookedDatesList();
+    await updateOpsProgress();
+  };
+  const markInvoicePaidForShow = async (event, statusEl) => {
+    if (!client || !state.calendar.session || !event?.id) return;
+    const invoice = findMatchingInvoiceForEvent(event);
+    if (!invoice?.id) {
+      if (statusEl) {
+        statusEl.textContent = "Create an invoice first before marking it paid.";
+        statusEl.classList.add("warning");
+      }
+      return;
+    }
+    const { error } = await client.from("invoices").update({ paid: true }).eq("id", invoice.id);
+    if (error) {
+      if (statusEl) {
+        statusEl.textContent = "Could not mark invoice paid.";
+        statusEl.classList.add("warning");
+      }
+      return;
+    }
+    if (statusEl) {
+      statusEl.textContent = "Invoice marked paid.";
+      statusEl.classList.remove("warning");
+    }
+    await fetchInvoices();
+    await renderBookedDatesList();
+    await updateOpsProgress();
+  };
+  const copyReceiptLinkForShow = async (event, statusEl) => {
+    if (!client || !state.calendar.session || !event?.id) return;
+    await withShowDraftState(event, async () => {
+      seedReceiptFromAgreement();
+      state.activeTab = "receipt";
+      syncReceiptForm();
+      updateReceiptPreview();
+      await generatePdf("receipt");
+    });
+    await fetchReceipts();
+    const invoice = findMatchingInvoiceForEvent(event);
+    const receipt = invoice ? findMatchingReceiptForEvent(event, invoice) : findMatchingReceiptForEvent(event, {});
+    const link = await createSignedStorageLink(receipt?.pdf_path || receipt?.file_path || receipt?.storage_path || "", 3600);
+    if (!link) {
+      if (statusEl) {
+        statusEl.textContent = "Could not create receipt link.";
+        statusEl.classList.add("warning");
+      }
+      return;
+    }
+    const copied = await copyTextToClipboard(link, {
+      statusEl,
+      successMessage: "Receipt link copied.",
+      failureMessage: "Could not copy receipt link.",
+    });
+    if (!copied) return;
+    await updateShowFlowFields(event.id, { receipt_sent_at: new Date().toISOString() });
+    await renderBookedDatesList();
+    await updateOpsProgress();
+  };
   const visibleLocalIds = new Set(state.calendar.events.map((event) => event.id).filter(Boolean));
   const hiddenSeededKeys = new Set(state.calendar.hiddenSeededEventKeys || []);
   const booked = (await getShowsRangeEvents(today, endDate))
@@ -10313,9 +10555,11 @@ async function renderBookedDatesList() {
     monthList.className = "event-list";
     events.forEach((event) => {
       const lineup = isFullBandShowEvent(event) ? "Full Band" : "Duo";
+      const flow = getBookingFlowDetails(event, quoteMap);
       const card = document.createElement("div");
       card.className = "event-card shows-booked-card";
       card.style.position = "relative";
+      const isExpanded = state.calendar.selectedEventId === event.id;
       const title = document.createElement("strong");
       title.className = "shows-booked-title";
       title.style.cssText = "font-size:17px;font-weight:700;color:#2c1a00;";
@@ -10343,17 +10587,133 @@ async function renderBookedDatesList() {
         renderBookHubCalendar();
       });
       deleteButton.style.cssText = "border-color:#e58a4a;color:#9a3f00;";
+      card.addEventListener("click", () => {
+        state.calendar.selectedEventId = isExpanded ? "" : event.id;
+        void renderBookedDatesList();
+      });
+      deleteButton.addEventListener("click", (clickEvent) => {
+        clickEvent.stopPropagation();
+      });
       actions.appendChild(deleteButton);
       card.appendChild(title);
       card.appendChild(meta);
       card.appendChild(lineupMeta);
       card.appendChild(stageBadge);
+      if (isExpanded) {
+        const detail = document.createElement("div");
+        detail.className = "show-flow-detail";
+        const detailStatus = document.createElement("p");
+        detailStatus.className = "show-flow-status";
+        detailStatus.textContent = "Use the buttons below to advance this booking.";
+        const pipeline = document.createElement("div");
+        pipeline.className = "show-flow-pipeline";
+        const appendStep = (config) => {
+          const row = document.createElement("div");
+          row.className = `show-flow-step${config.complete ? " is-complete" : ""}${showHubFocusStep === config.key ? " is-focused" : ""}`;
+          const marker = document.createElement("div");
+          marker.className = `show-flow-marker${config.complete ? " is-complete" : ""}`;
+          marker.textContent = String(config.number);
+          const copy = document.createElement("div");
+          copy.className = "show-flow-copy";
+          const heading = document.createElement("strong");
+          heading.className = "show-flow-title";
+          heading.textContent = config.title;
+          const metaLine = document.createElement("div");
+          metaLine.className = "show-flow-meta";
+          metaLine.textContent = config.metaText;
+          copy.appendChild(heading);
+          copy.appendChild(metaLine);
+          row.appendChild(marker);
+          row.appendChild(copy);
+          if (config.actionLabel && typeof config.action === "function") {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "btn ghost show-flow-action";
+            button.textContent = config.actionLabel;
+            button.addEventListener("click", async (clickEvent) => {
+              clickEvent.stopPropagation();
+              await config.action();
+            });
+            row.appendChild(button);
+          }
+          pipeline.appendChild(row);
+        };
+        appendStep({
+          key: "quote",
+          number: 1,
+          title: "Quote sent",
+          complete: Boolean(flow.quoteSentAt),
+          metaText: formatPipelineTime(flow.quoteSentAt, "Not sent yet"),
+          actionLabel: "Copy Quote Link",
+          action: () => copyQuoteLinkForShow(event, detailStatus),
+        });
+        appendStep({
+          key: "quote-accepted",
+          number: 2,
+          title: "Quote accepted",
+          complete: Boolean(flow.quoteAccepted),
+          metaText: flow.quoteAccepted
+            ? `${formatPipelineTime(flow.quoteAcceptedAt, "Accepted")} · ${flow.acceptedLineup || "Lineup selected"}`
+            : "Waiting for client",
+        });
+        appendStep({
+          key: "contract",
+          number: 3,
+          title: "Contract sent",
+          complete: Boolean(flow.contractSentAt),
+          metaText: formatPipelineTime(flow.contractSentAt, "Not sent yet"),
+          actionLabel: flow.contractSentAt ? "Copy Contract Link" : "Generate Contract Link",
+          action: () => copyContractLinkForShow(event, detailStatus),
+        });
+        appendStep({
+          key: "contract-signed",
+          number: 4,
+          title: "Contract signed",
+          complete: Boolean(flow.contractSigned),
+          metaText: flow.contractSigned
+            ? `${formatPipelineTime(flow.contractSignedAt, "Signed")} · ${flow.contractSignerName || "Signed"}`
+            : "Waiting for signature",
+        });
+        appendStep({
+          key: "invoice",
+          number: 5,
+          title: "Invoice sent",
+          complete: Boolean(flow.invoiceSentAt),
+          metaText: formatPipelineTime(flow.invoiceSentAt, "Not sent yet"),
+          actionLabel: flow.invoiceSentAt ? "Copy Invoice Link" : "Generate Invoice Link",
+          action: () => copyInvoiceLinkForShow(event, detailStatus),
+        });
+        appendStep({
+          key: "paid",
+          number: 6,
+          title: "Invoice paid",
+          complete: Boolean(flow.paid),
+          metaText: flow.paid
+            ? formatPipelineTime(flow.invoicePaidAt, "Paid")
+            : "Waiting for payment",
+          actionLabel: flow.paid ? "" : "Mark Paid",
+          action: () => markInvoicePaidForShow(event, detailStatus),
+        });
+        appendStep({
+          key: "receipt",
+          number: 7,
+          title: "Receipt sent",
+          complete: Boolean(flow.receiptSentAt),
+          metaText: formatPipelineTime(flow.receiptSentAt, "Not sent yet"),
+          actionLabel: flow.receiptSentAt ? "Copy Receipt Link" : "Generate Receipt Link",
+          action: () => copyReceiptLinkForShow(event, detailStatus),
+        });
+        detail.appendChild(detailStatus);
+        detail.appendChild(pipeline);
+        card.appendChild(detail);
+      }
       card.appendChild(actions);
       monthList.appendChild(card);
     });
     monthCard.appendChild(monthList);
     list.appendChild(monthCard);
   });
+  showHubFocusStep = "";
 }
 
 function renderAboutTab() {

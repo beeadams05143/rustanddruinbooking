@@ -576,6 +576,81 @@ body {
   width: fit-content;
 }
 
+.shows-booked-card {
+  cursor: pointer;
+}
+
+.show-flow-detail {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(232, 168, 85, 0.45);
+}
+
+.show-flow-status {
+  margin: 0 0 12px;
+  color: #8a6840;
+  font-size: 0.85rem;
+}
+
+.show-flow-pipeline {
+  display: grid;
+  gap: 10px;
+}
+
+.show-flow-step {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(232, 168, 85, 0.38);
+}
+
+.show-flow-step.is-focused {
+  box-shadow: 0 0 0 2px rgba(244, 124, 32, 0.18);
+  border-color: rgba(244, 124, 32, 0.48);
+}
+
+.show-flow-marker {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(232, 168, 85, 0.18);
+  color: #8b4a1a;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.show-flow-marker.is-complete {
+  background: rgba(76, 154, 97, 0.18);
+  color: #2f7b46;
+}
+
+.show-flow-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.show-flow-title {
+  color: #2c1a00;
+  font-size: 0.95rem;
+}
+
+.show-flow-meta {
+  color: #8a6840;
+  font-size: 0.82rem;
+}
+
+.show-flow-action {
+  white-space: nowrap;
+}
+
 .dashboard-booking-btn {
   position: sticky;
   bottom: 88px;
