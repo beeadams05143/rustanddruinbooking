@@ -9968,28 +9968,26 @@ function renderMarketingTab() {
   `;
   detailWrap.appendChild(activeTopicCard);
 
-  [
+  const selectedVoice = [
     { id: "warm", label: "Warm" },
     { id: "funny", label: "Funny" },
     { id: "hype", label: "Hype" },
-  ].forEach((voice) => {
-    const voiceCard = document.createElement("div");
-    voiceCard.className = "marketing-social-card";
-    const text = template[voice.id] || template.warm;
-    const personalizedText = typeof personalizeSocialPost === "function"
-      ? personalizeSocialPost(text)
-      : text;
-    const isSelected = currentVoice === voice.id;
-    voiceCard.innerHTML = `
-      <span class="marketing-social-category">${escapeHtml(voice.label)}${isSelected ? " • Selected" : ""}</span>
-      <span class="marketing-social-text">${escapeHtml(personalizedText)}</span>
-      <div style="display:flex;justify-content:flex-end;margin-top:10px;">
-        <button type="button" data-marketing-social-copy="${escapeHtml(voice.id)}" style="${isSelected ? "background:#f47c20;color:white;border:none;" : "background:transparent;color:#8a5010;border:1px solid #e8a855;"}border-radius:20px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;">Copy</button>
-      </div>
-      <span class="marketing-social-feedback" data-marketing-social-feedback="${escapeHtml(voice.id)}" aria-live="polite"></span>
-    `;
-    detailWrap.appendChild(voiceCard);
-  });
+  ].find((voice) => voice.id === currentVoice) || { id: "warm", label: "Warm" };
+  const voiceCard = document.createElement("div");
+  voiceCard.className = "marketing-social-card";
+  const text = template[selectedVoice.id] || template.warm;
+  const personalizedText = typeof personalizeSocialPost === "function"
+    ? personalizeSocialPost(text)
+    : text;
+  voiceCard.innerHTML = `
+    <span class="marketing-social-category">${escapeHtml(selectedVoice.label)}</span>
+    <span class="marketing-social-text">${escapeHtml(personalizedText)}</span>
+    <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+      <button type="button" data-marketing-social-copy="${escapeHtml(selectedVoice.id)}" style="background:#f47c20;color:white;border:none;border-radius:20px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;">Copy</button>
+    </div>
+    <span class="marketing-social-feedback" data-marketing-social-feedback="${escapeHtml(selectedVoice.id)}" aria-live="polite"></span>
+  `;
+  detailWrap.appendChild(voiceCard);
 
   grid.appendChild(detailWrap);
 }
