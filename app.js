@@ -3254,16 +3254,35 @@ async function updateAgreementBookingWarning() {
 }
 
 function updateInvoicePreview() {
-  const readInvoiceNumberField = (id) => {
-    const input = document.getElementById(id) || document.querySelector(`[data-field="${id}"]`);
-    return toNumber(input?.value);
-  };
-  state.invoice.performanceFee = readInvoiceNumberField("invoicePerformanceFee");
-  state.invoice.depositDue = readInvoiceNumberField("invoiceDepositDue");
-  state.invoice.depositPaid = readInvoiceNumberField("invoiceDepositPaid");
-  state.invoice.addons = readInvoiceNumberField("invoiceAddons");
-  state.invoice.totalOverride = readInvoiceNumberField("invoiceTotalOverride");
+  const invoicePerformanceFeeInput =
+    document.getElementById("invoicePerformanceFee") || document.querySelector('[data-field="invoicePerformanceFee"]');
+  const invoiceDepositDueInput =
+    document.getElementById("invoiceDepositDue") || document.querySelector('[data-field="invoiceDepositDue"]');
+  const invoiceDepositPaidInput =
+    document.getElementById("invoiceDepositPaid") || document.querySelector('[data-field="invoiceDepositPaid"]');
+  const invoiceAddonsInput =
+    document.getElementById("invoiceAddons") || document.querySelector('[data-field="invoiceAddons"]');
+  const invoiceTotalOverrideInput =
+    document.getElementById("invoiceTotalOverride") || document.querySelector('[data-field="invoiceTotalOverride"]');
+
+  console.log("updateInvoicePreview raw inputs", {
+    invoicePerformanceFee: invoicePerformanceFeeInput?.value ?? "",
+    invoiceDepositDue: invoiceDepositDueInput?.value ?? "",
+    invoiceDepositPaid: invoiceDepositPaidInput?.value ?? "",
+    invoiceAddons: invoiceAddonsInput?.value ?? "",
+    invoiceTotalOverride: invoiceTotalOverrideInput?.value ?? "",
+  });
+
+  state.invoice.performanceFee = toNumber(invoicePerformanceFeeInput?.value);
+  state.invoice.depositDue = toNumber(invoiceDepositDueInput?.value);
+  state.invoice.depositPaid = toNumber(invoiceDepositPaidInput?.value);
+  state.invoice.addons = toNumber(invoiceAddonsInput?.value);
+  state.invoice.totalOverride = toNumber(invoiceTotalOverrideInput?.value);
+
+  console.log("updateInvoicePreview state.invoice", { ...state.invoice });
+
   const totals = getInvoiceTotals();
+  console.log("updateInvoicePreview totals", totals);
   const performanceFeeDisplay = toMoney(toNumber(state.invoice.performanceFee));
   const totalDueDisplay = toMoney(
     toNumber(state.invoice.totalOverride) > 0
