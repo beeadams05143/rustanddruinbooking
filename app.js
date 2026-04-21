@@ -3253,14 +3253,15 @@ async function updateAgreementBookingWarning() {
 }
 
 function updateInvoicePreview() {
-  const invoicePerformanceFee = document.getElementById("invoicePerformanceFee");
-  const invoiceDepositDue = document.getElementById("invoiceDepositDue");
-  const invoiceAddons = document.getElementById("invoiceAddons");
-  const invoiceTotalOverride = document.getElementById("invoiceTotalOverride");
-  if (invoicePerformanceFee) state.invoice.performanceFee = invoicePerformanceFee.value;
-  if (invoiceDepositDue) state.invoice.depositDue = invoiceDepositDue.value;
-  if (invoiceAddons) state.invoice.addons = invoiceAddons.value;
-  if (invoiceTotalOverride) state.invoice.totalOverride = invoiceTotalOverride.value;
+  const readInvoiceNumberField = (id) => {
+    const input = document.getElementById(id) || document.querySelector(`[data-field="${id}"]`);
+    return toNumber(input?.value);
+  };
+  state.invoice.performanceFee = readInvoiceNumberField("invoicePerformanceFee");
+  state.invoice.depositDue = readInvoiceNumberField("invoiceDepositDue");
+  state.invoice.depositPaid = readInvoiceNumberField("invoiceDepositPaid");
+  state.invoice.addons = readInvoiceNumberField("invoiceAddons");
+  state.invoice.totalOverride = readInvoiceNumberField("invoiceTotalOverride");
   const totals = getInvoiceTotals();
   setText("[data-fill='invoiceNumber']", state.invoice.invoiceNumber || "__");
   setText("[data-fill='invoiceClientName']", state.invoice.clientName || "__");
@@ -3273,6 +3274,7 @@ function updateInvoicePreview() {
   setText("[data-fill='invoiceDepositPaid']", toMoney(totals.depositPaid));
   setText("[data-fill='invoiceAddons']", toMoney(totals.addons));
   setText("[data-fill='invoiceTotal']", totals.displayTotal);
+  setText("[data-fill='lineItemTotal']", toMoney(totals.performanceFee));
   updateMessagePreview();
 }
 
@@ -4263,23 +4265,26 @@ function updateInvoiceList() {
     header.appendChild(badge);
     const actions = document.createElement("div");
     actions.className = "event-actions";
-    if (invoice.file_path) {
-      const view = document.createElement("button");
-      view.className = "btn ghost";
-      view.textContent = "View PDF";
-      view.addEventListener("click", async () => {
-        const client = state.calendar.client;
-        if (!client || !state.calendar.session) return;
-        const { data, error } = await client
-          .storage
-          .from("signed-contracts")
-          .createSignedUrl(invoice.file_path, 60);
-        if (!error && data?.signedUrl) {
-          window.open(data.signedUrl, "_blank");
-        }
-      });
-      actions.appendChild(view);
-    }
+    const view = document.createElement("button");
+    view.className = "btn ghost";
+    view.textContent = "View PDF";
+    view.addEventListener("click", async () => {
+      const client = state.calendar.client;
+      if (!client || !state.calendar.session) return;
+      const pdfPath = invoice.pdf_path || invoice.file_path || invoice.storage_path;
+      if (!pdfPath) {
+        alert("No PDF found for this invoice — tap Generate/Share PDF to create one first.");
+        return;
+      }
+      const { data, error } = await client
+        .storage
+        .from("signed-contracts")
+        .createSignedUrl(pdfPath, 3600);
+      if (!error && data?.signedUrl) {
+        window.location.assign(data.signedUrl);
+      }
+    });
+    actions.appendChild(view);
     const toggle = document.createElement("button");
     toggle.className = "btn ghost";
     toggle.textContent = invoice.paid ? "Mark unpaid" : "Mark paid";
