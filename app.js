@@ -3682,18 +3682,14 @@ function renderBookHubCalendar() {
         if (switchTopView) switchTopView("calendar");
         selectEventForEdit(event, grid.dataset.selectedDate || "");
       });
-      const deleteButton = document.createElement("button");
-      deleteButton.type = "button";
-      deleteButton.className = "btn ghost";
-      deleteButton.style.cssText = "border-color:#e58a4a;color:#9a3f00;";
-      deleteButton.textContent = "Delete";
-      deleteButton.addEventListener("click", async () => {
-        deleteButton.disabled = true;
+      const deleteButton = createConfirmDeleteButton(async () => {
         deleteButton.textContent = "Deleting...";
+        deleteButton.style.cssText = "border-color:#e58a4a;color:#9a3f00;";
         await deleteCalendarEvent(event);
         renderBookHubCalendar();
         await renderBookedDatesList();
       });
+      deleteButton.style.cssText = "border-color:#e58a4a;color:#9a3f00;";
       actions.appendChild(editButton);
       actions.appendChild(deleteButton);
       card.appendChild(showTitle);
@@ -9984,30 +9980,15 @@ async function renderBookedDatesList() {
       lineupMeta.textContent = lineup;
       const actions = document.createElement("div");
       actions.style.cssText = "display:flex;justify-content:flex-end;margin-top:10px;";
-      const deleteButton = document.createElement("button");
-      deleteButton.type = "button";
-      deleteButton.className = "btn ghost";
-      deleteButton.style.cssText = "border-color:#e58a4a;color:#9a3f00;";
-      deleteButton.textContent = "Delete";
-      deleteButton.addEventListener("click", async () => {
-        if (deleteButton.dataset.confirming === "true") {
-          deleteButton.disabled = true;
-          deleteButton.textContent = "Deleting...";
-          card.style.opacity = "0.65";
-          await deleteCalendarEvent(event);
-          await renderBookedDatesList();
-          renderBookHubCalendar();
-          return;
-        }
-        deleteButton.dataset.confirming = "true";
-        deleteButton.textContent = "Are you sure?";
-        window.setTimeout(() => {
-          if (deleteButton.dataset.confirming === "true") {
-            deleteButton.dataset.confirming = "false";
-            deleteButton.textContent = "Delete";
-          }
-        }, 2500);
+      const deleteButton = createConfirmDeleteButton(async () => {
+        deleteButton.textContent = "Deleting...";
+        card.style.opacity = "0.65";
+        deleteButton.style.cssText = "border-color:#e58a4a;color:#9a3f00;";
+        await deleteCalendarEvent(event);
+        await renderBookedDatesList();
+        renderBookHubCalendar();
       });
+      deleteButton.style.cssText = "border-color:#e58a4a;color:#9a3f00;";
       actions.appendChild(deleteButton);
       card.appendChild(title);
       card.appendChild(meta);
