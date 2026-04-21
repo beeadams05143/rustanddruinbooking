@@ -4234,7 +4234,7 @@ function updateInvoiceList() {
     copy.style.cssText = "display:grid;gap:4px;";
     const title = document.createElement("strong");
     title.style.cssText = "color:#2c1a00;font-size:17px;font-weight:700;";
-    title.textContent = invoice.client_name || "Client";
+    title.textContent = invoice.client_name || invoice.description || invoice.invoice_number || "Invoice";
     const number = document.createElement("div");
     number.style.cssText = "color:#f47c20;font-size:13px;font-weight:600;";
     number.textContent = invoice.invoice_number || "Invoice";
@@ -12081,43 +12081,17 @@ async function generatePdf(type, options = {}) {
   }
 
   const isMobileSafari = /iP(hone|ad)/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent);
-  if (isMobileSafari) {
-    const printWindow = window.open("", "_blank", "noopener,noreferrer");
-    if (!printWindow) {
-      if (statusEl) statusEl.textContent = "Popup blocked. Allow popups to open the print dialog.";
-      return;
-    }
-    const previewHtml = target.innerHTML;
-    const stylesHref = new URL("styles.css", window.location.href).href;
-    const printDoc = `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Print Preview</title>
-    <link rel="stylesheet" href="${stylesHref}" />
-  </head>
-  <body class="pdf-export" onload="setTimeout(() => window.print(), 150)">
-    <main class="layout single">
-      <section class="panel preview-panel" style="padding:0;margin:0;border:none;background:transparent;box-shadow:none;">
-        <div id="${escapeHtml(target.id)}" class="${escapeHtml(target.className || "")}">
-          ${previewHtml}
-        </div>
-      </section>
-    </main>
-    <script>
-      window.addEventListener("afterprint", () => {
-        window.close();
-      });
-    </script>
-  </body>
-</html>`;
-    printWindow.document.open();
-    printWindow.document.write(printDoc);
-    printWindow.document.close();
+  if (isMobileSafari && type === "invoice") {
+    const cleanupPrintView = () => {
+      document.body.classList.remove("pdf-export", "safari-invoice-print");
+    };
+    window.addEventListener("afterprint", cleanupPrintView, { once: true });
+    document.body.classList.add("pdf-export", "safari-invoice-print");
+    void target.offsetHeight;
     if (statusEl) {
       statusEl.textContent = "Opening print dialog — use Share then Print, or Save to Files as PDF";
     }
+    window.print();
     return;
   }
 

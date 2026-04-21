@@ -1582,6 +1582,11 @@ textarea {
   border: 1px solid var(--stroke);
 }
 
+#invoicePreview,
+#invoicePreview * {
+  color: #2c1a00 !important;
+}
+
 .pdf-export .contract {
   padding: 14px 14px 10px;
   font-size: 14.5px;
@@ -1754,6 +1759,39 @@ textarea {
   white-space: pre-wrap;
   color: var(--ink);
   font-size: 0.95rem;
+}
+
+@media print {
+  body.safari-invoice-print > :not(#invoiceTab) {
+    display: none !important;
+  }
+
+  body.safari-invoice-print #invoiceTab {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  body.safari-invoice-print #invoiceTab .form-panel {
+    display: none !important;
+  }
+
+  body.safari-invoice-print #invoiceTab .preview-panel {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+  }
+
+  body.safari-invoice-print #invoicePreview {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
 }
 
 .calendar-titles {
