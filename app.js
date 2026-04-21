@@ -3264,18 +3264,24 @@ function updateInvoicePreview() {
   state.invoice.addons = readInvoiceNumberField("invoiceAddons");
   state.invoice.totalOverride = readInvoiceNumberField("invoiceTotalOverride");
   const totals = getInvoiceTotals();
+  const performanceFeeDisplay = toMoney(toNumber(state.invoice.performanceFee));
+  const totalDueDisplay = toMoney(
+    toNumber(state.invoice.totalOverride) > 0
+      ? toNumber(state.invoice.totalOverride)
+      : totals.totalDue
+  );
   setText("[data-fill='invoiceNumber']", state.invoice.invoiceNumber || "__");
   setText("[data-fill='invoiceClientName']", state.invoice.clientName || "__");
   setText("[data-fill='invoiceClientEmail']", state.invoice.clientEmail || "__");
   setText("[data-fill='invoiceIssueDate']", formatDate(state.invoice.issueDate));
   setText("[data-fill='invoiceDueDate']", formatDate(state.invoice.dueDate));
   setText("[data-fill='invoiceDescription']", state.invoice.description || "__");
-  setText("[data-fill='invoicePerformanceFee']", toMoney(totals.performanceFee));
+  setText("[data-fill='invoicePerformanceFee']", performanceFeeDisplay);
   setText("[data-fill='invoiceDepositDue']", toMoney(totals.depositDue));
   setText("[data-fill='invoiceDepositPaid']", toMoney(totals.depositPaid));
   setText("[data-fill='invoiceAddons']", toMoney(totals.addons));
-  setText("[data-fill='invoiceTotal']", totals.displayTotal);
-  setText("[data-fill='lineItemTotal']", toMoney(totals.performanceFee));
+  setText("[data-fill='invoiceTotal']", totalDueDisplay);
+  setText("[data-fill='lineItemTotal']", performanceFeeDisplay);
   updateMessagePreview();
 }
 
