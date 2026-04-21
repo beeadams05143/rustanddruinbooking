@@ -3411,25 +3411,16 @@ function dedupeShowEvents(events = []) {
 }
 
 async function getShowsRangeEvents(rangeStart, rangeEnd) {
-  let events = mergeSeededCalendarEvents(state.calendar.events, rangeStart, rangeEnd).filter((event) => {
-    const start = new Date(event.start_time);
+  const hiddenSeededKeys = new Set(state.calendar.hiddenSeededEventKeys || []);
+  const localEvents = state.calendar.events.filter((event) => {
+    const start = new Date(event?.start_time || 0);
     return Number.isFinite(start.getTime()) && start >= rangeStart && start <= rangeEnd;
   });
-
-  const client = state.calendar.client;
-  if (client && state.calendar.session) {
-    const { data, error } = await client
-      .from("events")
-      .select("*")
-      .lt("start_time", rangeEnd.toISOString())
-      .gte("end_time", rangeStart.toISOString())
-      .order("start_time", { ascending: true });
-    if (!error && Array.isArray(data)) {
-      events = mergeSeededCalendarEvents(data, rangeStart, rangeEnd);
-    }
-  }
-
-  return dedupeShowEvents(events);
+  const seededEvents = getSeededCalendarEvents(rangeStart, rangeEnd).filter((event) => {
+    const key = eventIdentityKey(event);
+    return key && !hiddenSeededKeys.has(key);
+  });
+  return dedupeShowEvents([...localEvents, ...seededEvents]);
 }
 
 function eventStartDate(event) {
@@ -5894,6 +5885,46 @@ async function deleteCalendarEvent(eventOrId) {
     : state.calendar.events.find((item) => item.id === eventOrId) || null;
   const id = event?.id || (typeof eventOrId === "string" ? eventOrId : "");
   if (!event && !id) return;
+  const seededKey = event?.seeded ? eventIdentityKey(event) : "";
+  const previousEvents = [...state.calendar.events];
+  const previousContracts = [...state.calendar.contracts];
+  const previousAssignments = [...state.calendar.assignments];
+  const previousShowBookings = [...state.musicianShowBookings];
+  const previousHiddenSeededEventKeys = [...(state.calendar.hiddenSeededEventKeys || [])];
+  const previousSelectedEventId = state.calendar.selectedEventId;
+  const rerenderDeletedEventViews = () => {
+    renderBookedDatesList();
+    updateEventList();
+    renderBookHubCalendar();
+    updateManagerDesk();
+  };
+  const restoreDeletedEventViews = () => {
+    state.calendar.events = previousEvents;
+    state.calendar.contracts = previousContracts;
+    state.calendar.assignments = previousAssignments;
+    state.musicianShowBookings = previousShowBookings;
+    state.calendar.hiddenSeededEventKeys = previousHiddenSeededEventKeys;
+    state.calendar.selectedEventId = previousSelectedEventId;
+    rerenderDeletedEventViews();
+  };
+
+  if (id) {
+    state.calendar.events = state.calendar.events.filter((item) => item.id !== id);
+    state.calendar.contracts = state.calendar.contracts.filter((item) => item.event_id !== id);
+    state.calendar.assignments = state.calendar.assignments.filter((item) => item.event_id !== id);
+    if (state.calendar.selectedEventId === id) {
+      state.calendar.selectedEventId = "";
+    }
+  }
+  if (seededKey) {
+    state.calendar.hiddenSeededEventKeys = Array.from(
+      new Set([...(state.calendar.hiddenSeededEventKeys || []), seededKey])
+    );
+  }
+  state.musicianShowBookings = state.musicianShowBookings.filter(
+    (booking) => !eventMatchesMusicianShowBooking(event || { id, seeded: Boolean(seededKey) }, booking)
+  );
+  rerenderDeletedEventViews();
 
   const client = state.calendar.client;
   if (event?.seeded) {
@@ -5905,6 +5936,7 @@ async function deleteCalendarEvent(eventOrId) {
       .delete()
       .eq("event_id", id);
     if (assignmentError) {
+      restoreDeletedEventViews();
       updateSupabaseStatus(`Could not delete assignments: ${assignmentError.message}`, true);
       return;
     }
@@ -5916,6 +5948,7 @@ async function deleteCalendarEvent(eventOrId) {
       .eq("event_id", id)
       .is("file_path", null);
     if (clearDraftContractsError) {
+      restoreDeletedEventViews();
       updateSupabaseStatus(
         `Could not clear pending contracts for this event: ${clearDraftContractsError.message}`,
         true
@@ -5928,6 +5961,7 @@ async function deleteCalendarEvent(eventOrId) {
       .eq("event_id", id)
       .not("file_path", "is", null);
     if (unlinkSignedContractsError) {
+      restoreDeletedEventViews();
       updateSupabaseStatus(
         `Could not unlink signed contracts from this event: ${unlinkSignedContractsError.message}`,
         true
@@ -5937,6 +5971,7 @@ async function deleteCalendarEvent(eventOrId) {
 
     const { error: eventError } = await client.from("events").delete().eq("id", id);
     if (eventError) {
+      restoreDeletedEventViews();
       updateSupabaseStatus(`Could not delete event: ${eventError.message}`, true);
       return;
     }
@@ -5955,6 +5990,7 @@ async function deleteCalendarEvent(eventOrId) {
   await fetchMusicianAssignments();
   await fetchEventsForMonth();
   await fetchContracts();
+  rerenderDeletedEventViews();
 }
 
 async function handleCalendarSave() {
@@ -9823,7 +9859,16 @@ async function renderBookedDatesList() {
   if (!list) return;
   const today = startOfDay(new Date());
   const endDate = new Date(today.getFullYear(), today.getMonth() + 12, 0, 23, 59, 59, 999);
+  const visibleLocalIds = new Set(state.calendar.events.map((event) => event.id).filter(Boolean));
+  const hiddenSeededKeys = new Set(state.calendar.hiddenSeededEventKeys || []);
   const booked = (await getShowsRangeEvents(today, endDate))
+    .filter((event) => {
+      if (event?.seeded) {
+        const key = eventIdentityKey(event);
+        return Boolean(key) && !hiddenSeededKeys.has(key);
+      }
+      return Boolean(event?.id) && visibleLocalIds.has(event.id);
+    })
     .filter((event) => String(event.type || "").toLowerCase() !== "blackout")
     .sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
   if (!booked.length) {
