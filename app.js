@@ -12028,13 +12028,6 @@ async function generatePdf(type, options = {}) {
   const printButton = document.getElementById("printPdf");
   const shareButton = document.getElementById("sharePdf");
   const { openAfterGenerate = false } = options;
-  if (!window.html2canvas || !window.jspdf) {
-    statusEl.textContent = "PDF tools not loaded. Using Print instead.";
-    window.print();
-    return;
-  }
-
-  statusEl.textContent = "Generating PDF...";
 
   const previewMap = {
     agreement: "agreementPreview",
@@ -12052,6 +12045,58 @@ async function generatePdf(type, options = {}) {
     updateAgreementPreview();
     saveDraft();
   }
+
+  const isMobileSafari = /iP(hone|ad)/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent);
+  if (isMobileSafari) {
+    const printWindow = window.open("", "_blank", "noopener,noreferrer");
+    if (!printWindow) {
+      if (statusEl) statusEl.textContent = "Popup blocked. Allow popups to open the print dialog.";
+      return;
+    }
+    const previewHtml = target.outerHTML;
+    const stylesHref = new URL("styles.css", window.location.href).href;
+    const printDoc = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Print Preview</title>
+    <link rel="stylesheet" href="${stylesHref}" />
+  </head>
+  <body class="pdf-export">
+    <main class="layout single">
+      <section class="panel preview-panel" style="padding:0;margin:0;border:none;background:transparent;box-shadow:none;">
+        ${previewHtml}
+      </section>
+    </main>
+    <script>
+      window.addEventListener("load", () => {
+        setTimeout(() => {
+          window.print();
+        }, 150);
+      });
+      window.addEventListener("afterprint", () => {
+        window.close();
+      });
+    </script>
+  </body>
+</html>`;
+    printWindow.document.open();
+    printWindow.document.write(printDoc);
+    printWindow.document.close();
+    if (statusEl) {
+      statusEl.textContent = "Opening print dialog — use Share then Print, or Save to Files as PDF";
+    }
+    return;
+  }
+
+  if (!window.html2canvas || !window.jspdf) {
+    statusEl.textContent = "PDF tools not loaded. Using Print instead.";
+    window.print();
+    return;
+  }
+
+  statusEl.textContent = "Generating PDF...";
 
   document.body.classList.add("pdf-export");
   await new Promise((resolve) => requestAnimationFrame(resolve));
