@@ -8179,7 +8179,6 @@ function switchWorkOrderSection(section = "tasks") {
 }
 
 function switchPromoChannel(channel = "email") {
-  if (channel === "socialposts") channel = "email";
   state.workOrderWorkspace.promoChannel = channel;
   document.querySelectorAll("[data-promo-channel]").forEach((btn) => {
     btn.classList.toggle("active", btn.getAttribute("data-promo-channel") === channel);
