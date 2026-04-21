@@ -10928,6 +10928,18 @@ function setupListeners() {
     btn.addEventListener("click", () => {
       const target = btn.getAttribute("data-more-panel");
       if (!target) return;
+      if (target === "invoice") {
+        state.activeTab = "invoice";
+        switchTop("bookkeeping");
+        switchPanel("invoice");
+        return;
+      }
+      if (target === "receipt") {
+        state.activeTab = "receipt";
+        switchTop("bookkeeping");
+        switchPanel("receipt");
+        return;
+      }
       if (target === "allabout" || target === "howto") {
         switchTop("about");
         switchPanel(target);
