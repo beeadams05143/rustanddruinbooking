@@ -4234,7 +4234,7 @@ function updateInvoiceList() {
     copy.style.cssText = "display:grid;gap:4px;";
     const title = document.createElement("strong");
     title.style.cssText = "color:#2c1a00;font-size:17px;font-weight:700;";
-    title.textContent = invoice.client_name || invoice.description || invoice.invoice_number || "Invoice";
+    title.textContent = invoice.client_name || invoice.description || invoice.invoice_number;
     const number = document.createElement("div");
     number.style.cssText = "color:#f47c20;font-size:13px;font-weight:600;";
     number.textContent = invoice.invoice_number || "Invoice";
@@ -12082,12 +12082,30 @@ async function generatePdf(type, options = {}) {
 
   const isMobileSafari = /iP(hone|ad)/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent);
   if (isMobileSafari && type === "invoice") {
+    const invoiceFieldMap = {
+      invoiceNumber: "invoiceNumber",
+      invoiceClientName: "clientName",
+      invoiceClientEmail: "clientEmail",
+      invoiceIssueDate: "issueDate",
+      invoiceDueDate: "dueDate",
+      invoiceDescription: "description",
+      invoicePerformanceFee: "performanceFee",
+      invoiceDepositDue: "depositDue",
+      invoiceDepositPaid: "depositPaid",
+      invoiceAddons: "addons",
+      invoiceTotalOverride: "totalOverride",
+    };
+    Object.entries(invoiceFieldMap).forEach(([id, key]) => {
+      const el = document.getElementById(id);
+      if (el) state.invoice[key] = el.value;
+    });
+    updateInvoicePreview();
     const cleanupPrintView = () => {
       document.body.classList.remove("pdf-export", "safari-invoice-print");
     };
     window.addEventListener("afterprint", cleanupPrintView, { once: true });
     document.body.classList.add("pdf-export", "safari-invoice-print");
-    void target.offsetHeight;
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     if (statusEl) {
       statusEl.textContent = "Opening print dialog — use Share then Print, or Save to Files as PDF";
     }

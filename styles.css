@@ -1762,35 +1762,24 @@ textarea {
 }
 
 @media print {
-  body.safari-invoice-print > :not(#invoiceTab) {
-    display: none !important;
+  body.safari-invoice-print * {
+    visibility: hidden !important;
   }
 
-  body.safari-invoice-print #invoiceTab {
-    display: block !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #ffffff !important;
-  }
-
-  body.safari-invoice-print #invoiceTab .form-panel {
-    display: none !important;
-  }
-
-  body.safari-invoice-print #invoiceTab .preview-panel {
-    display: block !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
-    background: #ffffff !important;
+  body.safari-invoice-print #invoicePreview,
+  body.safari-invoice-print #invoicePreview * {
+    visibility: visible !important;
   }
 
   body.safari-invoice-print #invoicePreview {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
     width: 100% !important;
     max-width: none !important;
     margin: 0 !important;
     box-shadow: none !important;
+    z-index: 9999 !important;
   }
 }
 
