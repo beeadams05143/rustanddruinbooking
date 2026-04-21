@@ -3432,12 +3432,28 @@ function eventStartDate(event) {
 function getUpcomingEvents(limit = 3) {
   const today = new Date();
   const windowStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
-
-  return state.calendar.events
+  const upcoming = state.calendar.events
     .filter((event) => String(event.type || "").toLowerCase() !== "blackout")
     .map((event) => ({ event, start: eventStartDate(event) }))
     .filter(({ start }) => start && start >= windowStart)
     .sort((a, b) => a.start - b.start)
+    .map(({ event, start }, index) => ({
+      event,
+      dedupeIndex: index,
+      canonical: {
+        ...event,
+        type: "upcoming",
+        start_time: formatDateInput(start),
+        end_time: formatDateInput(start),
+        dedupeIndex: index,
+      },
+    }));
+  const dedupedIndexes = new Set(
+    dedupeShowEvents(upcoming.map((item) => item.canonical)).map((item) => item.dedupeIndex)
+  );
+
+  return upcoming
+    .filter((item) => dedupedIndexes.has(item.dedupeIndex))
     .slice(0, limit)
     .map(({ event }) => event);
 }
@@ -3781,19 +3797,38 @@ function renderUpcomingShowsCard(events) {
   const summary = document.getElementById("upcomingShowsSummary");
   const list = document.getElementById("upcomingShowsList");
   if (!summary || !list) return;
+  const dedupedEvents = dedupeShowEvents(
+    events.map((event) => {
+      const start = eventStartDate(event);
+      const dayKey = start ? formatDateInput(start) : "";
+      return {
+        ...event,
+        type: "upcoming",
+        start_time: dayKey,
+        end_time: dayKey,
+      };
+    })
+  ).map((event) => {
+    const match = events.find((candidate) => {
+      const candidateStart = eventStartDate(candidate);
+      const candidateDayKey = candidateStart ? formatDateInput(candidateStart) : "";
+      return (candidate.title || "") === (event.title || "") && candidateDayKey === (event.start_time || "");
+    });
+    return match || event;
+  });
 
-  summary.textContent = events.length
-    ? `Your next ${events.length} upcoming booking${events.length === 1 ? "" : "s"}.`
+  summary.textContent = dedupedEvents.length
+    ? `Your next ${dedupedEvents.length} upcoming booking${dedupedEvents.length === 1 ? "" : "s"}.`
     : "No upcoming bookings yet.";
 
   list.classList.add("compact");
   list.innerHTML = "";
-  if (!events.length) {
+  if (!dedupedEvents.length) {
     list.innerHTML = "<li class=\"dashboard-empty\">No upcoming bookings yet.</li>";
     return;
   }
 
-  events.forEach((event) => {
+  dedupedEvents.forEach((event) => {
     const start = eventStartDate(event);
     const dayLabel = start
       ? start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
@@ -6056,10 +6091,16 @@ async function deleteCalendarEvent(eventOrId) {
       : "";
     updateSupabaseStatus(`Event deleted everywhere.${showFileNote}`);
   }
+  updateManagerDesk();
+  renderUpcomingShowsCard(getUpcomingEvents(3));
+  void updateOpsProgress();
   await fetchMusicianAssignments();
   await fetchEventsForMonth();
   await fetchContracts();
   rerenderDeletedEventViews();
+  updateManagerDesk();
+  renderUpcomingShowsCard(getUpcomingEvents(3));
+  void updateOpsProgress();
 }
 
 async function handleCalendarSave() {
