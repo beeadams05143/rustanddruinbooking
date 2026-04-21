@@ -192,6 +192,7 @@ function createInitialWorkOrderWorkspaceState() {
     section: "tasks",
     promoChannel: "email",
     socialPostsVoice: "warm",
+    marketingSocialTemplateIndex: null,
     epkSection: "profile",
     promoBuilder: createInitialPromoBuilderState(),
     promoTemplates: [],
@@ -9863,6 +9864,9 @@ function renderMarketingTab() {
   const currentVoice = ["warm", "funny", "hype"].includes(state.workOrderWorkspace.socialPostsVoice)
     ? state.workOrderWorkspace.socialPostsVoice
     : "warm";
+  const selectedIndex = Number.isInteger(state.workOrderWorkspace.marketingSocialTemplateIndex)
+    ? state.workOrderWorkspace.marketingSocialTemplateIndex
+    : null;
   grid.innerHTML = "";
   const voiceRow = document.createElement("div");
   voiceRow.style.cssText = "display:flex;flex-wrap:wrap;gap:0;margin:0 0 16px;";
@@ -9882,20 +9886,68 @@ function renderMarketingTab() {
     voiceRow.appendChild(btn);
   });
   grid.appendChild(voiceRow);
-  WORK_ORDER_SOCIAL_POST_TEMPLATES.forEach((template, index) => {
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "marketing-social-card";
-    card.dataset.marketingTemplateIndex = String(index);
-    const text = template[currentVoice] || template.warm;
-    card.innerHTML = `
-      <span class="marketing-social-category">${escapeHtml(template.category)}</span>
-      <strong class="marketing-social-title">${escapeHtml(template.title)}</strong>
-      <span class="marketing-social-text">${escapeHtml(typeof personalizeSocialPost === "function" ? personalizeSocialPost(text) : text)}</span>
-      <span class="marketing-social-feedback" aria-live="polite"></span>
+  if (selectedIndex === null || !WORK_ORDER_SOCIAL_POST_TEMPLATES[selectedIndex]) {
+    const topicsWrap = document.createElement("div");
+    topicsWrap.style.cssText = "display:grid;gap:10px;";
+    WORK_ORDER_SOCIAL_POST_TEMPLATES.forEach((template, index) => {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "marketing-social-card";
+      card.dataset.marketingTemplateIndex = String(index);
+      card.innerHTML = `
+        <span class="marketing-social-category">${escapeHtml(template.category)}</span>
+        <strong class="marketing-social-title">${escapeHtml(template.title)}</strong>
+        <span class="marketing-social-feedback" aria-live="polite"></span>
+      `;
+      topicsWrap.appendChild(card);
+    });
+    grid.appendChild(topicsWrap);
+    return;
+  }
+
+  const template = WORK_ORDER_SOCIAL_POST_TEMPLATES[selectedIndex];
+  const detailWrap = document.createElement("div");
+  detailWrap.style.cssText = "display:grid;gap:10px;";
+  const backButton = document.createElement("button");
+  backButton.type = "button";
+  backButton.dataset.marketingSocialBack = "true";
+  backButton.style.cssText = "background:transparent;border:none;color:#f47c20;font:inherit;font-weight:700;cursor:pointer;padding:0;text-align:left;";
+  backButton.textContent = "← Back";
+  detailWrap.appendChild(backButton);
+
+  const activeTopicCard = document.createElement("div");
+  activeTopicCard.className = "marketing-social-card";
+  activeTopicCard.style.cursor = "default";
+  activeTopicCard.innerHTML = `
+    <span class="marketing-social-category">${escapeHtml(template.category)}</span>
+    <strong class="marketing-social-title">${escapeHtml(template.title)}</strong>
+  `;
+  detailWrap.appendChild(activeTopicCard);
+
+  [
+    { id: "warm", label: "Warm" },
+    { id: "funny", label: "Funny" },
+    { id: "hype", label: "Hype" },
+  ].forEach((voice) => {
+    const voiceCard = document.createElement("div");
+    voiceCard.className = "marketing-social-card";
+    const text = template[voice.id] || template.warm;
+    const personalizedText = typeof personalizeSocialPost === "function"
+      ? personalizeSocialPost(text)
+      : text;
+    const isSelected = currentVoice === voice.id;
+    voiceCard.innerHTML = `
+      <span class="marketing-social-category">${escapeHtml(voice.label)}${isSelected ? " • Selected" : ""}</span>
+      <span class="marketing-social-text">${escapeHtml(personalizedText)}</span>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+        <button type="button" data-marketing-social-copy="${escapeHtml(voice.id)}" style="${isSelected ? "background:#f47c20;color:white;border:none;" : "background:transparent;color:#8a5010;border:1px solid #e8a855;"}border-radius:20px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;">Copy</button>
+      </div>
+      <span class="marketing-social-feedback" data-marketing-social-feedback="${escapeHtml(voice.id)}" aria-live="polite"></span>
     `;
-    grid.appendChild(card);
+    detailWrap.appendChild(voiceCard);
   });
+
+  grid.appendChild(detailWrap);
 }
 
 async function renderAvailableDatesList() {
@@ -11356,30 +11408,46 @@ function setupListeners() {
         saveDraft();
         return;
       }
+      const backButton = event.target.closest("button[data-marketing-social-back]");
+      if (backButton) {
+        state.workOrderWorkspace.marketingSocialTemplateIndex = null;
+        renderMarketingTab();
+        saveDraft();
+        return;
+      }
+      const copyButton = event.target.closest("button[data-marketing-social-copy]");
+      if (copyButton) {
+        const selectedIndex = Number.isInteger(state.workOrderWorkspace.marketingSocialTemplateIndex)
+          ? state.workOrderWorkspace.marketingSocialTemplateIndex
+          : null;
+        const template = selectedIndex === null ? null : WORK_ORDER_SOCIAL_POST_TEMPLATES[selectedIndex];
+        if (!template) return;
+        const voice = copyButton.dataset.marketingSocialCopy || "warm";
+        const text = template[voice] || template.warm;
+        await copyTextToClipboard(typeof personalizeSocialPost === "function" ? personalizeSocialPost(text) : text);
+        const feedback = marketingSocialTemplatesGrid.querySelector(`[data-marketing-social-feedback="${voice}"]`);
+        if (feedback) {
+          feedback.textContent = "Copied!";
+          window.setTimeout(() => {
+            if (feedback.textContent === "Copied!") feedback.textContent = "";
+          }, 2000);
+        }
+        const statusEl = document.getElementById("marketingSocialStatus");
+        if (statusEl) {
+          statusEl.textContent = `${template.title} copied.`;
+          window.setTimeout(() => {
+            if (statusEl.textContent === `${template.title} copied.`) statusEl.textContent = "";
+          }, 2000);
+        }
+        return;
+      }
       const card = event.target.closest("button.marketing-social-card[data-marketing-template-index]");
       if (!card) return;
       const index = Number(card.dataset.marketingTemplateIndex);
-      const template = WORK_ORDER_SOCIAL_POST_TEMPLATES[index];
-      if (!template) return;
-      const currentVoice = ["warm", "funny", "hype"].includes(state.workOrderWorkspace.socialPostsVoice)
-        ? state.workOrderWorkspace.socialPostsVoice
-        : "warm";
-      const text = template[currentVoice] || template.warm;
-      await copyTextToClipboard(typeof personalizeSocialPost === "function" ? personalizeSocialPost(text) : text);
-      const feedback = card.querySelector(".marketing-social-feedback");
-      if (feedback) {
-        feedback.textContent = "Copied";
-        window.setTimeout(() => {
-          if (feedback.textContent === "Copied") feedback.textContent = "";
-        }, 2000);
-      }
-      const statusEl = document.getElementById("marketingSocialStatus");
-      if (statusEl) {
-        statusEl.textContent = `${template.title} copied.`;
-        window.setTimeout(() => {
-          if (statusEl.textContent === `${template.title} copied.`) statusEl.textContent = "";
-        }, 2000);
-      }
+      if (!WORK_ORDER_SOCIAL_POST_TEMPLATES[index]) return;
+      state.workOrderWorkspace.marketingSocialTemplateIndex = index;
+      renderMarketingTab();
+      saveDraft();
     });
   }
 
