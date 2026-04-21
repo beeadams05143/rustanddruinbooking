@@ -3253,6 +3253,14 @@ async function updateAgreementBookingWarning() {
 }
 
 function updateInvoicePreview() {
+  const invoicePerformanceFee = document.getElementById("invoicePerformanceFee");
+  const invoiceDepositDue = document.getElementById("invoiceDepositDue");
+  const invoiceAddons = document.getElementById("invoiceAddons");
+  const invoiceTotalOverride = document.getElementById("invoiceTotalOverride");
+  if (invoicePerformanceFee) state.invoice.performanceFee = invoicePerformanceFee.value;
+  if (invoiceDepositDue) state.invoice.depositDue = invoiceDepositDue.value;
+  if (invoiceAddons) state.invoice.addons = invoiceAddons.value;
+  if (invoiceTotalOverride) state.invoice.totalOverride = invoiceTotalOverride.value;
   const totals = getInvoiceTotals();
   setText("[data-fill='invoiceNumber']", state.invoice.invoiceNumber || "__");
   setText("[data-fill='invoiceClientName']", state.invoice.clientName || "__");
@@ -10507,7 +10515,7 @@ function setupListeners() {
   invoiceFields.forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener("input", () => {
+    const handler = () => {
       const map = {
         invoiceNumber: "invoiceNumber",
         invoiceClientName: "clientName",
@@ -10523,7 +10531,9 @@ function setupListeners() {
       };
       state.invoice[map[id]] = el.value;
       updateInvoicePreview();
-    });
+    };
+    el.addEventListener("input", handler);
+    el.addEventListener("change", handler);
   });
 
   receiptFields.forEach((id) => {

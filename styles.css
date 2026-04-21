@@ -1761,28 +1761,6 @@ textarea {
   font-size: 0.95rem;
 }
 
-@media print {
-  body.safari-invoice-print * {
-    visibility: hidden !important;
-  }
-
-  body.safari-invoice-print #invoicePreview,
-  body.safari-invoice-print #invoicePreview * {
-    visibility: visible !important;
-  }
-
-  body.safari-invoice-print #invoicePreview {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    max-width: none !important;
-    margin: 0 !important;
-    box-shadow: none !important;
-    z-index: 9999 !important;
-  }
-}
-
 .calendar-titles {
   display: grid;
   gap: 4px;
@@ -3021,32 +2999,52 @@ button.btn.ghost.active:hover {
 }
 
 @media print {
+  @page {
+    size: letter;
+    margin: 0.4in;
+  }
+
   html, body {
     background: white !important;
     margin: 0 !important;
     padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   body * {
     visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
   }
 
   #invoicePreview, #invoicePreview * {
     visibility: visible !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   #invoicePreview {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
+    right: 0 !important;
     width: 100% !important;
+    max-width: 100% !important;
     background: white !important;
     color: black !important;
-    padding: 20px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
   }
 
-  @page {
-    size: letter;
-    margin: 0.5in;
+  #invoicePreview * {
+    color: black !important;
+    background: transparent !important;
+  }
+
+  .bottom-nav, #bottomNav, nav, .nav, header {
+    display: none !important;
   }
 }
