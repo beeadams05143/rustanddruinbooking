@@ -10112,10 +10112,13 @@ function renderBlackoutList() {
     const musician = state.musicians.find((item) => item.id === entry.musician_id);
     const card = document.createElement("div");
     card.className = "event-card";
+    card.style.cssText = "background:#fdf0e3;border:1px solid #e8a855;color:#2c1a00;opacity:1;";
     const header = document.createElement("header");
-    header.innerHTML = `<span>${musicianDisplayName(musician)}</span><span>Blackout</span>`;
+    header.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:12px;opacity:1;";
+    header.innerHTML = `<span style="color:#2c1a00;font-size:17px;font-weight:700;opacity:1;">${escapeHtml(musicianDisplayName(musician))}</span><span style="color:#f47c20;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;opacity:1;">Blackout</span>`;
     const meta = document.createElement("div");
     meta.className = "event-meta";
+    meta.style.cssText = "color:#5a3a1a;font-size:14px;font-weight:500;opacity:1;";
     meta.textContent = `${formatShortDateTime(entry.start_time)} → ${formatShortDateTime(
       entry.end_time
     )}`;
@@ -10124,6 +10127,7 @@ function renderBlackoutList() {
     if (entry.notes && !isInternalSeededNote(entry.notes)) {
       const notes = document.createElement("div");
       notes.className = "event-meta";
+      notes.style.cssText = "color:#5a3a1a;font-size:14px;font-weight:500;opacity:1;";
       notes.textContent = entry.notes;
       card.appendChild(notes);
     }
