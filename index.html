@@ -1388,27 +1388,27 @@
           <div class="form-grid">
             <label>
               Invoice number
-              <input id="invoiceNumber" value="INV-001" />
+              <input id="invoiceNumber" name="invoiceNumber" value="INV-001" />
             </label>
             <label>
               Client name
-              <input id="invoiceClientName" />
+              <input id="invoiceClientName" name="clientName" />
             </label>
             <label>
               Client email
-              <input id="invoiceClientEmail" />
+              <input id="invoiceClientEmail" name="clientEmail" />
             </label>
             <label>
               Issue date
-              <input id="invoiceIssueDate" type="date" />
+              <input id="invoiceIssueDate" name="issueDate" type="date" />
             </label>
             <label>
               Due date
-              <input id="invoiceDueDate" type="date" />
+              <input id="invoiceDueDate" name="dueDate" type="date" />
             </label>
             <label>
               Description
-              <input id="invoiceDescription" value="Live performance" />
+              <input id="invoiceDescription" name="description" value="Live performance" />
             </label>
             <div class="checkbox-group">
               <label class="checkbox">
@@ -1422,29 +1422,31 @@
             </div>
             <label>
               Performance fee
-              <input id="invoicePerformanceFee" />
+              <input id="invoicePerformanceFee" name="performanceFee" />
             </label>
             <label>
               Deposit due (in addition to performance fee)
-              <input id="invoiceDepositDue" />
+              <input id="invoiceDepositDue" name="depositDue" />
             </label>
             <label>
               Deposit paid
-              <input id="invoiceDepositPaid" />
+              <input id="invoiceDepositPaid" name="depositPaid" />
             </label>
             <label>
               Add-ons
-              <input id="invoiceAddons" />
+              <input id="invoiceAddons" name="addOns" />
             </label>
             <label>
               Manual total override (total due)
-              <input id="invoiceTotalOverride" placeholder="$0.00" />
+              <input id="invoiceTotalOverride" name="totalOverride" placeholder="$0.00" />
               <span class="field-note">Use this only if you want the total due to be exactly this amount.</span>
             </label>
           </div>
           <div class="form-footer">
-            <button class="btn ghost" id="invoiceCopyMessage" style="background:transparent;border:1px solid #e8a855;color:#f47c20;border-radius:20px;">Copy Invoice Message</button>
-            <button class="primary" id="invoicePdf">Generate / Share PDF</button>
+            <button class="btn ghost" id="invoiceCopyMessage" type="button" style="background:transparent;border:1px solid #e8a855;color:#f47c20;border-radius:20px;">Copy Invoice Message</button>
+            <button class="primary" id="invoicePdf" type="button">Generate PDF</button>
+            <button class="btn ghost" id="invoiceCopyLinkBtn" type="button">Copy Share Link</button>
+            <button class="btn ghost" id="invoiceShareLinkBtn" type="button">Share Invoice</button>
           </div>
           <div class="form-section">
             <h3>Saved Invoices</h3>
@@ -2222,6 +2224,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
     <script src="app.js"></script>

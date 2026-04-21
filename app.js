@@ -3254,35 +3254,9 @@ async function updateAgreementBookingWarning() {
 }
 
 function updateInvoicePreview() {
-  const invoicePerformanceFeeInput =
-    document.getElementById("invoicePerformanceFee") || document.querySelector('[data-field="invoicePerformanceFee"]');
-  const invoiceDepositDueInput =
-    document.getElementById("invoiceDepositDue") || document.querySelector('[data-field="invoiceDepositDue"]');
-  const invoiceDepositPaidInput =
-    document.getElementById("invoiceDepositPaid") || document.querySelector('[data-field="invoiceDepositPaid"]');
-  const invoiceAddonsInput =
-    document.getElementById("invoiceAddons") || document.querySelector('[data-field="invoiceAddons"]');
-  const invoiceTotalOverrideInput =
-    document.getElementById("invoiceTotalOverride") || document.querySelector('[data-field="invoiceTotalOverride"]');
-
-  console.log("updateInvoicePreview raw inputs", {
-    invoicePerformanceFee: invoicePerformanceFeeInput?.value ?? "",
-    invoiceDepositDue: invoiceDepositDueInput?.value ?? "",
-    invoiceDepositPaid: invoiceDepositPaidInput?.value ?? "",
-    invoiceAddons: invoiceAddonsInput?.value ?? "",
-    invoiceTotalOverride: invoiceTotalOverrideInput?.value ?? "",
-  });
-
-  state.invoice.performanceFee = toNumber(invoicePerformanceFeeInput?.value);
-  state.invoice.depositDue = toNumber(invoiceDepositDueInput?.value);
-  state.invoice.depositPaid = toNumber(invoiceDepositPaidInput?.value);
-  state.invoice.addons = toNumber(invoiceAddonsInput?.value);
-  state.invoice.totalOverride = toNumber(invoiceTotalOverrideInput?.value);
-
-  console.log("updateInvoicePreview state.invoice", { ...state.invoice });
-
+  const invoiceData = getInvoiceData();
+  applyInvoiceDataToState(invoiceData);
   const totals = getInvoiceTotals();
-  console.log("updateInvoicePreview totals", totals);
   const performanceFeeDisplay = toMoney(toNumber(state.invoice.performanceFee));
   const totalDueDisplay = toMoney(
     toNumber(state.invoice.totalOverride) > 0
@@ -3315,6 +3289,71 @@ function getInvoiceTotals() {
     : performanceFee + addons + depositDue;
   const displayTotal = toMoney(totalDue > 0 ? totalDue : 0);
   return { performanceFee, depositDue, depositPaid, addons, totalDue, displayTotal };
+}
+
+const INVOICE_SHARE_STORAGE_PREFIX = "gigos-invoice-share-";
+
+function getInvoiceFieldValue(id, name) {
+  return (
+    document.getElementById(id)?.value ??
+    document.querySelector(`[name="${name}"]`)?.value ??
+    document.querySelector(`[data-field="${id}"]`)?.value ??
+    ""
+  );
+}
+
+function getInvoiceData() {
+  return {
+    invoiceNumber: getInvoiceFieldValue("invoiceNumber", "invoiceNumber") || state.invoice.invoiceNumber,
+    clientName: getInvoiceFieldValue("invoiceClientName", "clientName"),
+    clientEmail: getInvoiceFieldValue("invoiceClientEmail", "clientEmail"),
+    issueDate: getInvoiceFieldValue("invoiceIssueDate", "issueDate"),
+    dueDate: getInvoiceFieldValue("invoiceDueDate", "dueDate"),
+    description: getInvoiceFieldValue("invoiceDescription", "description"),
+    performanceFee: toNumber(getInvoiceFieldValue("invoicePerformanceFee", "performanceFee")),
+    depositDue: toNumber(getInvoiceFieldValue("invoiceDepositDue", "depositDue")),
+    depositPaid: toNumber(getInvoiceFieldValue("invoiceDepositPaid", "depositPaid")),
+    addOns: toNumber(getInvoiceFieldValue("invoiceAddons", "addOns")),
+    total: toNumber(getInvoiceFieldValue("invoiceTotalOverride", "totalOverride")),
+    performanceDate: state.agreement.performanceDate || "",
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function applyInvoiceDataToState(data = {}) {
+  state.invoice.invoiceNumber = data.invoiceNumber || state.invoice.invoiceNumber;
+  state.invoice.clientName = data.clientName || "";
+  state.invoice.clientEmail = data.clientEmail || "";
+  state.invoice.issueDate = data.issueDate || "";
+  state.invoice.dueDate = data.dueDate || "";
+  state.invoice.description = data.description || "";
+  state.invoice.performanceFee = toNumber(data.performanceFee);
+  state.invoice.depositDue = toNumber(data.depositDue);
+  state.invoice.depositPaid = toNumber(data.depositPaid);
+  state.invoice.addons = toNumber(data.addOns);
+  state.invoice.totalOverride = toNumber(data.total);
+}
+
+function generateShareId() {
+  return `inv_${Math.random().toString(36).substring(2, 10)}`;
+}
+
+async function saveInvoiceAndGetLink(data) {
+  const shareId = generateShareId();
+  const sharePayload = {
+    ...data,
+    addOns: toNumber(data.addOns),
+    total: toNumber(data.total),
+  };
+  localStorage.setItem(`${INVOICE_SHARE_STORAGE_PREFIX}${shareId}`, JSON.stringify(sharePayload));
+
+  const client = state.calendar.client;
+  if (client && state.calendar.session) {
+    applyInvoiceDataToState(sharePayload);
+    await saveInvoiceToSupabaseInternal(true);
+  }
+
+  return `${window.location.origin}/invoice-view.html?id=${encodeURIComponent(shareId)}&invoice=${encodeURIComponent(sharePayload.invoiceNumber || "")}`;
 }
 
 function updateReceiptPreview() {
@@ -4717,8 +4756,12 @@ async function saveInvoiceToSupabaseInternal(silent) {
       return;
     }
   }
-  resetInvoiceForm();
-  if (status && !silent) status.textContent = "Invoice saved and form reset.";
+  if (!silent) {
+    resetInvoiceForm();
+    if (status) status.textContent = "Invoice saved and form reset.";
+  } else if (status) {
+    status.textContent = "Invoice saved.";
+  }
   await fetchInvoices();
 }
 
@@ -11943,7 +11986,56 @@ function setupListeners() {
       updateOnboardingLineupRatePreviews();
     }
   });
-  document.getElementById("invoicePdf").addEventListener("click", () => generatePdf("invoice"));
+  document.getElementById("invoicePdf").addEventListener("click", async (event) => {
+    event.preventDefault();
+    const invoiceData = getInvoiceData();
+    if (!invoiceData) return;
+    applyInvoiceDataToState(invoiceData);
+    updateInvoicePreview();
+    await generatePdf("invoice", { invoiceData });
+  });
+  const invoiceCopyLinkBtn = document.getElementById("invoiceCopyLinkBtn");
+  if (invoiceCopyLinkBtn) {
+    invoiceCopyLinkBtn.addEventListener("click", async (event) => {
+      event.preventDefault();
+      const invoiceData = getInvoiceData();
+      const link = await saveInvoiceAndGetLink(invoiceData);
+      await copyTextToClipboard(link, {
+        statusEl: document.getElementById("invoiceStatus"),
+        successMessage: "Invoice share link copied.",
+        failureMessage: "Could not copy invoice share link.",
+      });
+    });
+  }
+  const invoiceShareLinkBtn = document.getElementById("invoiceShareLinkBtn");
+  if (invoiceShareLinkBtn) {
+    invoiceShareLinkBtn.addEventListener("click", async (event) => {
+      event.preventDefault();
+      const invoiceData = getInvoiceData();
+      const link = await saveInvoiceAndGetLink(invoiceData);
+      const statusEl = document.getElementById("invoiceStatus");
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "Invoice from Rust and Ruin",
+            url: link,
+          });
+          if (statusEl) {
+            statusEl.textContent = "Invoice link ready to share.";
+            statusEl.classList.remove("warning");
+          }
+          return;
+        } catch (error) {
+          if (error?.name === "AbortError") return;
+        }
+      }
+      await copyTextToClipboard(link, {
+        statusEl,
+        successMessage: "Invoice link copied for sharing.",
+        failureMessage: "Could not copy invoice link.",
+      });
+    });
+  }
   const invoiceCopyMessageBtn = document.getElementById("invoiceCopyMessage");
   if (invoiceCopyMessageBtn) {
     invoiceCopyMessageBtn.addEventListener("click", async () => {
@@ -12728,7 +12820,7 @@ async function generatePdf(type, options = {}) {
   const openButton = document.getElementById("openPdf");
   const printButton = document.getElementById("printPdf");
   const shareButton = document.getElementById("sharePdf");
-  const { openAfterGenerate = false } = options;
+  const { openAfterGenerate = false, invoiceData = null } = options;
 
   const previewMap = {
     agreement: "agreementPreview",
@@ -12745,6 +12837,12 @@ async function generatePdf(type, options = {}) {
     refreshAgreementCreatedDate();
     updateAgreementPreview();
     saveDraft();
+  }
+
+  if (type === "invoice") {
+    const currentInvoiceData = invoiceData || getInvoiceData();
+    applyInvoiceDataToState(currentInvoiceData);
+    updateInvoicePreview();
   }
 
   const isMobileSafari = /iP(hone|ad)/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent);
@@ -12786,6 +12884,38 @@ async function generatePdf(type, options = {}) {
     updateInvoicePreview();
     window.print();
     return;
+  }
+
+  if (type === "invoice" && window.html2pdf) {
+    const fileName = `RustAndRuin-Invoice-${state.invoice.invoiceNumber}.pdf`;
+    const opt = {
+      margin: 0.5,
+      filename: fileName,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+    };
+    statusEl.textContent = "Generating PDF...";
+    try {
+      const blob = await window.html2pdf().set(opt).from(target).outputPdf("blob");
+      setLastGeneratedPdf(blob, fileName);
+      if (openButton) openButton.disabled = !lastPdfUrl;
+      if (printButton) printButton.disabled = !lastPdfUrl;
+      if (shareButton) shareButton.disabled = !lastPdfBlob;
+      await window.html2pdf().set(opt).from(target).save();
+      statusEl.textContent = "PDF ready.";
+      if (openAfterGenerate) {
+        openLastPdfPreview();
+      }
+      await saveInvoiceToSupabaseInternal(true);
+      if (lastPdfBlob) {
+        await autoSaveInvoicePdf(lastPdfBlob, fileName);
+      }
+      return;
+    } catch (error) {
+      statusEl.textContent = "PDF generation failed. Try refreshing the page.";
+      return;
+    }
   }
 
   statusEl.textContent = "Generating PDF...";

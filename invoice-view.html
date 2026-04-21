@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Invoice</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body {
+        background: #f5edd8;
+        margin: 0;
+        padding: 24px 16px 48px;
+      }
+
+      .invoice-shell {
+        width: min(100%, 880px);
+        margin: 0 auto;
+      }
+
+      .invoice-status {
+        margin: 0 auto 16px;
+        width: min(100%, 880px);
+        color: #8a6840;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="invoice-status" id="invoiceViewStatus">Loading invoice…</p>
+    <div class="invoice-shell">
+      <div class="invoice" id="invoicePreview">
+        <div class="invoice-header">
+          <div>
+            <p class="contract-tag">Invoice</p>
+            <h2>Rust and Ruin</h2>
+            <p data-fill="invoiceNumber"></p>
+          </div>
+          <div>
+            <p>Performance date: <span data-fill="performanceDate"></span></p>
+            <p>Issue date: <span data-fill="invoiceIssueDate"></span></p>
+            <p>Due date: <span data-fill="invoiceDueDate"></span></p>
+          </div>
+        </div>
+        <div class="invoice-body">
+          <p>Bill to: <span data-fill="invoiceClientName"></span></p>
+          <p>Email: <span data-fill="invoiceClientEmail"></span></p>
+          <div class="invoice-line">
+            <span data-fill="invoiceDescription"></span>
+            <span data-fill="invoicePerformanceFee"></span>
+          </div>
+          <div class="invoice-line">
+            <span>Deposit due (in addition)</span>
+            <span data-fill="invoiceDepositDue"></span>
+          </div>
+          <div class="invoice-line">
+            <span>Deposit paid</span>
+            <span data-fill="invoiceDepositPaid"></span>
+          </div>
+          <div class="invoice-line">
+            <span>Add-ons</span>
+            <span data-fill="invoiceAddons"></span>
+          </div>
+          <div class="invoice-total">
+            <span>Total due</span>
+            <span data-fill="invoiceTotal"></span>
+          </div>
+        </div>
+        <footer class="contract-footer">
+          <p>Payment: Venmo @rustandruinvt · PayPal @rustandruin</p>
+          <p>rustandruinvt@gmail.com · 802-952-6609</p>
+        </footer>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script>
+      const INVOICE_SHARE_STORAGE_PREFIX = "gigos-invoice-share-";
+      const params = new URLSearchParams(window.location.search);
+      const shareId = params.get("id");
+      const invoiceNumber = params.get("invoice");
+      const statusEl = document.getElementById("invoiceViewStatus");
+
+      function setText(selector, value) {
+        document.querySelectorAll(selector).forEach((el) => {
+          el.textContent = value;
+        });
+      }
+
+      function toMoney(value) {
+        const amount = Number(value || 0);
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(Number.isFinite(amount) ? amount : 0);
+      }
+
+      function formatDate(value) {
+        if (!value) return "__";
+        const parsed = new Date(value);
+        if (!Number.isFinite(parsed.getTime())) {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+            const [year, month, day] = String(value).split("-").map(Number);
+            return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            });
+          }
+          return String(value);
+        }
+        return parsed.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+      }
+
+      function normalizeInvoiceRow(row) {
+        if (!row) return null;
+        return {
+          invoiceNumber: row.invoice_number || "",
+          clientName: row.client_name || "",
+          clientEmail: row.client_email || "",
+          issueDate: row.issue_date || "",
+          dueDate: row.due_date || "",
+          description: row.description || "Live performance",
+          performanceFee: Number(row.performance_fee || 0),
+          depositDue: Number(row.deposit_due || 0),
+          depositPaid: Number(row.deposit_paid || 0),
+          addOns: Number(row.addons || 0),
+          total: Number(row.total_override || row.total_due || 0),
+          performanceDate: row.due_date || "",
+        };
+      }
+
+      function renderInvoice(data) {
+        if (!data) {
+          statusEl.textContent = "Invoice not found.";
+          return;
+        }
+        const totalDue = Number(data.total || 0) > 0
+          ? Number(data.total || 0)
+          : Number(data.performanceFee || 0) + Number(data.depositDue || 0) + Number(data.addOns || 0);
+        setText("[data-fill='invoiceNumber']", data.invoiceNumber || "__");
+        setText("[data-fill='invoiceClientName']", data.clientName || "__");
+        setText("[data-fill='invoiceClientEmail']", data.clientEmail || "__");
+        setText("[data-fill='performanceDate']", formatDate(data.performanceDate));
+        setText("[data-fill='invoiceIssueDate']", formatDate(data.issueDate));
+        setText("[data-fill='invoiceDueDate']", formatDate(data.dueDate));
+        setText("[data-fill='invoiceDescription']", data.description || "__");
+        setText("[data-fill='invoicePerformanceFee']", toMoney(data.performanceFee));
+        setText("[data-fill='invoiceDepositDue']", toMoney(data.depositDue));
+        setText("[data-fill='invoiceDepositPaid']", toMoney(data.depositPaid));
+        setText("[data-fill='invoiceAddons']", toMoney(data.addOns));
+        setText("[data-fill='invoiceTotal']", toMoney(totalDue));
+        statusEl.textContent = "";
+      }
+
+      async function loadInvoice() {
+        let data = null;
+        if (shareId) {
+          try {
+            data = JSON.parse(localStorage.getItem(`${INVOICE_SHARE_STORAGE_PREFIX}${shareId}`) || "null");
+          } catch (error) {
+            data = null;
+          }
+        }
+
+        if (!data && invoiceNumber && window.supabase?.createClient && window.RR_SUPABASE_CONFIG?.url && window.RR_SUPABASE_CONFIG?.anonKey) {
+          try {
+            const client = window.supabase.createClient(
+              window.RR_SUPABASE_CONFIG.url,
+              window.RR_SUPABASE_CONFIG.anonKey
+            );
+            const { data: rows, error } = await client
+              .from("invoices")
+              .select("*")
+              .eq("invoice_number", invoiceNumber)
+              .order("created_at", { ascending: false })
+              .limit(1);
+            if (!error && Array.isArray(rows) && rows.length) {
+              data = normalizeInvoiceRow(rows[0]);
+            }
+          } catch (error) {
+            data = null;
+          }
+        }
+
+        renderInvoice(data);
+      }
+
+      loadInvoice();
+    </script>
+  </body>
+</html>
