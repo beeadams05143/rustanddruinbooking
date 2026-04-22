@@ -2150,6 +2150,26 @@
             <button class="btn" id="moreSignOut" type="button" style="background: #f47c20; color: white; border: none; border-radius: 24px; font-size: 16px; padding: 12px 24px; font-weight: 600;">Sign out</button>
           </div>
 
+          <div class="form-section payment-handles-panel">
+            <h3>Payment Handles</h3>
+            <p class="muted">Set the usernames used for Venmo and PayPal payment buttons on shared invoices.</p>
+            <div class="form-grid payment-handles-grid">
+              <label>
+                Venmo username (without @)
+                <input id="settingsVenmoHandle" type="text" placeholder="rustandruinvt" />
+                <span class="inline-help">Enter `rustandruinvt` not `@rustandruinvt`.</span>
+              </label>
+              <label>
+                PayPal.me username
+                <input id="settingsPaypalHandle" type="text" placeholder="rustandruin" />
+                <span class="inline-help">Enter only the username part from your `paypal.me/...` link.</span>
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button class="btn" id="savePaymentHandles" type="button">Save Payment Handles</button>
+            </div>
+          </div>
+
           <div class="form-section more-links">
             <button class="btn ghost more-link" data-more-panel="musicians" type="button" style="background: #fdf0e3; border: 1px solid #e8a855; border-radius: 12px; color: #8a5010; font-size: 16px; padding: 14px; width: 100%; margin-bottom: 8px; cursor: pointer; text-align: center; font-weight: 500;">Musicians + Tech Crew</button>
             <button class="btn ghost more-link" data-more-panel="workorders" type="button" style="background: #fdf0e3; border: 1px solid #e8a855; border-radius: 12px; color: #8a5010; font-size: 16px; padding: 14px; width: 100%; margin-bottom: 8px; cursor: pointer; text-align: center; font-weight: 500;">Work Orders</button>
@@ -2162,6 +2182,7 @@
           </div>
         </section>
       </main>
+      <div class="payment-handles-toast hidden" id="paymentHandlesToast" aria-live="polite"></div>
 
       <nav class="bottom-nav hidden" id="bottomNav" aria-label="Primary navigation">
         <button class="bottom-nav-tab active" data-bottom="home" type="button" aria-label="Home">

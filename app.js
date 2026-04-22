@@ -552,6 +552,30 @@ function buildDynamicPaymentMethodsText(dna = state.bandDNA) {
   return config.paymentMethodsText;
 }
 
+function isBethBandDNA(dna = {}) {
+  return /rustandruin/i.test(String(dna.bandName || ""))
+    || /rustandruinvt@gmail\.com/i.test(String(dna.contactEmail || ""));
+}
+
+function getBethBandDNARepair(dna = {}) {
+  if (!isBethBandDNA(dna)) return { needsUpdate: false, bandDNA: dna };
+  const currentVenmo = normalizeVenmoHandle(dna.venmoHandle || "");
+  const currentPaypal = normalizePaypalHandle(dna.paypalHandle || "");
+  const repaired = {
+    ...dna,
+    bandName: "Rust and Ruin",
+    venmoHandle: currentVenmo || "rustandruinvt",
+    paypalHandle: currentPaypal || "rustandruin",
+  };
+  repaired.paymentMethods = buildDynamicPaymentMethodsText(repaired);
+  const needsUpdate =
+    String(dna.bandName || "") !== repaired.bandName
+    || normalizeVenmoHandle(dna.venmoHandle || "") !== repaired.venmoHandle
+    || normalizePaypalHandle(dna.paypalHandle || "") !== repaired.paypalHandle
+    || String(dna.paymentMethods || "") !== repaired.paymentMethods;
+  return { needsUpdate, bandDNA: repaired };
+}
+
 function hydrateLegacyPaymentHandles(dna = {}) {
   const paymentMethods = String(dna.paymentMethods || "");
   const isBethBand =
@@ -664,6 +688,19 @@ async function loadBandDNAFromSupabase() {
       if (!String(state.bandDNA.paymentMethods || "").trim()) {
         state.bandDNA.paymentMethods = buildDynamicPaymentMethodsText(state.bandDNA);
       }
+      const bethRepair = getBethBandDNARepair(state.bandDNA);
+      if (bethRepair.needsUpdate) {
+        state.bandDNA = bethRepair.bandDNA;
+        await client
+          .from("app_settings")
+          .upsert(
+            {
+              key: "band_dna",
+              value: JSON.stringify(state.bandDNA),
+            },
+            { onConflict: "key" }
+          );
+      }
       if (Array.isArray(parsed.lineups)) {
         state.bandDNA.lineups = parsed.lineups;
       }
@@ -673,6 +710,7 @@ async function loadBandDNAFromSupabase() {
       if (Array.isArray(parsed.addons)) {
         state.bandDNA.addons = parsed.addons;
       }
+      syncPaymentHandlesSettingsForm();
       return true;
     }
     return false;
@@ -758,6 +796,65 @@ function getOnboardingStepTitle(stepNumber = 1) {
     "Your sound",
     "Your presence + outreach tone",
   ][Number(stepNumber || 1) - 1] || "Who are you";
+}
+
+function syncPaymentHandlesSettingsForm() {
+  const venmoInput = document.getElementById("settingsVenmoHandle");
+  const paypalInput = document.getElementById("settingsPaypalHandle");
+  if (venmoInput) venmoInput.value = state.bandDNA.venmoHandle || "";
+  if (paypalInput) paypalInput.value = state.bandDNA.paypalHandle || "";
+}
+
+function showPaymentHandlesToast(message, isError = false) {
+  const toast = document.getElementById("paymentHandlesToast");
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.remove("hidden", "warning");
+  toast.classList.toggle("warning", isError);
+  window.clearTimeout(showPaymentHandlesToast.timeoutId);
+  showPaymentHandlesToast.timeoutId = window.setTimeout(() => {
+    toast.classList.add("hidden");
+  }, 2200);
+}
+
+async function savePaymentHandlesSettings() {
+  const client = state.calendar.client;
+  const venmoHandle = normalizeVenmoHandle(document.getElementById("settingsVenmoHandle")?.value || "");
+  const paypalHandle = normalizePaypalHandle(document.getElementById("settingsPaypalHandle")?.value || "");
+  const nextBandDNA = {
+    ...state.bandDNA,
+    venmoHandle,
+    paypalHandle,
+  };
+  nextBandDNA.paymentMethods = buildDynamicPaymentMethodsText(nextBandDNA);
+  const bethRepair = getBethBandDNARepair(nextBandDNA);
+  state.bandDNA = bethRepair.bandDNA;
+  saveDraft();
+  syncPaymentHandlesSettingsForm();
+  if (!client || !state.calendar.session) {
+    showPaymentHandlesToast("Sign in to save payment handles.", true);
+    return;
+  }
+  try {
+    const { error } = await client
+      .from("app_settings")
+      .upsert(
+        {
+          key: "band_dna",
+          value: JSON.stringify(state.bandDNA),
+        },
+        { onConflict: "key" }
+      );
+    if (error) {
+      showPaymentHandlesToast(formatSupabaseError(error, "Could not save payment handles."), true);
+      return;
+    }
+    updateInvoicePreview();
+    updateReceiptPreview();
+    showPaymentHandlesToast("Payment handles saved.");
+  } catch (error) {
+    showPaymentHandlesToast(formatSupabaseError(error, "Could not save payment handles."), true);
+  }
 }
 
 function getOnboardingGenreTagsFromDom() {
@@ -1614,7 +1711,9 @@ function loadDraft() {
     if (!stored) return;
     const parsed = JSON.parse(stored);
     if (parsed.bandDNA && typeof parsed.bandDNA === "object") {
-      state.bandDNA = { ...state.bandDNA, ...parsed.bandDNA };
+      state.bandDNA = hydrateLegacyPaymentHandles({ ...state.bandDNA, ...parsed.bandDNA });
+      const bethRepair = getBethBandDNARepair(state.bandDNA);
+      state.bandDNA = bethRepair.bandDNA;
       if (Array.isArray(parsed.bandDNA.lineups)) state.bandDNA.lineups = parsed.bandDNA.lineups;
       if (Array.isArray(parsed.bandDNA.addons)) state.bandDNA.addons = parsed.bandDNA.addons;
       if (Array.isArray(parsed.bandDNA.genreTags)) state.bandDNA.genreTags = parsed.bandDNA.genreTags;
@@ -12353,6 +12452,7 @@ function setupListeners() {
 
   const signOutBtn = document.getElementById("signOut");
   const moreSignOutBtn = document.getElementById("moreSignOut");
+  const savePaymentHandlesBtn = document.getElementById("savePaymentHandles");
   const signOutCurrentUser = async () => {
     const client = state.calendar.client;
     if (!client) return;
@@ -12389,6 +12489,9 @@ function setupListeners() {
   }
   if (moreSignOutBtn) {
     moreSignOutBtn.addEventListener("click", signOutCurrentUser);
+  }
+  if (savePaymentHandlesBtn) {
+    savePaymentHandlesBtn.addEventListener("click", savePaymentHandlesSettings);
   }
 
   const loginSignInBtn = document.getElementById("loginSignIn");
@@ -13442,6 +13545,7 @@ async function init() {
   if (!state.bandDNA.onboardingComplete) {
     if (switchTopView) switchTopView("onboarding");
   }
+  syncPaymentHandlesSettingsForm();
   hydrateBandProfileFromLegacyData();
   hydrateBookingProfilesFromLegacyData();
   applyAgreementDefaultsFromProfiles(false);

@@ -300,8 +300,11 @@
           );
         }
 
-        if (!getPaymentConfig(bandDNA).hasAny && client) {
-          bandDNA = await loadBandDNA(client);
+        if (client) {
+          bandDNA = {
+            ...bandDNA,
+            ...(await loadBandDNA(client)),
+          };
         }
 
         if (!data && invoiceNumber && client) {
