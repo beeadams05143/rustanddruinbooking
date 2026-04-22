@@ -189,6 +189,13 @@
         display: none !important;
       }
 
+      .payment-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
       #signStatus {
         margin-top: 10px;
         min-height: 1.25em;
@@ -250,33 +257,82 @@
         return parsed.toLocaleDateString("en-US", { dateStyle: "long" });
       }
 
+      function normalizeVenmoHandle(value) {
+        return String(value || "")
+          .trim()
+          .replace(/^@+/, "")
+          .replace(/^https?:\/\/(www\.)?venmo\.com\//i, "")
+          .split(/[/?#]/)[0]
+          .trim();
+      }
+
+      function normalizePaypalHandle(value) {
+        return String(value || "")
+          .trim()
+          .replace(/^@+/, "")
+          .replace(/^https?:\/\/(www\.)?paypal\.me\//i, "")
+          .split(/[/?#]/)[0]
+          .trim();
+      }
+
+      function getPaymentConfig(meta = {}) {
+        const venmoHandle = normalizeVenmoHandle(meta.venmoHandle || "");
+        const paypalHandle = normalizePaypalHandle(meta.paypalHandle || "");
+        return {
+          venmoHandle,
+          paypalHandle,
+          hasVenmo: Boolean(venmoHandle),
+          hasPaypal: Boolean(paypalHandle),
+          hasAny: Boolean(venmoHandle || paypalHandle),
+        };
+      }
+
+      function renderPaymentActions(amount, note, meta = {}) {
+        const config = getPaymentConfig(meta);
+        const displayAmount = String(Number(amount || 0).toFixed(2));
+        const encodedNote = encodeURIComponent(note);
+        if (!config.hasAny) {
+          return `<p class="meta">Payment method not configured — contact the band directly to pay.</p>`;
+        }
+        return `
+          <div class="payment-buttons">
+            ${config.hasVenmo ? `<button type="button" class="primary-btn" style="width:auto;margin-top:0" onclick="window.location.assign('https://venmo.com/${escapeHtml(config.venmoHandle)}?txn=pay&amount=${escapeHtml(displayAmount)}&note=${escapeHtml(encodedNote)}')">Pay with Venmo</button>` : ""}
+            ${config.hasPaypal ? `<button type="button" class="primary-btn" style="width:auto;margin-top:0" onclick="window.location.assign('https://paypal.me/${escapeHtml(config.paypalHandle)}/${escapeHtml(displayAmount)}')">Pay with PayPal</button>` : ""}
+          </div>
+        `;
+      }
+
       function setUnavailable() {
         app.innerHTML = "<p>This contract is no longer available.</p>";
       }
 
-      function renderSigned(contract) {
+      function renderSigned(contract, bandDNA = {}) {
         const name = escapeHtml(contract.client_signature || contract.client_name || "Client");
         const when = formatDisplayDate(contract.signed_at);
+        const paymentActions = renderPaymentActions(contract.deposit_amount ?? 0, `${contract.band_name || "Band"} deposit`, bandDNA);
         app.innerHTML = `
           <div class="stack">
             <span class="eyebrow">Performance contract</span>
             <h1>Already signed</h1>
             <p class="meta">This contract has already been signed by ${name} on ${escapeHtml(when)}. Thank you!</p>
+            ${paymentActions}
           </div>
         `;
       }
 
-      function renderSuccess(contract, clientName) {
+      function renderSuccess(contract, clientName, bandDNA = {}) {
         const band = escapeHtml(contract.band_name || "Rust and Ruin");
         const dep = formatMoney(contract.deposit_amount ?? 0);
         const methods = escapeHtml(contract.payment_methods || "the payment options in your agreement");
         const signedAt = escapeHtml(formatDisplayDate(new Date().toISOString()));
         const bodyHtml = contract.contract_text ? String(contract.contract_text) : "";
+        const paymentActions = renderPaymentActions(contract.deposit_amount ?? 0, `${contract.band_name || "Band"} deposit`, bandDNA);
         app.innerHTML = `
           <div class="stack">
             <div class="success">
               <h1>✓ Contract signed!</h1>
               <p>${band} will be in touch soon about next steps. Your deposit of ${dep} can be paid via ${methods}.</p>
+              ${paymentActions}
               <p class="meta"><strong>Signed as:</strong> ${escapeHtml(clientName)}</p>
               <p class="meta"><strong>Signed at:</strong> ${signedAt}</p>
               <button type="button" class="primary-btn" onclick="window.print()">Download / Print signed contract</button>
@@ -286,7 +342,7 @@
         `;
       }
 
-      function renderContractPage(contract) {
+      function renderContractPage(contract, bandDNA = {}) {
         const band = escapeHtml(contract.band_name || "Rust and Ruin");
         const client = escapeHtml(contract.client_name || "there");
         const venue = escapeHtml(contract.venue_name || "—");
@@ -304,8 +360,9 @@
           : "<p><em>Contract text will appear here once saved from the booking app.</em></p>";
         const pay = escapeHtml(
           contract.payment_methods ||
-            "cash, check to Rust and Ruin, Venmo @rustandruinvt, or PayPal @rustandruin"
+            "the payment options in your agreement"
         );
+        const paymentActions = renderPaymentActions(contract.deposit_amount ?? 0, `${contract.band_name || "Band"} deposit`, bandDNA);
 
         app.innerHTML = `
           <div class="stack">
@@ -331,6 +388,7 @@
                 <div class="fee-row"><span>Amount due day of show</span><span>${dayOf}</span></div>
               </div>
               <p class="meta" style="margin-top:12px"><strong>Payment methods:</strong> ${pay}</p>
+              ${paymentActions}
             </div>
             <div class="sign-section stack">
               <h2>Sign this contract</h2>
@@ -402,8 +460,21 @@
           }
           contract.signed_at = signedAt;
           contract.client_signature = clientName;
-          renderSuccess(contract, clientName);
+          renderSuccess(contract, clientName, bandDNA);
         });
+      }
+
+      async function loadBandDNA() {
+        try {
+          const { data } = await supabaseClient
+            .from("app_settings")
+            .select("value")
+            .eq("key", "band_dna")
+            .maybeSingle();
+          return data?.value ? (JSON.parse(data.value) || {}) : {};
+        } catch (error) {
+          return {};
+        }
       }
 
       async function loadContract() {
@@ -412,6 +483,7 @@
           return;
         }
         try {
+          const bandDNA = await loadBandDNA();
           const { data: contract, error } = await supabaseClient
             .from("contracts")
             .select("*")
@@ -422,10 +494,10 @@
             return;
           }
           if (contract.signed_at) {
-            renderSigned(contract);
+            renderSigned(contract, bandDNA);
             return;
           }
-          renderContractPage(contract);
+          renderContractPage(contract, bandDNA);
         } catch (e) {
           setUnavailable();
         }

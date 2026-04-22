@@ -306,7 +306,9 @@ const state = {
     contactEmail: "",
     contactPhone: "",
     homeAddress: "",
-    paymentMethods: "Cash, check, Venmo @rustandruinvt, PayPal @rustandruin",
+    paymentMethods: "",
+    venmoHandle: "",
+    paypalHandle: "",
     managerName: "",
     signoffName: "",
     oneLineBio: "",
@@ -492,6 +494,77 @@ function getBandDNA() {
   return state.bandDNA;
 }
 
+function normalizeVenmoHandle(value = "") {
+  return String(value || "")
+    .trim()
+    .replace(/^@+/, "")
+    .replace(/^https?:\/\/(www\.)?venmo\.com\//i, "")
+    .split(/[/?#]/)[0]
+    .trim();
+}
+
+function normalizePaypalHandle(value = "") {
+  return String(value || "")
+    .trim()
+    .replace(/^@+/, "")
+    .replace(/^https?:\/\/(www\.)?paypal\.me\//i, "")
+    .split(/[/?#]/)[0]
+    .trim();
+}
+
+function getBandPaymentConfig(dna = state.bandDNA) {
+  const bandName = String(dna?.bandName || "").trim() || "the band";
+  const venmoHandle = normalizeVenmoHandle(dna?.venmoHandle || "");
+  const paypalHandle = normalizePaypalHandle(dna?.paypalHandle || "");
+  const venmoLabel = venmoHandle ? `@${venmoHandle}` : "";
+  const paypalLabel = paypalHandle ? `paypal.me/${paypalHandle}` : "";
+  const configuredMethods = [];
+  if (venmoHandle) configuredMethods.push(`Venmo ${venmoLabel}`);
+  if (paypalHandle) configuredMethods.push(`PayPal ${paypalLabel}`);
+  const paymentSummary = configuredMethods.length
+    ? `Payment: ${configuredMethods.join(" · ")}`
+    : "Payment method not configured — contact the band directly to pay.";
+  const sentenceBase = [];
+  if (venmoHandle) sentenceBase.push(`Venmo ${venmoLabel}`);
+  if (paypalHandle) sentenceBase.push(`PayPal ${paypalLabel}`);
+  const paymentMethodsText = sentenceBase.length
+    ? sentenceBase.length > 1
+      ? `${sentenceBase.slice(0, -1).join(", ")}, or ${sentenceBase[sentenceBase.length - 1]}`
+      : sentenceBase[0]
+    : "Payment method not configured — contact the band directly to pay.";
+  return {
+    bandName,
+    venmoHandle,
+    paypalHandle,
+    venmoLabel,
+    paypalLabel,
+    hasVenmo: Boolean(venmoHandle),
+    hasPaypal: Boolean(paypalHandle),
+    hasAny: Boolean(venmoHandle || paypalHandle),
+    paymentSummary,
+    paymentMethodsText,
+    missingMessage: "Payment method not configured — contact the band directly to pay.",
+  };
+}
+
+function buildDynamicPaymentMethodsText(dna = state.bandDNA) {
+  const config = getBandPaymentConfig(dna);
+  return config.paymentMethodsText;
+}
+
+function hydrateLegacyPaymentHandles(dna = {}) {
+  const paymentMethods = String(dna.paymentMethods || "");
+  const isBethBand =
+    /rustandruin/i.test(String(dna.bandName || ""))
+    || /rustandruinvt@gmail\.com/i.test(String(dna.contactEmail || ""));
+  if (!isBethBand) return dna;
+  return {
+    ...dna,
+    venmoHandle: normalizeVenmoHandle(dna.venmoHandle || (paymentMethods.includes("rustandruinvt") ? "rustandruinvt" : "")),
+    paypalHandle: normalizePaypalHandle(dna.paypalHandle || (paymentMethods.includes("rustandruin") ? "rustandruin" : "")),
+  };
+}
+
 function personalizeSocialPost(template = "") {
   const dna = getBandDNA() || {};
   const signoffNames = String(dna.signoffName || "")
@@ -537,7 +610,16 @@ function personalizeSocialPost(template = "") {
 }
 
 function updateBandDNA(updates = {}) {
-  state.bandDNA = { ...state.bandDNA, ...updates };
+  const nextBandDNA = { ...state.bandDNA, ...updates };
+  nextBandDNA.venmoHandle = normalizeVenmoHandle(nextBandDNA.venmoHandle || "");
+  nextBandDNA.paypalHandle = normalizePaypalHandle(nextBandDNA.paypalHandle || "");
+  const hydratedBandDNA = hydrateLegacyPaymentHandles(nextBandDNA);
+  hydratedBandDNA.venmoHandle = normalizeVenmoHandle(hydratedBandDNA.venmoHandle || "");
+  hydratedBandDNA.paypalHandle = normalizePaypalHandle(hydratedBandDNA.paypalHandle || "");
+  if (!String(hydratedBandDNA.paymentMethods || "").trim()) {
+    hydratedBandDNA.paymentMethods = buildDynamicPaymentMethodsText(hydratedBandDNA);
+  }
+  state.bandDNA = hydratedBandDNA;
   if (typeof updates.depositModel === "string") {
     state.workOrderWorkspace.pricingProfile.depositModel = updates.depositModel;
   }
@@ -576,7 +658,12 @@ async function loadBandDNAFromSupabase() {
     if (error || !data?.value) return false;
     const parsed = JSON.parse(data.value);
     if (parsed && typeof parsed === "object") {
-      state.bandDNA = { ...state.bandDNA, ...parsed };
+      state.bandDNA = hydrateLegacyPaymentHandles({ ...state.bandDNA, ...parsed });
+      state.bandDNA.venmoHandle = normalizeVenmoHandle(state.bandDNA.venmoHandle || "");
+      state.bandDNA.paypalHandle = normalizePaypalHandle(state.bandDNA.paypalHandle || "");
+      if (!String(state.bandDNA.paymentMethods || "").trim()) {
+        state.bandDNA.paymentMethods = buildDynamicPaymentMethodsText(state.bandDNA);
+      }
       if (Array.isArray(parsed.lineups)) {
         state.bandDNA.lineups = parsed.lineups;
       }
@@ -636,6 +723,16 @@ function migrateLegacyToBandDNA() {
     videoLink: epk.videoLink || "",
     instagram: epk.instagram || "",
     facebook: epk.facebook || "",
+    venmoHandle:
+      /rustandruin/i.test(businessProfile.businessName || bandProfile.bandName || epk.bandName || "")
+      || /rustandruinvt@gmail\.com/i.test(businessProfile.contactEmail || epk.contactEmail || "")
+        ? "rustandruinvt"
+        : "",
+    paypalHandle:
+      /rustandruin/i.test(businessProfile.businessName || bandProfile.bandName || epk.bandName || "")
+      || /rustandruinvt@gmail\.com/i.test(businessProfile.contactEmail || epk.contactEmail || "")
+        ? "rustandruin"
+        : "",
     lineups: lineupRates.length
       ? lineupRates.map((entry) => ({
           name: entry?.lineup || "",
@@ -650,6 +747,7 @@ function migrateLegacyToBandDNA() {
     migratedFromLegacy: true,
     onboardingComplete: true,
   };
+  state.bandDNA.paymentMethods = buildDynamicPaymentMethodsText(state.bandDNA);
 }
 
 function getOnboardingStepTitle(stepNumber = 1) {
@@ -774,6 +872,16 @@ function renderOnboardingWizard() {
             Home address for travel calculation
             <input id="onboardingHomeAddress" type="text" value="${escapeHtml(dna.homeAddress || "")}" />
             <span class="inline-help">Used as the home base for future travel calculations.</span>
+          </label>
+          <label>
+            Venmo username (without @)
+            <input id="onboardingVenmoHandle" type="text" value="${escapeHtml(dna.venmoHandle || "")}" />
+            <span class="inline-help">Found at venmo.com/yourusername — do not include the @ symbol</span>
+          </label>
+          <label>
+            PayPal.me username
+            <input id="onboardingPaypalHandle" type="text" value="${escapeHtml(dna.paypalHandle || "")}" />
+            <span class="inline-help">Your PayPal.me link username — find it at paypal.me/yourusername</span>
           </label>
         </div>
         <label>
@@ -1028,6 +1136,8 @@ function saveOnboardingStep(stepNumber) {
       contactEmail: document.getElementById("onboardingContactEmail")?.value.trim() || "",
       contactPhone: document.getElementById("onboardingContactPhone")?.value.trim() || "",
       homeAddress: document.getElementById("onboardingHomeAddress")?.value.trim() || "",
+      venmoHandle: document.getElementById("onboardingVenmoHandle")?.value.trim() || "",
+      paypalHandle: document.getElementById("onboardingPaypalHandle")?.value.trim() || "",
       paymentMethods: document.getElementById("onboardingPaymentMethods")?.value.trim() || "",
     });
     return;
@@ -2485,7 +2595,12 @@ function updateFeesAndDepositsFields(totals) {
 
 function updateAgreementPreview() {
   const totals = getAgreementTotals();
+  const paymentConfig = getBandPaymentConfig();
   updateFeesAndDepositsFields(totals);
+  setText("[data-fill='bandName']", state.bandDNA.bandName || "Rust and Ruin");
+  setText("[data-fill='bandContactLine']", [state.bandDNA.contactEmail, state.bandDNA.contactPhone].filter(Boolean).join(" · "));
+  setText("[data-fill='paymentSummary']", paymentConfig.paymentSummary);
+  setText("[data-fill='contractPaymentMethods']", paymentConfig.paymentMethodsText);
   document.querySelectorAll("[data-fill='clientName']").forEach((el) => {
     el.textContent = state.agreement.clientName || "__";
   });
@@ -3039,6 +3154,10 @@ async function saveQuoteToSupabase() {
         __meta: {
           band_name: state.bandDNA.bandName || "",
           contact_email: state.bandDNA.contactEmail || "",
+          contact_phone: state.bandDNA.contactPhone || "",
+          venmo_handle: normalizeVenmoHandle(state.bandDNA.venmoHandle || ""),
+          paypal_handle: normalizePaypalHandle(state.bandDNA.paypalHandle || ""),
+          payment_methods: buildDynamicPaymentMethodsText(),
         },
       },
     ],
@@ -3347,6 +3466,7 @@ async function updateAgreementBookingWarning() {
 
 function updateInvoicePreview() {
   const invoiceData = getInvoiceData();
+  const paymentConfig = getBandPaymentConfig();
   applyInvoiceDataToState(invoiceData);
   const totals = getInvoiceTotals();
   const performanceFeeDisplay = toMoney(toNumber(state.invoice.performanceFee));
@@ -3367,6 +3487,9 @@ function updateInvoicePreview() {
   setText("[data-fill='invoiceAddons']", toMoney(totals.addons));
   setText("[data-fill='invoiceTotal']", totalDueDisplay);
   setText("[data-fill='lineItemTotal']", performanceFeeDisplay);
+  setText("[data-fill='bandName']", state.bandDNA.bandName || "Rust and Ruin");
+  setText("[data-fill='paymentSummary']", paymentConfig.paymentSummary);
+  setText("[data-fill='bandContactLine']", [state.bandDNA.contactEmail, state.bandDNA.contactPhone].filter(Boolean).join(" · "));
   updateMessagePreview();
 }
 
@@ -3436,6 +3559,13 @@ async function saveInvoiceAndGetLink(data) {
     ...data,
     addOns: toNumber(data.addOns),
     total: toNumber(data.total),
+    bandDNA: {
+      bandName: state.bandDNA.bandName || "",
+      contactEmail: state.bandDNA.contactEmail || "",
+      contactPhone: state.bandDNA.contactPhone || "",
+      venmoHandle: state.bandDNA.venmoHandle || "",
+      paypalHandle: state.bandDNA.paypalHandle || "",
+    },
   };
   localStorage.setItem(`${INVOICE_SHARE_STORAGE_PREFIX}${shareId}`, JSON.stringify(sharePayload));
 
@@ -3449,12 +3579,16 @@ async function saveInvoiceAndGetLink(data) {
 }
 
 function updateReceiptPreview() {
+  const paymentConfig = getBandPaymentConfig();
+  setText("[data-fill='bandName']", state.bandDNA.bandName || "Rust and Ruin");
   setText("[data-fill='receiptNumber']", state.receipt.receiptNumber || "__");
   setText("[data-fill='receiptClientName']", state.receipt.clientName || "__");
   setText("[data-fill='receiptPaymentDate']", formatDate(state.receipt.paymentDate));
   setText("[data-fill='receiptPaymentMethod']", state.receipt.paymentMethod || "__");
   setText("[data-fill='receiptRelatedInvoice']", state.receipt.relatedInvoice || "__");
   setText("[data-fill='receiptAmountPaid']", toMoney(toNumber(state.receipt.amountPaid)));
+  setText("[data-fill='paymentSummary']", paymentConfig.paymentSummary);
+  setText("[data-fill='bandContactLine']", [state.bandDNA.contactEmail, state.bandDNA.contactPhone].filter(Boolean).join(" · "));
   updateMessagePreview();
 }
 
@@ -5119,8 +5253,7 @@ function buildAgreementContractDigitalPayload() {
       0,
       totals.balanceDueAtShow + totals.addOnTotal + totals.travelFee + totals.lodgingFee
     ),
-    payment_methods:
-      "cash, check to Rust and Ruin, Venmo @rustandruinvt, or PayPal @rustandruin",
+    payment_methods: buildDynamicPaymentMethodsText(),
   };
 }
 

@@ -23,6 +23,38 @@
         color: #8a6840;
         text-align: center;
       }
+
+      .payment-actions {
+        display: grid;
+        gap: 12px;
+        margin: 20px auto 0;
+        width: min(100%, 880px);
+      }
+
+      .payment-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .payment-btn {
+        border: 1px solid #e8a855;
+        border-radius: 20px;
+        padding: 12px 24px;
+        background: transparent;
+        color: #f47c20;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .payment-note {
+        color: #8a6840;
+      }
+
+      .hidden {
+        display: none !important;
+      }
     </style>
   </head>
   <body>
@@ -32,7 +64,7 @@
         <div class="invoice-header">
           <div>
             <p class="contract-tag">Invoice</p>
-            <h2>Rust and Ruin</h2>
+            <h2 data-fill="bandName">Rust and Ruin</h2>
             <p data-fill="invoiceNumber"></p>
           </div>
           <div>
@@ -66,10 +98,17 @@
           </div>
         </div>
         <footer class="contract-footer">
-          <p>Payment: Venmo @rustandruinvt · PayPal @rustandruin</p>
-          <p>rustandruinvt@gmail.com · 802-952-6609</p>
+          <p id="invoicePaymentSummary">Payment method not configured — contact the band directly to pay.</p>
+          <p id="invoiceBandContact">rustandruinvt@gmail.com · 802-952-6609</p>
         </footer>
       </div>
+    </div>
+    <div class="payment-actions">
+      <div class="payment-buttons">
+        <button class="payment-btn hidden" id="payWithVenmoBtn" type="button">Pay with Venmo</button>
+        <button class="payment-btn hidden" id="payWithPaypalBtn" type="button">Pay with PayPal</button>
+      </div>
+      <p class="payment-note hidden" id="invoicePaymentNotice">Payment method not configured — contact the band directly to pay.</p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -80,6 +119,9 @@
       const shareId = params.get("id");
       const invoiceNumber = params.get("invoice");
       const statusEl = document.getElementById("invoiceViewStatus");
+      const venmoBtn = document.getElementById("payWithVenmoBtn");
+      const paypalBtn = document.getElementById("payWithPaypalBtn");
+      const paymentNotice = document.getElementById("invoicePaymentNotice");
 
       function setText(selector, value) {
         document.querySelectorAll(selector).forEach((el) => {
@@ -136,7 +178,69 @@
         };
       }
 
-      function renderInvoice(data) {
+      function normalizeVenmoHandle(value) {
+        return String(value || "")
+          .trim()
+          .replace(/^@+/, "")
+          .replace(/^https?:\/\/(www\.)?venmo\.com\//i, "")
+          .split(/[/?#]/)[0]
+          .trim();
+      }
+
+      function normalizePaypalHandle(value) {
+        return String(value || "")
+          .trim()
+          .replace(/^@+/, "")
+          .replace(/^https?:\/\/(www\.)?paypal\.me\//i, "")
+          .split(/[/?#]/)[0]
+          .trim();
+      }
+
+      function getPaymentConfig(bandDNA = {}) {
+        const venmoHandle = normalizeVenmoHandle(bandDNA.venmoHandle || "");
+        const paypalHandle = normalizePaypalHandle(bandDNA.paypalHandle || "");
+        const methods = [];
+        if (venmoHandle) methods.push(`Venmo @${venmoHandle}`);
+        if (paypalHandle) methods.push(`PayPal paypal.me/${paypalHandle}`);
+        return {
+          bandName: String(bandDNA.bandName || "").trim() || "the band",
+          contactLine: [bandDNA.contactEmail, bandDNA.contactPhone].filter(Boolean).join(" · "),
+          venmoHandle,
+          paypalHandle,
+          hasVenmo: Boolean(venmoHandle),
+          hasPaypal: Boolean(paypalHandle),
+          hasAny: Boolean(venmoHandle || paypalHandle),
+          summary: methods.length
+            ? `Payment: ${methods.join(" · ")}`
+            : "Payment method not configured — contact the band directly to pay.",
+        };
+      }
+
+      function renderPaymentActions(invoice, bandDNA = {}) {
+        const config = getPaymentConfig(bandDNA);
+        const totalDue = Number(invoice?.total || 0) > 0
+          ? Number(invoice.total || 0)
+          : Number(invoice?.performanceFee || 0) + Number(invoice?.depositDue || 0) + Number(invoice?.addOns || 0);
+        const amount = String(Number.isFinite(totalDue) ? totalDue.toFixed(2) : "0.00");
+        const note = encodeURIComponent(`${config.bandName} invoice ${invoice?.invoiceNumber || ""}`.trim());
+        document.getElementById("invoicePaymentSummary").textContent = config.summary;
+        document.getElementById("invoiceBandContact").textContent = config.contactLine || "";
+        venmoBtn.classList.toggle("hidden", !config.hasVenmo);
+        paypalBtn.classList.toggle("hidden", !config.hasPaypal);
+        paymentNotice.classList.toggle("hidden", config.hasAny);
+        if (config.hasVenmo) {
+          venmoBtn.onclick = () => {
+            window.location.assign(`https://venmo.com/${config.venmoHandle}?txn=pay&amount=${amount}&note=${note}`);
+          };
+        }
+        if (config.hasPaypal) {
+          paypalBtn.onclick = () => {
+            window.location.assign(`https://paypal.me/${config.paypalHandle}/${amount}`);
+          };
+        }
+      }
+
+      function renderInvoice(data, bandDNA = {}) {
         if (!data) {
           statusEl.textContent = "Invoice not found.";
           return;
@@ -144,6 +248,7 @@
         const totalDue = Number(data.total || 0) > 0
           ? Number(data.total || 0)
           : Number(data.performanceFee || 0) + Number(data.depositDue || 0) + Number(data.addOns || 0);
+        setText("[data-fill='bandName']", bandDNA?.bandName || "Rust and Ruin");
         setText("[data-fill='invoiceNumber']", data.invoiceNumber || "__");
         setText("[data-fill='invoiceClientName']", data.clientName || "__");
         setText("[data-fill='invoiceClientEmail']", data.clientEmail || "__");
@@ -156,25 +261,51 @@
         setText("[data-fill='invoiceDepositPaid']", toMoney(data.depositPaid));
         setText("[data-fill='invoiceAddons']", toMoney(data.addOns));
         setText("[data-fill='invoiceTotal']", toMoney(totalDue));
+        renderPaymentActions(data, bandDNA);
         statusEl.textContent = "";
+      }
+
+      async function loadBandDNA(client) {
+        if (!client) return {};
+        try {
+          const { data, error } = await client
+            .from("app_settings")
+            .select("value")
+            .eq("key", "band_dna")
+            .maybeSingle();
+          if (error || !data?.value) return {};
+          return JSON.parse(data.value) || {};
+        } catch (error) {
+          return {};
+        }
       }
 
       async function loadInvoice() {
         let data = null;
+        let bandDNA = {};
+        let client = null;
         if (shareId) {
           try {
             data = JSON.parse(localStorage.getItem(`${INVOICE_SHARE_STORAGE_PREFIX}${shareId}`) || "null");
+            bandDNA = data?.bandDNA || {};
           } catch (error) {
             data = null;
           }
         }
 
-        if (!data && invoiceNumber && window.supabase?.createClient && window.RR_SUPABASE_CONFIG?.url && window.RR_SUPABASE_CONFIG?.anonKey) {
+        if (window.supabase?.createClient && window.RR_SUPABASE_CONFIG?.url && window.RR_SUPABASE_CONFIG?.anonKey) {
+          client = window.supabase.createClient(
+            window.RR_SUPABASE_CONFIG.url,
+            window.RR_SUPABASE_CONFIG.anonKey
+          );
+        }
+
+        if (!getPaymentConfig(bandDNA).hasAny && client) {
+          bandDNA = await loadBandDNA(client);
+        }
+
+        if (!data && invoiceNumber && client) {
           try {
-            const client = window.supabase.createClient(
-              window.RR_SUPABASE_CONFIG.url,
-              window.RR_SUPABASE_CONFIG.anonKey
-            );
             const { data: rows, error } = await client
               .from("invoices")
               .select("*")
@@ -189,7 +320,7 @@
           }
         }
 
-        renderInvoice(data);
+        renderInvoice(data, bandDNA);
       }
 
       loadInvoice();

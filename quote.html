@@ -247,6 +247,18 @@
       .hidden {
         display: none !important;
       }
+
+      .payment-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .payment-note {
+        color: var(--muted);
+        margin-top: 12px;
+      }
     </style>
   </head>
   <body>
@@ -331,6 +343,51 @@
         return metaEntry && metaEntry.__meta ? metaEntry.__meta : {};
       }
 
+      function normalizeVenmoHandle(value) {
+        return String(value || '')
+          .trim()
+          .replace(/^@+/, '')
+          .replace(/^https?:\/\/(www\.)?venmo\.com\//i, '')
+          .split(/[/?#]/)[0]
+          .trim();
+      }
+
+      function normalizePaypalHandle(value) {
+        return String(value || '')
+          .trim()
+          .replace(/^@+/, '')
+          .replace(/^https?:\/\/(www\.)?paypal\.me\//i, '')
+          .split(/[/?#]/)[0]
+          .trim();
+      }
+
+      function getPaymentConfig(meta = {}) {
+        const venmoHandle = normalizeVenmoHandle(meta.venmo_handle || meta.venmoHandle || '');
+        const paypalHandle = normalizePaypalHandle(meta.paypal_handle || meta.paypalHandle || '');
+        return {
+          venmoHandle,
+          paypalHandle,
+          hasVenmo: Boolean(venmoHandle),
+          hasPaypal: Boolean(paypalHandle),
+          hasAny: Boolean(venmoHandle || paypalHandle),
+        };
+      }
+
+      function renderPaymentActions(amount, note, meta = {}) {
+        const config = getPaymentConfig(meta);
+        const displayAmount = String(Number(amount || 0).toFixed(2));
+        const encodedNote = encodeURIComponent(note);
+        if (!config.hasAny) {
+          return `<p class="payment-note">Payment method not configured — contact the band directly to pay.</p>`;
+        }
+        return `
+          <div class="payment-buttons">
+            ${config.hasVenmo ? `<button class="ghost-btn" type="button" onclick="window.location.assign('https://venmo.com/${escapeHtml(config.venmoHandle)}?txn=pay&amount=${escapeHtml(displayAmount)}&note=${escapeHtml(encodedNote)}')">Pay with Venmo</button>` : ''}
+            ${config.hasPaypal ? `<button class="ghost-btn" type="button" onclick="window.location.assign('https://paypal.me/${escapeHtml(config.paypalHandle)}/${escapeHtml(displayAmount)}')">Pay with PayPal</button>` : ''}
+          </div>
+        `;
+      }
+
       function getRenderableOptions(options) {
         return (Array.isArray(options) ? options : []).filter((option) => {
           return option
@@ -350,8 +407,9 @@
         `;
       }
 
-      function renderAcceptedState(quote, options, bandName) {
+      function renderAcceptedState(quote, options, bandName, meta = {}) {
         const chosenOption = options[Number(quote.chosen_option_index)] || null;
+        const depositAmount = Number(chosenOption?.deposit || 0);
         app.innerHTML = `
           <section class="success stack">
             <span class="eyebrow">Performance quote</span>
@@ -365,7 +423,7 @@
                 <p class="deposit">${formatCurrency(chosenOption.deposit || 0)} deposit to hold your date</p>
               </div>
             ` : ''}
-            <div style="margin-top:24px;padding:20px;background:rgba(193,122,58,0.1);border-radius:16px;border:1px solid rgba(193,122,58,0.3);"><h3 style="margin:0 0 12px;font-family:Georgia,serif;color:#8b4a1a;">To hold your date</h3><p style="margin:0 0 8px;">Please send your <strong>$50 deposit</strong> using one of these methods:</p><ul style="margin:8px 0;padding-left:20px;"><li>Venmo: <strong>@rustandruinvt</strong></li><li>PayPal: <strong>@rustandruin</strong></li><li>Check payable to: <strong>Rust and Ruin</strong></li><li>Cash in person</li></ul><p style="margin:8px 0 0;">We will follow up shortly with your performance contract.</p></div>
+            <div style="margin-top:24px;padding:20px;background:rgba(193,122,58,0.1);border-radius:16px;border:1px solid rgba(193,122,58,0.3);"><h3 style="margin:0 0 12px;font-family:Georgia,serif;color:#8b4a1a;">To hold your date</h3><p style="margin:0 0 8px;">Please send your <strong>${escapeHtml(formatCurrency(depositAmount))}</strong> deposit using the payment options below.</p>${renderPaymentActions(depositAmount, `${bandName || 'Band'} deposit`, meta)}<p style="margin:8px 0 0;">We will follow up shortly with your performance contract.</p></div>
           </section>
         `;
       }
@@ -470,8 +528,9 @@
         currentQuote.chosen_by_name = clientName;
         currentQuote.chosen_at = acceptedAt;
         closeConfirmModal();
-        const meta = getQuoteMetadata(currentQuote.options);
+        const meta = currentQuote.paymentMeta || getQuoteMetadata(currentQuote.options);
         const bandName = meta.band_name || 'The band';
+        const depositAmount = Number(chosenOption?.deposit || 0);
 
         app.innerHTML = `
           <section class="success stack">
@@ -485,8 +544,22 @@
                 <p class="deposit">${formatCurrency(chosenOption.deposit || 0)} deposit to hold your date</p>
               </div>
             ` : ''}
+            <div style="margin-top:24px;padding:20px;background:rgba(193,122,58,0.1);border-radius:16px;border:1px solid rgba(193,122,58,0.3);"><h3 style="margin:0 0 12px;font-family:Georgia,serif;color:#8b4a1a;">To hold your date</h3><p style="margin:0 0 8px;">Please send your <strong>${escapeHtml(formatCurrency(depositAmount))}</strong> deposit using the payment options below.</p>${renderPaymentActions(depositAmount, `${bandName || 'Band'} deposit`, meta)}</div>
           </section>
         `;
+      }
+
+      async function loadBandDNAMeta() {
+        try {
+          const { data } = await supabaseClient
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'band_dna')
+            .maybeSingle();
+          return data?.value ? (JSON.parse(data.value) || {}) : {};
+        } catch (error) {
+          return {};
+        }
       }
 
       async function loadQuote() {
@@ -508,13 +581,17 @@
           }
 
           currentQuote = quote;
-          const meta = getQuoteMetadata(quote.options);
+          let meta = getQuoteMetadata(quote.options);
+          if (!getPaymentConfig(meta).hasAny) {
+            meta = { ...meta, ...(await loadBandDNAMeta()) };
+          }
           const options = getRenderableOptions(quote.options);
-          quote.band_name = meta.band_name || '';
-          quote.contact_email = meta.contact_email || '';
+          quote.paymentMeta = meta;
+          quote.band_name = meta.band_name || meta.bandName || '';
+          quote.contact_email = meta.contact_email || meta.contactEmail || '';
 
           if (quote.status === 'accepted') {
-            renderAcceptedState(quote, options, quote.band_name);
+            renderAcceptedState(quote, options, quote.band_name, meta);
             return;
           }
 
