@@ -70,13 +70,105 @@ function createInitialInvoiceState() {
 
 function createInitialReceiptState() {
   return {
-    receiptNumber: "RCPT-001",
+    receiptNumber: "REC-001",
     clientName: "",
     paymentDate: "",
     amountPaid: "",
     paymentMethod: "Venmo",
     relatedInvoice: "",
   };
+}
+
+const DEFAULT_INVOICE_NUMBER = "INV-001";
+const DEFAULT_RECEIPT_NUMBER = "REC-001";
+
+function formatBillingDocumentNumber(prefix, sequence) {
+  const safeSequence = Math.max(1, Number(sequence) || 1);
+  return `${prefix}-${String(safeSequence).padStart(3, "0")}`;
+}
+
+function parseBillingDocumentSequence(value, prefix) {
+  const match = String(value || "")
+    .trim()
+    .toUpperCase()
+    .match(new RegExp(`^${prefix}-(\\d+)$`));
+  return match ? Number(match[1]) || 0 : 0;
+}
+
+function isInvoiceFormFresh() {
+  return !String(state.invoice.clientName || "").trim()
+    && !String(state.invoice.clientEmail || "").trim()
+    && !String(state.invoice.issueDate || "").trim()
+    && !String(state.invoice.dueDate || "").trim()
+    && (!String(state.invoice.description || "").trim() || state.invoice.description === "Live performance")
+    && !toNumber(state.invoice.performanceFee)
+    && !toNumber(state.invoice.depositDue)
+    && !toNumber(state.invoice.depositPaid)
+    && !toNumber(state.invoice.addons)
+    && !toNumber(state.invoice.totalOverride);
+}
+
+function isReceiptFormFresh() {
+  return !String(state.receipt.clientName || "").trim()
+    && !String(state.receipt.paymentDate || "").trim()
+    && !toNumber(state.receipt.amountPaid)
+    && !String(state.receipt.relatedInvoice || "").trim()
+    && String(state.receipt.paymentMethod || "Venmo").trim() === "Venmo";
+}
+
+async function assignNextBillingDocumentNumber(kind) {
+  const config = kind === "invoice"
+    ? {
+        table: "invoices",
+        column: "invoice_number",
+        prefix: "INV",
+        defaultNumber: DEFAULT_INVOICE_NUMBER,
+        isFresh: isInvoiceFormFresh,
+        getValue: () => state.invoice.invoiceNumber,
+        setValue: (nextNumber) => {
+          state.invoice.invoiceNumber = nextNumber;
+          const input = document.getElementById("invoiceNumber");
+          if (input) input.value = nextNumber;
+          updateInvoicePreview();
+        },
+      }
+    : {
+        table: "receipts",
+        column: "receipt_number",
+        prefix: "REC",
+        defaultNumber: DEFAULT_RECEIPT_NUMBER,
+        isFresh: isReceiptFormFresh,
+        getValue: () => state.receipt.receiptNumber,
+        setValue: (nextNumber) => {
+          state.receipt.receiptNumber = nextNumber;
+          const input = document.getElementById("receiptNumber");
+          if (input) input.value = nextNumber;
+          updateReceiptPreview();
+        },
+      };
+
+  if (!config.isFresh()) return config.getValue() || config.defaultNumber;
+
+  const client = state.calendar.client;
+  let nextNumber = config.defaultNumber;
+
+  if (client && state.calendar.session) {
+    const { data, error } = await client
+      .from(config.table)
+      .select(config.column)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (!error) {
+      const highestSequence = (data || []).reduce((max, row) => {
+        return Math.max(max, parseBillingDocumentSequence(row?.[config.column], config.prefix));
+      }, 0);
+      nextNumber = formatBillingDocumentNumber(config.prefix, highestSequence + 1);
+    }
+  }
+
+  if (!config.isFresh()) return config.getValue() || nextNumber;
+  config.setValue(nextNumber);
+  return nextNumber;
 }
 
 function createInitialQuoteBuilderState() {
@@ -4667,23 +4759,26 @@ function updateReceiptList() {
     header.appendChild(badge);
     const actions = document.createElement("div");
     actions.className = "event-actions";
-    if (receipt.file_path) {
-      const view = document.createElement("button");
-      view.className = "btn ghost";
-      view.textContent = "View PDF";
-      view.addEventListener("click", async () => {
-        const client = state.calendar.client;
-        if (!client || !state.calendar.session) return;
-        const { data, error } = await client
-          .storage
-          .from("signed-contracts")
-          .createSignedUrl(receipt.file_path, 60);
-        if (!error && data?.signedUrl) {
-          window.open(data.signedUrl, "_blank");
-        }
-      });
-      actions.appendChild(view);
-    }
+    const view = document.createElement("button");
+    view.className = "btn ghost";
+    view.textContent = "View PDF";
+    view.addEventListener("click", async () => {
+      const client = state.calendar.client;
+      if (!client || !state.calendar.session) return;
+      const pdfPath = receipt.pdf_path || receipt.file_path || receipt.storage_path;
+      if (!pdfPath) {
+        alert("No PDF found for this receipt — tap Generate/Share PDF to create one first.");
+        return;
+      }
+      const { data, error } = await client
+        .storage
+        .from("signed-contracts")
+        .createSignedUrl(pdfPath, 3600);
+      if (!error && data?.signedUrl) {
+        window.location.assign(data.signedUrl);
+      }
+    });
+    actions.appendChild(view);
     const toggle = document.createElement("button");
     toggle.className = "btn ghost";
     toggle.textContent = receipt.paid ? "Mark unpaid" : "Mark paid";
@@ -11669,19 +11764,21 @@ function setupListeners() {
   }
 
   document.querySelectorAll("[data-more-panel]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const target = btn.getAttribute("data-more-panel");
       if (!target) return;
       if (target === "invoice") {
         state.activeTab = "invoice";
         switchTop("bookkeeping");
         switchPanel("invoice");
+        await assignNextBillingDocumentNumber("invoice");
         return;
       }
       if (target === "receipt") {
         state.activeTab = "receipt";
         switchTop("bookkeeping");
         switchPanel("receipt");
+        await assignNextBillingDocumentNumber("receipt");
         return;
       }
       if (target === "allabout" || target === "howto") {
@@ -11986,8 +12083,10 @@ function setupListeners() {
       updateOnboardingLineupRatePreviews();
     }
   });
-  document.getElementById("invoicePdf").addEventListener("click", async (event) => {
+  const generatePdfBtn = document.getElementById("generatePdfBtn") || document.getElementById("invoicePdf");
+  generatePdfBtn?.addEventListener("click", async (event) => {
     event.preventDefault();
+    console.log("PDF CLICKED");
     const invoiceData = getInvoiceData();
     if (!invoiceData) return;
     applyInvoiceDataToState(invoiceData);

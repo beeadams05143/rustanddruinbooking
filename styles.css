@@ -338,8 +338,28 @@ body {
   gap: 10px;
 }
 
+.more-link-section-title {
+  grid-column: 1 / -1;
+}
+
 .more-link {
   justify-content: flex-start;
+}
+
+.more-link-bookkeeping {
+  justify-content: center;
+}
+
+#invoiceCopyLinkBtn,
+#invoiceShareLinkBtn,
+#receiptCopyLinkBtn,
+#receiptShareLinkBtn {
+  background: transparent;
+  border: 1px solid #e8a855;
+  color: #f47c20;
+  border-radius: 20px;
+  padding: 12px 24px;
+  font-weight: 600;
 }
 
 #buildBadge {
@@ -2254,6 +2274,18 @@ textarea {
   margin: 0 0 16px;
   font-size: 13px;
   color: #8a6840;
+}
+
+@media (min-width: 900px) {
+  .more-links {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .more-link {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 .marketing-social-grid {
