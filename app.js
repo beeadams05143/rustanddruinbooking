@@ -5661,7 +5661,7 @@ async function checkContractSignatureStatus() {
   let data = null;
   let error = null;
   ({ data, error } = await client
-    .from("shared_contracts")
+    .from("contracts")
     .select("signed_at, client_signature, client_name")
     .eq("id", shareId)
     .maybeSingle());
@@ -8311,7 +8311,7 @@ async function generateAgreementContractLink() {
     ...buildAgreementContractDigitalPayload(),
   };
 
-  const { error } = await client.from("shared_contracts").insert(payload);
+  const { error } = await client.from("contracts").insert(payload);
   if (error) {
     setAgreementCalendarStatus(formatSupabaseError(error, "Could not generate contract link."), true);
     showContractLinkToast("Could not generate contract link.", true);
