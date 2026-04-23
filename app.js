@@ -346,6 +346,10 @@ const state = {
     videoLink: "",
     instagram: "",
     facebook: "",
+    loadInTime: "one hour",
+    soundCheckMinutes: "45",
+    breakPolicy: "A 10-minute break per 90 minutes is typical.",
+    cancellationDays: "90",
   },
   agreement: createInitialAgreementState(),
   invoice: createInitialInvoiceState(),
@@ -2867,6 +2871,49 @@ function updateAgreementPreview() {
     "[data-fill='bandContactLine']",
     [bandDetails.bandAddress, bandDetails.bandEmail, bandDetails.bandPhone].filter(Boolean).join(" · ")
   );
+  const contractDna = state.bandDNA;
+  const igRaw = String(contractDna.instagram || "").trim().replace(/^@/, "");
+  const fbRaw = String(contractDna.facebook || "").trim().replace(/^@/, "");
+  const igDisplay = igRaw ? `@${igRaw}` : "__";
+  const fbDisplay = fbRaw ? `@${fbRaw}` : "__";
+  setText("[data-fill='contractInstagramDisplay']", igDisplay);
+  setText("[data-fill='contractFacebookDisplay']", fbDisplay);
+  setText("[data-fill='promoInstagramDisplay']", igDisplay);
+  setText("[data-fill='promoFacebookDisplay']", fbDisplay);
+  setText("[data-fill='promoTagBandName']", bandDetails.bandName);
+  setText(
+    "[data-fill='loadInTime']",
+    String(contractDna.loadInTime || "one hour").trim() || "one hour"
+  );
+  setText(
+    "[data-fill='soundCheckMinutes']",
+    String(contractDna.soundCheckMinutes || "45").trim() || "45"
+  );
+  setText(
+    "[data-fill='breakPolicy']",
+    String(contractDna.breakPolicy || "A 10-minute break per 90 minutes is typical.").trim() ||
+      "A 10-minute break per 90 minutes is typical."
+  );
+  setText("[data-fill='homeAddress']", String(contractDna.homeAddress || "").trim() || "__");
+  setText(
+    "[data-fill='travelRadiusHours']",
+    String(contractDna.travelFreeWithinHours || "2").trim() || "2"
+  );
+  setText(
+    "[data-fill='cancellationDays']",
+    String(contractDna.cancellationDays || "90").trim() || "90"
+  );
+  const footerParts = [
+    bandDetails.bandName,
+    String(contractDna.homeAddress || "").trim(),
+    String(contractDna.hometown || "").trim(),
+  ].filter(Boolean);
+  setText(
+    "[data-fill='contractFooterAddress']",
+    footerParts.length ? footerParts.join(" · ") : "__"
+  );
+  setText("[data-fill='contractWebsite']", String(contractDna.website || "").trim() || "__");
+  setText("[data-fill='managerName']", String(contractDna.managerName || "").trim() || "__");
   setText("[data-fill='paymentSummary']", paymentConfig.paymentSummary);
   setText("[data-fill='contractPaymentMethods']", paymentConfig.paymentMethodsText);
   document.querySelectorAll("[data-fill='clientName']").forEach((el) => {
@@ -3047,12 +3094,13 @@ function updateAgreementPreview() {
   const bandSignatureBlock = document.querySelector("#agreementPreview .contract-signatures > div:last-child");
   if (bandSignatureBlock) {
     bandSignatureBlock.innerHTML = `
+      <p>Manager signature: ${escapeHtml(String(contractDna.managerName || "").trim() || "__")}</p>
+      <p>Venue address: ${escapeHtml(state.agreement.venueAddress || "__")}</p>
       <p>Band signature: ${escapeHtml(bandDetails.bandSignatureName || "__")}</p>
       <p>${escapeHtml(bandDetails.bandName || "Band")}</p>
       <p>Band address: ${escapeHtml(bandDetails.bandAddress || "__")}</p>
       <p>Band email: ${escapeHtml(bandDetails.bandEmail || "__")}</p>
       <p>Band phone: ${escapeHtml(bandDetails.bandPhone || "__")}</p>
-      <p>Venue address: ${escapeHtml(state.agreement.venueAddress || "__")}</p>
     `;
   }
 
