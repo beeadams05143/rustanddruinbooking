@@ -11385,7 +11385,7 @@ async function renderBookedDatesList() {
         renderBookHubCalendar();
       });
       deleteButton.style.cssText = "border-color:#e58a4a;color:#9a3f00;";
-      card.addEventListener("click", (clickEvt) => { if (clickEvt.target.closest("button") || clickEvt.target.closest("input")) return;
+      card.addEventListener("click", (clickEvt) => { if (clickEvt.target.closest("button") || clickEvt.target.closest("input") || clickEvt.target.closest("a") || document.getElementById("clw-"+event.id)) return;
         state.calendar.selectedEventId = isExpanded ? "" : event.id;
         void renderBookedDatesList();
       });
