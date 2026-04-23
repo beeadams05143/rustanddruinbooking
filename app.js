@@ -6196,7 +6196,7 @@ function startSupabaseSync() {
     if (!document.hidden && state.calendar.session) {
       queueSupabaseSyncRefresh();
     }
-  }, SYNC_POLL_INTERVAL_MS);
+  }, SYNC_POLL_INTERVAL_MS); // sync timer
 }
 
 async function loadOverridePin() {
@@ -8308,7 +8308,7 @@ async function generateAgreementContractLink() {
   const payload = {
     
     event_id: state.workspace.bookingEventId || null,
-    name: (state.agreement.clientName||"Event")+" Agreement", file_path: null, event_id: state.workspace.bookingEventId||null, status: "Pending signature",
+    ...buildAgreementContractDigitalPayload(), name: (state.agreement.clientName||"Event")+" Agreement", file_path: null, event_id: state.workspace.bookingEventId||null, status: "Pending signature",
   };
 
   const { error } = await client.from("contracts").insert(payload);
