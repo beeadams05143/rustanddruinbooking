@@ -790,21 +790,31 @@
       </div>
       <div id="contractSignedBanner" class="hidden" style="background:#e8f5e9;color:#2e7d32;padding:14px 16px;border-radius:12px;margin-bottom:12px;font-weight:600;"></div>
       <div id="contractSendWrap" class="hidden">
-        <div class="form-section booking-nested-section">
-          <h3>Send contract to client</h3>
-          <p class="inline-help">Copy this link and send it to your client to sign digitally.</p>
-          <div class="form-grid">
-            <input id="contractLinkDisplay" type="text" readonly placeholder="Contract link will appear here" />
+        <div class="form-section booking-nested-section contract-send-bundle">
+          <div class="contract-send-bundle-grid">
+            <div class="contract-send-col">
+              <h3>Send contract to client</h3>
+              <p class="inline-help">Copy this link and send it to your client to sign digitally.</p>
+              <div class="form-grid">
+                <input id="contractLinkDisplay" type="text" readonly placeholder="Contract link will appear here" />
+              </div>
+              <div class="inline-actions">
+                <button class="btn" type="button" id="copyContractLinkBtn">Copy link</button>
+              </div>
+            </div>
+            <div class="contract-send-col">
+              <h3>What your client sees</h3>
+              <p class="inline-help">Same signing page as the link — open anytime to review.</p>
+              <div class="inline-actions">
+                <button class="btn" type="button" id="openContractLinkBtn">Open signing page</button>
+              </div>
+            </div>
           </div>
-          <div class="inline-actions">
-            <button class="btn" type="button" id="copyContractLinkBtn">Copy link</button>
-            <button class="btn ghost" type="button" id="openContractLinkBtn">Open link</button>
-          </div>
-          <p id="contractSendStatus"></p>
+          <p id="contractSendStatus" class="contract-send-status"></p>
         </div>
       </div>
 
-      <main class="layout hidden" id="agreementTab">
+      <main class="layout hidden agreement-layout-single" id="agreementTab">
         <section class="panel form-panel booking-flow-panel">
           <div class="booking-flow-head">
             <div>
@@ -1166,7 +1176,7 @@
           </div>
         </section>
 
-        <section class="panel preview-panel" aria-label="Agreement preview">
+        <section class="panel preview-panel agreement-preview-hidden" aria-label="Agreement preview">
           <div class="contract" id="agreementPreview">
             <div class="contract-header">
               <div>

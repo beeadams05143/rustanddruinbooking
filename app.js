@@ -3630,11 +3630,7 @@ function renderAgreementStepUI() {
     }
   }
 
-  const previewPanel = document.querySelector("#agreementTab .preview-panel");
-  if (previewPanel) {
-    previewPanel.classList.toggle("hidden", !state.workspace.contractWizardOpen);
-    document.getElementById("agreementPreviewActions")?.remove();
-  }
+  document.getElementById("agreementPreviewActions")?.remove();
   const messagePreviewWrap = document.getElementById("messagePreviewWrap");
   const pdfActionsBar = document.getElementById("pdfActionsBar");
   if (state.activeTab === "agreement") {
@@ -8349,9 +8345,9 @@ async function generateAgreementContractLink() {
 
 async function submitAgreement() {
   await generateAgreementContractLink();
-  const previewPanel = document.querySelector("#agreementTab .preview-panel");
-  if (previewPanel && typeof previewPanel.scrollIntoView === "function") {
-    previewPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  const sendWrap = document.getElementById("contractSendWrap");
+  if (sendWrap && typeof sendWrap.scrollIntoView === "function") {
+    sendWrap.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
 
@@ -12848,8 +12844,9 @@ function setupListeners() {
   const openContractLinkBtn = document.getElementById("openContractLinkBtn");
   if (openContractLinkBtn) {
     openContractLinkBtn.addEventListener("click", () => {
-      const link = document.getElementById("contractLinkDisplay")?.value.trim() || "";
-      if (link) window.open(link, "_blank");
+      const link =
+        document.getElementById("contractLinkDisplay")?.value.trim() || getContractSigningPageUrl();
+      if (link) window.open(link, "_blank", "noopener,noreferrer");
     });
   }
   const shareContractLinkBtn2 = document.getElementById("shareContractLinkBtn2");

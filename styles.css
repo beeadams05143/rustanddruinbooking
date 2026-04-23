@@ -1247,6 +1247,40 @@ body {
   gap: 28px;
 }
 
+.agreement-layout-single {
+  grid-template-columns: 1fr;
+  max-width: 920px;
+  margin-inline: auto;
+}
+
+#agreementTab .agreement-preview-hidden {
+  display: none !important;
+}
+
+.contract-send-bundle {
+  margin-bottom: 0;
+}
+
+.contract-send-bundle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 22px;
+  align-items: start;
+}
+
+.contract-send-col h3 {
+  margin-top: 0;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.contract-send-status {
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+
 .hidden {
   display: none !important;
 }
