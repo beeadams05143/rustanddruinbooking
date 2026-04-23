@@ -11461,7 +11461,7 @@ async function renderBookedDatesList() {
           complete: Boolean(flow.contractSentAt),
           metaText: formatPipelineTime(flow.contractSentAt, "Not sent yet"),
           actionLabel: flow.contractSentAt ? "Copy Contract Link" : "Generate Contract Link",
-          action: () => copyContractLinkForShow(event, detailStatus),
+            action: async () => { if (!client || !state.calendar.session || !event?.id) { detailStatus.textContent = "Sign in first."; return; } const { data: ex } = await client.from("contracts").select("id").eq("event_id", event.id).limit(1); let cId = ex&&ex.length ? ex[0].id : null; if (!cId) { const { data: ins, error } = await client.from("contracts").insert({ name: (event.title||"Event")+" Agreement", file_path: null, event_id: event.id, status: "Pending signature" }).select("id").single(); if (error||!ins) { detailStatus.textContent = "Error: "+error?.message; return; } cId = ins.id; } const link = "https://gigos.netlify.app/contract.html?id="+cId; await copyTextToClipboard(link); await client.from("events").update({ contract_sent_at: new Date().toISOString() }).eq("id", event.id); detailStatus.textContent = "Contract link copied!"; showContractLinkToast("Contract link copied."); },
         });
         appendStep({
           key: "contract-signed",
