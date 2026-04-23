@@ -358,6 +358,7 @@ const state = {
     bookingEventId: "",
     contractWizardOpen: false,
     contractShareId: "",
+    showClientSigningPreview: false,
   },
   calendar: {
     overridePin: "",
@@ -1908,6 +1909,7 @@ function loadDraft() {
     }
     if (parsed.workspace && typeof parsed.workspace === "object") {
       state.workspace = { ...state.workspace, ...parsed.workspace };
+      state.workspace.showClientSigningPreview = false;
     }
     if (parsed.invoice) {
       state.invoice = { ...state.invoice, ...parsed.invoice };
@@ -2460,9 +2462,7 @@ function buildMessage(type) {
   }
 
   const subject = `Rust and Ruin Performance Agreement – ${eventDate}`;
-  const contractLink = state.workspace.contractShareId
-    ? `https://gigos.netlify.app/contract.html?id=${state.workspace.contractShareId}`
-    : "";
+  const contractLink = getContractSigningPageUrl();
   const signingInstructions = contractLink
     ? `To sign digitally, click this link:\n${contractLink}\n\nYou can type your full legal name and click 'I agree and sign this contract.' Your typed name serves as your legal signature and will be recorded with a timestamp.`
     : `You're welcome to sign in whichever way is easiest for you:\n- sign with your finger or stylus on your phone or tablet and send back a screenshot\n- print it, sign it, and send us a photo or scan\n- sign the hard copy and mail it back to us`;
@@ -3591,6 +3591,7 @@ function renderAgreementStepUI() {
         state.workspace.agreementStep = step;
         if (step !== AGREEMENT_STEP_COUNT) {
           state.workspace.contractWizardOpen = false;
+          state.workspace.showClientSigningPreview = false;
         }
         renderAgreementStepUI();
         saveDraft();
@@ -3662,6 +3663,178 @@ function renderAgreementStepUI() {
     }
   }
 
+  syncAgreementPreviewEditorVsClient();
+
+  const customerCard = ensureAgreementCustomerViewCard();
+  if (customerCard) {
+    const showCustomerLink =
+      state.workspace.contractWizardOpen && Boolean(state.workspace.contractShareId);
+    customerCard.classList.toggle("hidden", !showCustomerLink);
+  }
+}
+
+function getContractSigningPageUrl(shareId = state.workspace.contractShareId) {
+  if (!shareId) return "";
+  return `https://gigos.netlify.app/contract.html?id=${shareId}`;
+}
+
+function ensureAgreementCustomerViewCard() {
+  const previewPanel = document.querySelector("#agreementTab .preview-panel");
+  if (!previewPanel) return null;
+  let card = document.getElementById("agreementCustomerViewCard");
+  if (!card) {
+    card = document.createElement("div");
+    card.id = "agreementCustomerViewCard";
+    card.className = "agreement-customer-view-card hidden";
+    card.innerHTML =
+      '<p class="agreement-customer-view-label">What your client sees</p>' +
+      '<p class="agreement-customer-view-help">This is the same signing page your link opens—one tap to review it anytime.</p>' +
+      '<button type="button" class="btn agreement-customer-view-btn" id="agreementOpenCustomerPageBtn">Open customer page</button>';
+    const previewActions = document.getElementById("agreementPreviewActions");
+    const editor = document.getElementById("agreementPreview");
+    if (previewActions && previewActions.nextSibling) {
+      previewPanel.insertBefore(card, previewActions.nextSibling);
+    } else if (editor) {
+      previewPanel.insertBefore(card, editor);
+    } else {
+      previewPanel.appendChild(card);
+    }
+    const openBtn = document.getElementById("agreementOpenCustomerPageBtn");
+    if (openBtn) {
+      openBtn.addEventListener("click", () => {
+        const url = getContractSigningPageUrl();
+        if (url) window.open(url, "_blank", "noopener,noreferrer");
+      });
+    }
+  }
+  return card;
+}
+
+function ensureAgreementClientSigningPreviewEl() {
+  let el = document.getElementById("agreementClientSigningPreview");
+  if (el) return el;
+  const previewPanel = document.querySelector("#agreementTab .preview-panel");
+  const editor = document.getElementById("agreementPreview");
+  if (!previewPanel || !editor) return null;
+  el = document.createElement("div");
+  el.id = "agreementClientSigningPreview";
+  el.className = "agreement-client-signing-preview hidden";
+  el.setAttribute("aria-label", "Client signing preview");
+  editor.insertAdjacentElement("afterend", el);
+  return el;
+}
+
+function syncAgreementPreviewEditorVsClient() {
+  const editor = document.getElementById("agreementPreview");
+  const mirror = document.getElementById("agreementClientSigningPreview");
+  if (editor) editor.classList.remove("hidden");
+  if (mirror) mirror.classList.add("hidden");
+}
+
+function getContractSigningPaymentMeta(contract = {}, bandDNA = {}) {
+  return {
+    venmoHandle: contract.venmo_handle || bandDNA.venmoHandle || "",
+    paypalHandle: contract.paypal_handle || bandDNA.paypalHandle || "",
+  };
+}
+
+function buildSigningPreviewPaymentActionsHtml(amount, note, meta = {}) {
+  const venmoHandle = normalizeVenmoHandle(meta.venmoHandle || "");
+  const paypalHandle = normalizePaypalHandle(meta.paypalHandle || "");
+  const displayAmount = String(Number(amount || 0).toFixed(2));
+  const encodedNote = encodeURIComponent(note);
+  if (!venmoHandle && !paypalHandle) {
+    return `<p class="signing-preview-meta">Payment method not configured — contact the band directly to pay.</p>`;
+  }
+  return `
+    <div class="signing-preview-payment-buttons">
+      ${venmoHandle ? `<button type="button" class="signing-preview-primary-btn" style="width:auto;margin-top:0" onclick="window.location.assign('https://venmo.com/${escapeHtml(venmoHandle)}?txn=pay&amount=${escapeHtml(displayAmount)}&note=${escapeHtml(encodedNote)}')">Pay with Venmo</button>` : ""}
+      ${paypalHandle ? `<button type="button" class="signing-preview-primary-btn" style="width:auto;margin-top:0" onclick="window.location.assign('https://paypal.me/${escapeHtml(paypalHandle)}/${escapeHtml(displayAmount)}')">Pay with PayPal</button>` : ""}
+    </div>
+  `;
+}
+
+function formatContractSigningEventDate(value) {
+  if (!value) return "—";
+  const s = String(value);
+  const ymd = s.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    return formatDate(ymd);
+  }
+  const d = new Date(s);
+  return Number.isFinite(d.getTime())
+    ? d.toLocaleDateString("en-US", { dateStyle: "long" })
+    : s;
+}
+
+function buildAgreementClientSigningPreviewHtml(contract) {
+  const bandDNA = state.bandDNA || {};
+  const bandDetails = getBandContractDetails();
+  const band = escapeHtml(contract.band_name || bandDetails.bandName || "Rust and Ruin");
+  const client = escapeHtml(contract.client_name || "there");
+  const clientEmail = escapeHtml(contract.client_email || "—");
+  const venue = escapeHtml(contract.venue_name || contract.venue_address || "—");
+  const venueAddress = escapeHtml(contract.venue_address || contract.venue_name || "—");
+  const bandAddress = escapeHtml(contract.band_address || bandDNA.homeAddress || "—");
+  const bandEmail = escapeHtml(contract.band_email || bandDNA.contactEmail || "—");
+  const bandPhone = escapeHtml(contract.band_phone || bandDNA.contactPhone || "—");
+  const bandSignatureName = escapeHtml(
+    contract.band_signature_name || bandDetails.bandSignatureName || contract.band_name || "Band representative"
+  );
+  const evDate = escapeHtml(formatContractSigningEventDate(contract.event_date));
+  const evType = escapeHtml(contract.event_type || "—");
+  const pStart = escapeHtml(contract.performance_time || "—");
+  const pEnd = escapeHtml(contract.performance_end_time || "—");
+  const hours = escapeHtml(contract.hours || "—");
+  const lineup = escapeHtml(contract.lineup || "—");
+  const perfFee = escapeHtml(toMoney(contract.performance_fee ?? 0));
+  const depDue = escapeHtml(toMoney(contract.deposit_amount ?? 0));
+  const dayOf = escapeHtml(toMoney(contract.amount_due_day_of ?? 0));
+  const bodyHtml = contract.contract_text
+    ? String(contract.contract_text)
+    : String(contract.legal_text || "<p><em>Contract text will appear here once saved from the booking app.</em></p>");
+  const pay = escapeHtml(
+    contract.payment_methods || "the payment options in your agreement"
+  );
+  const paymentActions = buildSigningPreviewPaymentActionsHtml(
+    contract.deposit_amount ?? 0,
+    `${contract.band_name || "Band"} deposit`,
+    getContractSigningPaymentMeta(contract, bandDNA)
+  );
+
+  return `
+    <div class="signing-preview-shell">
+      <span class="signing-preview-eyebrow">Performance contract</span>
+      <h1 class="signing-preview-h1">${band}</h1>
+      <p class="signing-preview-meta">Hi ${client}!</p>
+      <div class="signing-preview-meta signing-preview-stack">
+        <p><strong>Client email:</strong> ${clientEmail}</p>
+        <p><strong>Event date:</strong> ${evDate}</p>
+        <p><strong>Venue:</strong> ${venue}</p>
+        <p><strong>Venue address:</strong> ${venueAddress}</p>
+        <p><strong>Event type:</strong> ${evType}</p>
+        <p><strong>Performance:</strong> ${pStart} – ${pEnd}</p>
+        <p><strong>Hours / lineup:</strong> ${hours} · ${lineup}</p>
+        <p><strong>Band contact:</strong> ${bandEmail} · ${bandPhone}</p>
+        <p><strong>Band address:</strong> ${bandAddress}</p>
+        <p><strong>Band signature:</strong> ${bandSignatureName}</p>
+      </div>
+      <div>
+        <h2 class="signing-preview-h2">Agreement</h2>
+        <div class="signing-preview-contract-scroll">${bodyHtml}</div>
+      </div>
+      <div>
+        <h2 class="signing-preview-h2">Fee summary</h2>
+        <div class="signing-preview-fee-grid">
+          <div class="signing-preview-fee-row"><span>Performance fee</span><span>${perfFee}</span></div>
+          <div class="signing-preview-fee-row"><span>Deposit due</span><span>${depDue}</span></div>
+          <div class="signing-preview-fee-row"><span>Amount due day of show</span><span>${dayOf}</span></div>
+        </div>
+        <p class="signing-preview-meta" style="margin-top:12px"><strong>Payment methods:</strong> ${pay}</p>
+        ${paymentActions}
+      </div>
+    </div>
+  `;
 }
 
 function refreshAgreementCreatedDate() {
@@ -6687,6 +6860,7 @@ async function openAgreementForCalendarEvent(event) {
   state.workspace.bookingSaved = Boolean(event?.id);
   state.workspace.bookingEventId = event?.id || "";
   state.workspace.contractWizardOpen = false;
+  state.workspace.showClientSigningPreview = false;
 
   syncAgreementForm();
   updatePerformanceHoursFromTimes();
@@ -7764,6 +7938,7 @@ function loadAgreementDraftFromContract(contract, options = {}) {
   state.workspace.bookingSaved = Boolean(contract?.event_id);
   state.workspace.bookingEventId = contract?.event_id || "";
   state.workspace.contractWizardOpen = false;
+  state.workspace.showClientSigningPreview = false;
   syncAgreementForm();
   updateAgreementPreview();
   renderAgreementStepUI();
@@ -8236,6 +8411,9 @@ function resetAgreementForm() {
   state.workspace.bookingSaved = false;
   state.workspace.bookingEventId = "";
   state.workspace.contractWizardOpen = false;
+  state.workspace.showClientSigningPreview = false;
+  const signingPreview = document.getElementById("agreementClientSigningPreview");
+  if (signingPreview) signingPreview.innerHTML = "";
   syncAgreementForm();
   updateAgreementPreview();
   renderAgreementStepUI();
@@ -8258,6 +8436,7 @@ async function saveBookingOnly() {
     state.workspace.bookingSaved = true;
     state.workspace.bookingEventId = result.eventId || "";
     state.workspace.contractWizardOpen = false;
+    state.workspace.showClientSigningPreview = false;
     updateSupabaseStatus("Booking saved.");
     setAgreementCalendarStatus(
       "Booking saved. Generate Contract whenever you're ready."
@@ -8317,7 +8496,7 @@ async function generateAgreementContractLink() {
   const { data: inserted, error } = await client
     .from("contracts")
     .insert(payload)
-    .select("id")
+    .select("*")
     .single();
   if (error || !inserted?.id) {
     setAgreementCalendarStatus(formatSupabaseError(error, "Could not generate contract link."), true);
@@ -8336,7 +8515,7 @@ async function generateAgreementContractLink() {
   if (linkedEvent) linkedEvent.contract_sent_at = sentAt;
 
   state.workspace.contractShareId = contractId;
-  const link = `https://gigos.netlify.app/contract.html?id=${contractId}`;
+  const link = getContractSigningPageUrl();
   const contractSendWrap = document.getElementById("contractSendWrap");
   const contractLinkDisplay = document.getElementById("contractLinkDisplay");
   if (contractSendWrap) contractSendWrap.classList.remove("hidden");
@@ -8442,6 +8621,7 @@ function syncAgreementForm() {
       ) {
         state.workspace.bookingSaved = false;
         state.workspace.contractWizardOpen = false;
+        state.workspace.showClientSigningPreview = false;
         setAgreementCalendarStatus("Changes made — please re-save before generating contract.");
       }
       updateAgreementPreview();
@@ -11912,6 +12092,7 @@ function setupListeners() {
       if (previousValue !== state.agreement[field] && state.workspace.bookingSaved) {
         state.workspace.bookingSaved = false;
         state.workspace.contractWizardOpen = false;
+        state.workspace.showClientSigningPreview = false;
         setAgreementCalendarStatus("Changes made — please re-save before generating contract.");
       }
       if (field === "lodgingEnabled") {
@@ -11982,6 +12163,7 @@ function setupListeners() {
       if (state.workspace.bookingSaved) {
         state.workspace.bookingSaved = false;
         state.workspace.contractWizardOpen = false;
+        state.workspace.showClientSigningPreview = false;
         setAgreementCalendarStatus("Changes made — please re-save before generating contract.");
       }
       updateAgreementPreview();
@@ -12681,6 +12863,7 @@ function setupListeners() {
       state.workspace.agreementStep = Math.max(1, Number(state.workspace.agreementStep || 1) - 1);
       if (state.workspace.agreementStep !== AGREEMENT_STEP_COUNT) {
         state.workspace.contractWizardOpen = false;
+        state.workspace.showClientSigningPreview = false;
       }
       renderAgreementStepUI();
       saveDraft();
@@ -12695,6 +12878,7 @@ function setupListeners() {
       );
       if (state.workspace.agreementStep !== AGREEMENT_STEP_COUNT) {
         state.workspace.contractWizardOpen = false;
+        state.workspace.showClientSigningPreview = false;
       }
       renderAgreementStepUI();
       saveDraft();
@@ -13621,6 +13805,7 @@ async function generatePdf(type, options = {}) {
 
   if (type === "agreement") {
     state.workspace.contractShareId = "";
+    state.workspace.showClientSigningPreview = false;
     prepareAgreementForOutput();
     refreshAgreementCreatedDate();
     updateAgreementPreview();

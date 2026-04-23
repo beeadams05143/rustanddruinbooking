@@ -1937,6 +1937,153 @@ textarea {
   color: var(--ink-soft);
 }
 
+.agreement-customer-view-card {
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(216, 115, 67, 0.45);
+  background: linear-gradient(135deg, rgba(255, 248, 236, 0.98) 0%, rgba(253, 240, 227, 0.99) 100%);
+  box-shadow: 0 8px 22px rgba(125, 81, 42, 0.1);
+}
+
+.agreement-customer-view-label {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #c45a1a;
+}
+
+.agreement-customer-view-help {
+  margin: 0 0 14px;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: #5a4335;
+}
+
+.agreement-customer-view-btn {
+  width: 100%;
+  max-width: 320px;
+}
+
+/* In-app signing preview — matches contract.html client layout */
+.agreement-client-signing-preview {
+  margin-top: 0;
+}
+
+.signing-preview-shell {
+  background: rgba(255, 252, 245, 0.96);
+  border: 1px solid rgba(91, 56, 31, 0.16);
+  border-radius: 18px;
+  padding: 22px 18px;
+  color: #3f2a1d;
+  box-shadow: 0 12px 28px rgba(91, 56, 31, 0.08);
+}
+
+.signing-preview-eyebrow {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(193, 122, 58, 0.15);
+  color: #8b4a1a;
+}
+
+.signing-preview-h1 {
+  margin: 0 0 8px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #8b4a1a;
+}
+
+.signing-preview-h2 {
+  margin: 18px 0 10px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #8b4a1a;
+}
+
+.signing-preview-meta {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #6d5647;
+}
+
+.signing-preview-meta strong {
+  color: #5a4335;
+}
+
+.signing-preview-stack {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed rgba(91, 56, 31, 0.18);
+}
+
+.signing-preview-contract-scroll {
+  margin-top: 10px;
+  max-height: min(70vh, 620px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid rgba(91, 56, 31, 0.16);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-overflow-scrolling: touch;
+}
+
+.signing-preview-contract-scroll .contract {
+  background: transparent;
+  border: none;
+  padding: 0;
+  box-shadow: none;
+}
+
+.signing-preview-contract-scroll,
+.signing-preview-contract-scroll .contract {
+  color: #2c1a00;
+}
+
+.signing-preview-fee-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 0.95rem;
+}
+
+.signing-preview-fee-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px dashed rgba(91, 56, 31, 0.16);
+  padding-bottom: 6px;
+}
+
+.signing-preview-payment-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.signing-preview-primary-btn {
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  background: #8b4a1a;
+  color: #fff;
+}
+
 .invoice-body {
   display: grid;
   gap: 12px;
