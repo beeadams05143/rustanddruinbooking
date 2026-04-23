@@ -8300,25 +8300,32 @@ async function generateAgreementContractLink() {
 
   stopContractSignaturePoll();
   setAgreementCalendarStatus("Preparing contract link...");
-  await hydrateAgreementFromBookingRecord(state.workspace.bookingEventId);
-  prepareAgreementForOutput();
   state.workspace.contractWizardOpen = true;
   renderAgreementStepUI();
-  updateAgreementPreview();
 
-  const shareId = crypto.randomUUID();
+  await hydrateAgreementFromBookingRecord(state.workspace.bookingEventId);
+  prepareAgreementForOutput();
+
   const payload = {
-    
+    ...buildAgreementContractDigitalPayload(),
+    name: `${state.agreement.clientName || "Event"} Agreement`,
+    file_path: null,
     event_id: state.workspace.bookingEventId || null,
-    ...buildAgreementContractDigitalPayload(), name: (state.agreement.clientName||"Event")+" Agreement", file_path: null, event_id: state.workspace.bookingEventId||null, status: "Pending signature",
+    status: "Pending signature",
   };
 
-  const { error } = await client.from("contracts").insert(payload);
-  if (error) {
+  const { data: inserted, error } = await client
+    .from("contracts")
+    .insert(payload)
+    .select("id")
+    .single();
+  if (error || !inserted?.id) {
     setAgreementCalendarStatus(formatSupabaseError(error, "Could not generate contract link."), true);
     showContractLinkToast("Could not generate contract link.", true);
     return;
   }
+
+  const contractId = inserted.id;
 
   const sentAt = new Date().toISOString();
   await client
@@ -8328,9 +8335,8 @@ async function generateAgreementContractLink() {
   const linkedEvent = state.calendar.events.find((item) => item.id === state.workspace.bookingEventId);
   if (linkedEvent) linkedEvent.contract_sent_at = sentAt;
 
-  state.workspace.contractShareId = shareId;
-  state.workspace.contractWizardOpen = true;
-  const link = `https://gigos.netlify.app/contract.html?id=${shareId}`;
+  state.workspace.contractShareId = contractId;
+  const link = `https://gigos.netlify.app/contract.html?id=${contractId}`;
   const contractSendWrap = document.getElementById("contractSendWrap");
   const contractLinkDisplay = document.getElementById("contractLinkDisplay");
   if (contractSendWrap) contractSendWrap.classList.remove("hidden");
