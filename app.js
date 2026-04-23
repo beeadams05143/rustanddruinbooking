@@ -11113,10 +11113,13 @@ async function renderBookedDatesList() {
     const depositAmount = toNumber(state.bandDNA.defaultDeposit || 50);
     const bandDetails = getBandContractDetails();
     const paymentConfig = getBandPaymentConfig();
-    const payload = {
+    const { error } = await client.from("contracts").insert({
       id: shareId,
+      name: `${event.title || event.type || "Event"} Agreement`,
+      file_path: null,
       event_id: event.id,
-      band_name: bandDetails.bandName,
+      status: "Pending signature",
+      band_name: bandDetails.bandName || "",
       band_address: bandDetails.bandAddress || "",
       band_email: bandDetails.bandEmail || "",
       band_phone: bandDetails.bandPhone || "",
@@ -11139,10 +11142,9 @@ async function renderBookedDatesList() {
       payment_methods: buildDynamicPaymentMethodsText(),
       venmo_handle: paymentConfig.venmoHandle || "",
       paypal_handle: paymentConfig.paypalHandle || "",
-    };
-    const { error } = await client.from("shared_contracts").insert(payload);
+    });
     if (error) {
-      console.error("shared_contracts insert failed:", JSON.stringify(error));
+      console.error("contracts insert failed:", JSON.stringify(error));
       if (detailStatus) {
         detailStatus.textContent = `Could not generate contract link: ${error.message || error.code || JSON.stringify(error)}`;
         detailStatus.style.color = "#b53b2b";
