@@ -11128,14 +11128,24 @@ async function renderBookedDatesList() {
     if (!copied) return;
     await updateShowFlowFields(event.id, { contract_sent_at: new Date().toISOString() });
     await fetchContracts();
-    const freshQuoteMap = buildQuoteMapByEventId(await fetchQuoteRowsForBookingFlow());
-    const latestEvent = state.calendar.events.find((item) => item.id === event.id) || event;
     const card = statusEl?.closest(".shows-booked-card");
     const badge = card?.querySelector(".shows-stage-pill");
-    const stage = getBookingFlowStage(latestEvent, freshQuoteMap);
+    const pipeline = card?.querySelector(".show-flow-pipeline");
+    const contractMeta = pipeline?.querySelector(".show-flow-step:nth-child(3) .show-flow-meta");
+    const contractMarker = pipeline?.querySelector(".show-flow-step:nth-child(3) .show-flow-marker");
+    const contractButton = pipeline?.querySelector(".show-flow-step:nth-child(3) .show-flow-action");
     if (badge) {
-      badge.textContent = stage.label || "Quote sent";
-      badge.className = `dashboard-badge shows-stage-pill ${stage.className || "badge-done"}`;
+      badge.textContent = "Contract sent";
+      badge.className = "dashboard-badge shows-stage-pill badge-stage-contract-sent";
+    }
+    if (contractMeta) {
+      contractMeta.textContent = formatShortDateTime(new Date().toISOString());
+    }
+    if (contractMarker) {
+      contractMarker.classList.add("is-complete");
+    }
+    if (contractButton) {
+      contractButton.textContent = "Copy Contract Link";
     }
     if (statusEl) {
       statusEl.textContent = "Contract link copied.";
