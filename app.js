@@ -8306,9 +8306,9 @@ async function generateAgreementContractLink() {
 
   const shareId = crypto.randomUUID();
   const payload = {
-    id: shareId,
+    
     event_id: state.workspace.bookingEventId || null,
-    ...buildAgreementContractDigitalPayload(),
+    name: (state.agreement.clientName||"Event")+" Agreement", file_path: null, event_id: state.workspace.bookingEventId||null, status: "Pending signature",
   };
 
   const { error } = await client.from("contracts").insert(payload);
@@ -11114,7 +11114,7 @@ async function renderBookedDatesList() {
     const bandDetails = getBandContractDetails();
     const paymentConfig = getBandPaymentConfig();
     const { error } = await client.from("contracts").insert({
-      id: shareId,
+      
       name: `${event.title || event.type || "Event"} Agreement`,
       file_path: null,
       event_id: event.id,
