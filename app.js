@@ -12229,7 +12229,7 @@ function setupListeners() {
     }
     const navTarget = normalizeTopTarget(topTarget);
     activeTop = navTarget;
-    state.workspace.top = navTarget;
+    state.workspace.top = navTarget; const csw = document.getElementById('contractSendWrap'); if (csw) csw.classList.add('hidden');
     document.querySelectorAll(".bottom-nav-tab[data-bottom]").forEach((btn) => {
       btn.classList.toggle("active", btn.getAttribute("data-bottom") === navTarget);
     });
