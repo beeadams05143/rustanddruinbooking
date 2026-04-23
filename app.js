@@ -855,8 +855,9 @@ async function loadBandDNAFromSupabase() {
         state.bandDNA.paymentMethods = buildDynamicPaymentMethodsText(state.bandDNA);
       }
       const bethRepair = getBethBandDNARepair(state.bandDNA);
-      if (bethRepair.needsUpdate) {
+      if (bethRepair.needsUpdate && !state.bandDNA.legacyMigrationComplete) {
         state.bandDNA = bethRepair.bandDNA;
+        state.bandDNA.legacyMigrationComplete = true;
         await client
           .from("app_settings")
           .upsert(
@@ -3909,6 +3910,7 @@ function eventIdentityKey(event) {
 }
 
 function getSeededCalendarEvents(rangeStart = null, rangeEnd = null) {
+  if (!isBethBandDNA(state.bandDNA)) return [];
   return SEEDED_BOOKED_EVENTS
     .map((event, index) => {
       const start = combineDateTime(event.date, event.start);
@@ -10570,11 +10572,13 @@ async function fetchMusicians() {
     return;
   }
   state.musicians = data || [];
-  ensureToddSeededShowFiles();
-  ensureDanSeededShowFiles();
-  ensureJennySeededShowFiles();
-  ensureGarySeededShowFiles();
-  ensureSeededMusicianBlackouts();
+  if (isBethBandDNA(state.bandDNA)) {
+    ensureToddSeededShowFiles();
+    ensureDanSeededShowFiles();
+    ensureJennySeededShowFiles();
+    ensureGarySeededShowFiles();
+    ensureSeededMusicianBlackouts();
+  }
   renderMusicianList();
   renderMusicianAssignments();
   renderAssignmentSummaryLists();
