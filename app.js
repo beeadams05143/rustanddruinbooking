@@ -11097,21 +11097,64 @@ async function renderBookedDatesList() {
   const copyContractLinkForShow = async (event, statusEl) => {
     if (!client || !state.calendar.session || !event?.id) return;
     let contractId = "";
+    const contractLink = `https://gigos.netlify.app/contract.html?id=${event.id}`;
     await withShowDraftState(event, async () => {
-      await upsertPendingContractForEvent(event.id, event.title || event.type);
-      await fetchContracts();
-      const contract = getLinkedContractForEvent(event);
-      if (!contract?.id) return;
-      contractId = contract.id;
-      const payload = buildAgreementContractDigitalPayload();
-      await client
+      const start = new Date(event.start_time || Date.now());
+      const end = new Date(event.end_time || event.start_time || Date.now());
+      const lineup = getShowLineupLabel(event);
+      const hours = Math.max(1, hoursBetweenTimes(formatTimeInput(start), formatTimeInput(end)));
+      const matchingLineup = (Array.isArray(state.bandDNA.lineups) ? state.bandDNA.lineups : [])
+        .find((l) => String(l?.name || "").toLowerCase() === lineup.toLowerCase());
+      const count = getLineupMusicianCount(lineup, matchingLineup || {});
+      const ratePerHour = toNumber(matchingLineup?.rate) || (toNumber(state.bandDNA.musicianHourlyRate || 50) * count);
+      const performanceFee = ratePerHour * hours;
+      const depositAmount = toNumber(state.bandDNA.defaultDeposit || 50);
+      const bandDetails = getBandContractDetails();
+      const paymentConfig = getBandPaymentConfig();
+      const manualPayload = {
+        band_name: bandDetails.bandName,
+        band_address: bandDetails.bandAddress,
+        band_email: bandDetails.bandEmail,
+        band_phone: bandDetails.bandPhone,
+        band_signature_name: bandDetails.bandSignatureName,
+        client_name: event.title || "",
+        client_email: "",
+        contract_text: "",
+        legal_text: "",
+        venue_name: "",
+        venue_address: "",
+        event_date: formatDateInput(start),
+        event_type: event.type || "",
+        performance_time: formatTimeInput(start),
+        performance_end_time: formatTimeInput(end),
+        hours: String(hours),
+        lineup,
+        performance_fee: performanceFee,
+        deposit_amount: depositAmount,
+        amount_due_day_of: Math.max(0, performanceFee - depositAmount),
+        payment_methods: buildDynamicPaymentMethodsText(),
+        venmo_handle: paymentConfig.venmoHandle,
+        paypal_handle: paymentConfig.paypalHandle,
+      };
+      const { data: insertedContract, error } = await client
         .from("contracts")
-        .update({
-          ...payload,
+        .insert({
+          ...manualPayload,
           name: `${event.title || event.type || "Event"} Agreement`,
-          status: contract.status || "Pending signature",
+          file_path: null,
+          event_id: event.id,
+          status: "Pending signature",
         })
-        .eq("id", contract.id);
+        .select("id")
+        .single();
+      if (error || !insertedContract) {
+        if (statusEl) {
+          statusEl.textContent = formatSupabaseError(error, "Could not generate contract link.");
+          statusEl.classList.add("warning");
+        }
+        return;
+      }
+      contractId = insertedContract.id;
     });
     if (!contractId) {
       if (statusEl) {
@@ -11120,7 +11163,8 @@ async function renderBookedDatesList() {
       }
       return;
     }
-    const copied = await copyTextToClipboard(`https://gigos.netlify.app/contract.html?id=${contractId}`, {
+    const readyLink = `https://gigos.netlify.app/contract.html?id=${contractId}`;
+    const copied = await copyTextToClipboard(readyLink, {
       statusEl,
       successMessage: "Contract link copied.",
       failureMessage: "Could not copy contract link.",
@@ -11130,10 +11174,41 @@ async function renderBookedDatesList() {
     await fetchContracts();
     const card = statusEl?.closest(".shows-booked-card");
     const badge = card?.querySelector(".shows-stage-pill");
+    const detail = statusEl?.closest(".show-flow-detail");
     const pipeline = card?.querySelector(".show-flow-pipeline");
     const contractMeta = pipeline?.querySelector(".show-flow-step:nth-child(3) .show-flow-meta");
     const contractMarker = pipeline?.querySelector(".show-flow-step:nth-child(3) .show-flow-marker");
     const contractButton = pipeline?.querySelector(".show-flow-step:nth-child(3) .show-flow-action");
+    let contractLinkWrap = detail?.querySelector(`#showCardContractLinkWrap-${event.id}`);
+    if (detail && pipeline) {
+      if (!contractLinkWrap) {
+        contractLinkWrap = document.createElement("div");
+        contractLinkWrap.id = `showCardContractLinkWrap-${event.id}`;
+        contractLinkWrap.style.cssText = "margin:12px 0;padding:12px;border:1px solid #e8a855;border-radius:12px;background:#fff7ec;";
+        detail.insertBefore(contractLinkWrap, pipeline);
+      }
+      contractLinkWrap.innerHTML = `
+        <div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#8a5010;margin-bottom:8px;">Contract Link</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input type="text" readonly value="${escapeHtml(readyLink)}" style="flex:1;min-width:220px;padding:10px 12px;border:1px solid #e8a855;border-radius:10px;background:#fdf0e3;color:#5a3a1a;font-size:13px;">
+          <button type="button" class="btn ghost">Copy</button>
+        </div>
+      `;
+      const copyButton = contractLinkWrap.querySelector("button");
+      if (copyButton) {
+        copyButton.addEventListener("click", async (clickEvent) => {
+          clickEvent.stopPropagation();
+          const linkCopied = await copyTextToClipboard(readyLink, {
+            statusEl,
+            successMessage: "Contract link copied.",
+            failureMessage: "Could not copy contract link.",
+          });
+          if (linkCopied) {
+            showContractLinkToast("Contract link copied.");
+          }
+        });
+      }
+    }
     if (badge) {
       badge.textContent = "Contract sent";
       badge.className = "dashboard-badge shows-stage-pill badge-stage-contract-sent";
@@ -11148,7 +11223,7 @@ async function renderBookedDatesList() {
       contractButton.textContent = "Copy Contract Link";
     }
     if (statusEl) {
-      statusEl.textContent = "Contract link copied.";
+      statusEl.textContent = "Contract link ready — send to your client to sign.";
       statusEl.classList.remove("warning");
     }
     showContractLinkToast("Contract link copied.");
