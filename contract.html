@@ -220,6 +220,7 @@
       const params = new URLSearchParams(window.location.search);
       const contractId = params.get("id");
       const app = document.getElementById("app");
+      let activeContractTable = "shared_contracts";
 
       function escapeHtml(value) {
         return String(value || "")
@@ -306,10 +307,21 @@
         app.innerHTML = "<p>This contract is no longer available.</p>";
       }
 
+      function getContractPaymentMeta(contract = {}, bandDNA = {}) {
+        return {
+          venmoHandle: contract.venmo_handle || bandDNA.venmoHandle || "",
+          paypalHandle: contract.paypal_handle || bandDNA.paypalHandle || "",
+        };
+      }
+
       function renderSigned(contract, bandDNA = {}) {
         const name = escapeHtml(contract.client_signature || contract.client_name || "Client");
         const when = formatDisplayDate(contract.signed_at);
-        const paymentActions = renderPaymentActions(contract.deposit_amount ?? 0, `${contract.band_name || "Band"} deposit`, bandDNA);
+        const paymentActions = renderPaymentActions(
+          contract.deposit_amount ?? 0,
+          `${contract.band_name || "Band"} deposit`,
+          getContractPaymentMeta(contract, bandDNA)
+        );
         app.innerHTML = `
           <div class="stack">
             <span class="eyebrow">Performance contract</span>
@@ -325,8 +337,12 @@
         const dep = formatMoney(contract.deposit_amount ?? 0);
         const methods = escapeHtml(contract.payment_methods || "the payment options in your agreement");
         const signedAt = escapeHtml(formatDisplayDate(new Date().toISOString()));
-        const bodyHtml = contract.contract_text ? String(contract.contract_text) : "";
-        const paymentActions = renderPaymentActions(contract.deposit_amount ?? 0, `${contract.band_name || "Band"} deposit`, bandDNA);
+        const bodyHtml = contract.contract_text ? String(contract.contract_text) : String(contract.legal_text || "");
+        const paymentActions = renderPaymentActions(
+          contract.deposit_amount ?? 0,
+          `${contract.band_name || "Band"} deposit`,
+          getContractPaymentMeta(contract, bandDNA)
+        );
         app.innerHTML = `
           <div class="stack">
             <div class="success">
@@ -345,7 +361,13 @@
       function renderContractPage(contract, bandDNA = {}) {
         const band = escapeHtml(contract.band_name || "Rust and Ruin");
         const client = escapeHtml(contract.client_name || "there");
-        const venue = escapeHtml(contract.venue_name || "—");
+        const clientEmail = escapeHtml(contract.client_email || "—");
+        const venue = escapeHtml(contract.venue_name || contract.venue_address || "—");
+        const venueAddress = escapeHtml(contract.venue_address || contract.venue_name || "—");
+        const bandAddress = escapeHtml(contract.band_address || bandDNA.homeAddress || "—");
+        const bandEmail = escapeHtml(contract.band_email || bandDNA.contactEmail || "—");
+        const bandPhone = escapeHtml(contract.band_phone || bandDNA.contactPhone || "—");
+        const bandSignatureName = escapeHtml(contract.band_signature_name || bandDNA.signoffName || contract.band_name || "Band representative");
         const evDate = formatEventDate(contract.event_date);
         const evType = escapeHtml(contract.event_type || "—");
         const pStart = escapeHtml(contract.performance_time || "—");
@@ -357,12 +379,16 @@
         const dayOf = formatMoney(contract.amount_due_day_of ?? 0);
         const bodyHtml = contract.contract_text
           ? String(contract.contract_text)
-          : "<p><em>Contract text will appear here once saved from the booking app.</em></p>";
+          : String(contract.legal_text || "<p><em>Contract text will appear here once saved from the booking app.</em></p>");
         const pay = escapeHtml(
           contract.payment_methods ||
             "the payment options in your agreement"
         );
-        const paymentActions = renderPaymentActions(contract.deposit_amount ?? 0, `${contract.band_name || "Band"} deposit`, bandDNA);
+        const paymentActions = renderPaymentActions(
+          contract.deposit_amount ?? 0,
+          `${contract.band_name || "Band"} deposit`,
+          getContractPaymentMeta(contract, bandDNA)
+        );
 
         app.innerHTML = `
           <div class="stack">
@@ -370,11 +396,16 @@
             <h1>${band}</h1>
             <p class="meta">Hi ${client}!</p>
             <div class="meta stack">
+              <p><strong>Client email:</strong> ${clientEmail}</p>
               <p><strong>Event date:</strong> ${evDate}</p>
               <p><strong>Venue:</strong> ${venue}</p>
+              <p><strong>Venue address:</strong> ${venueAddress}</p>
               <p><strong>Event type:</strong> ${evType}</p>
               <p><strong>Performance:</strong> ${pStart} – ${pEnd}</p>
               <p><strong>Hours / lineup:</strong> ${hours} · ${lineup}</p>
+              <p><strong>Band contact:</strong> ${bandEmail} · ${bandPhone}</p>
+              <p><strong>Band address:</strong> ${bandAddress}</p>
+              <p><strong>Band signature:</strong> ${bandSignatureName}</p>
             </div>
             <div>
               <h2>Agreement</h2>
@@ -434,7 +465,7 @@
           signStatus.textContent = "Signing…";
           const signedAt = new Date().toISOString();
           const { error } = await supabaseClient
-            .from("contracts")
+            .from(activeContractTable)
             .update({
               signed_at: signedAt,
               client_signature: clientName,
@@ -484,11 +515,22 @@
         }
         try {
           const bandDNA = await loadBandDNA();
-          const { data: contract, error } = await supabaseClient
-            .from("contracts")
+          let contract = null;
+          let error = null;
+          ({ data: contract, error } = await supabaseClient
+            .from("shared_contracts")
             .select("*")
             .eq("id", contractId)
-            .single();
+            .maybeSingle());
+          activeContractTable = "shared_contracts";
+          if (error || !contract) {
+            ({ data: contract, error } = await supabaseClient
+              .from("contracts")
+              .select("*")
+              .eq("id", contractId)
+              .maybeSingle());
+            activeContractTable = "contracts";
+          }
           if (error || !contract) {
             setUnavailable();
             return;

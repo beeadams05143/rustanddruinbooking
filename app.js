@@ -26,6 +26,7 @@ function createInitialAgreementState() {
     eventType: "",
     bandConfig: "",
     additionalMusicians: "",
+    venueName: "",
     venueAddress: "",
     nonPerformanceHours: "",
     chargeNonPerformance: false,
@@ -550,6 +551,168 @@ function getBandPaymentConfig(dna = state.bandDNA) {
 function buildDynamicPaymentMethodsText(dna = state.bandDNA) {
   const config = getBandPaymentConfig(dna);
   return config.paymentMethodsText;
+}
+
+function getBandContractDetails(dna = state.bandDNA) {
+  return {
+    bandName: String(dna?.bandName || "").trim() || "Rust and Ruin",
+    bandAddress: String(dna?.homeAddress || "").trim(),
+    bandEmail: String(dna?.contactEmail || "").trim(),
+    bandPhone: String(dna?.contactPhone || "").trim(),
+    bandSignatureName:
+      String(dna?.signoffName || "").trim()
+      || String(dna?.managerName || "").trim()
+      || String(dna?.bandName || "").trim()
+      || "Band representative",
+  };
+}
+
+function getVenueNameFallback(value = "") {
+  return String(value || "").split(",").map((part) => part.trim()).filter(Boolean)[0] || "";
+}
+
+function getAcceptedQuoteOption(quote = {}) {
+  const options = Array.isArray(quote?.options) ? quote.options : [];
+  const selectedIndex = Number(quote?.chosen_option_index);
+  if (Number.isInteger(selectedIndex) && options[selectedIndex] && !options[selectedIndex]?.__meta) {
+    return options[selectedIndex];
+  }
+  return options.find((option) => option && !option.__meta) || null;
+}
+
+function getAgreementLineupFromRecords(event = {}, contract = {}, quote = {}) {
+  const option = getAcceptedQuoteOption(quote);
+  const optionLabel = String(option?.label || "").split("·")[0].trim();
+  return String(
+    state.agreement.bandConfig
+    || event?.accepted_lineup
+    || contract?.lineup
+    || optionLabel
+    || getShowLineupLabel(event)
+    || ""
+  ).trim();
+}
+
+let contractLinkToastTimer = null;
+
+function showContractLinkToast(message = "", isError = false) {
+  if (!message) return;
+  let toast = document.getElementById("contractLinkToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "contractLinkToast";
+    toast.style.cssText = [
+      "position:fixed",
+      "left:50%",
+      "bottom:24px",
+      "transform:translateX(-50%)",
+      "background:#f47c20",
+      "color:#fffaf4",
+      "padding:12px 18px",
+      "border-radius:999px",
+      "font-weight:600",
+      "box-shadow:0 12px 28px rgba(44,26,0,0.18)",
+      "z-index:10000",
+      "max-width:min(90vw,480px)",
+      "text-align:center",
+    ].join(";");
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.style.background = isError ? "#8f2d14" : "#f47c20";
+  toast.classList.remove("hidden");
+  clearTimeout(contractLinkToastTimer);
+  contractLinkToastTimer = setTimeout(() => {
+    toast.classList.add("hidden");
+  }, 2600);
+}
+
+async function hydrateAgreementFromBookingRecord(eventId = state.workspace.bookingEventId) {
+  const client = state.calendar.client;
+  if (!eventId) return null;
+
+  let event = state.calendar.events.find((item) => item.id === eventId) || null;
+  if (!event && client && state.calendar.session) {
+    const { data } = await client
+      .from("events")
+      .select("*")
+      .eq("id", eventId)
+      .maybeSingle();
+    event = data || null;
+  }
+
+  let quote = null;
+  try {
+    quote = await fetchExistingQuoteForEvent(eventId);
+  } catch (error) {
+    quote = null;
+  }
+
+  let contract = getLinkedContractForEvent(event || { id: eventId });
+  if (!contract && client && state.calendar.session) {
+    const { data } = await client
+      .from("contracts")
+      .select("*")
+      .eq("event_id", eventId)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    contract = Array.isArray(data) && data.length ? data[0] : null;
+  }
+
+  const option = getAcceptedQuoteOption(quote || {});
+  const start = event?.start_time ? new Date(event.start_time) : null;
+  const end = event?.end_time ? new Date(event.end_time) : start;
+  const feeSource = toNumber(
+    state.agreement.feeTotal
+    || contract?.performance_fee
+    || option?.price
+    || 0
+  );
+  const depositSource = toNumber(
+    state.agreement.depositAmount
+    || contract?.deposit_amount
+    || option?.deposit
+    || 0
+  );
+  const venueName = String(
+    contract?.venue_name
+    || quote?.venue_name
+    || state.agreement.venueName
+    || getVenueNameFallback(state.agreement.venueAddress || contract?.venue_address || "")
+  ).trim();
+  const venueAddress = String(
+    state.agreement.venueAddress
+    || contract?.venue_address
+    || contract?.venue_name
+    || quote?.venue_name
+    || ""
+  ).trim();
+
+  state.agreement = {
+    ...state.agreement,
+    clientName: String(state.agreement.clientName || contract?.client_name || quote?.client_name || event?.title || "").trim(),
+    clientEmail: String(state.agreement.clientEmail || contract?.client_email || quote?.client_email || "").trim(),
+    performanceDate: state.agreement.performanceDate || (start ? formatDateInput(start) : ""),
+    performanceTime: state.agreement.performanceTime || (start ? formatTimeInput(start) : ""),
+    performanceEndTime: state.agreement.performanceEndTime || (end ? formatTimeInput(end) : ""),
+    eventType: String(state.agreement.eventType || contract?.event_type || event?.type || "").trim(),
+    bandConfig: getAgreementLineupFromRecords(event || {}, contract || {}, quote || {}),
+    venueName,
+    venueAddress,
+    hours: String(state.agreement.hours || contract?.hours || "").trim(),
+    feeTotal: feeSource > 0 ? String(feeSource) : state.agreement.feeTotal,
+    feeManualOverride: feeSource > 0 ? true : state.agreement.feeManualOverride,
+    depositAmount: depositSource > 0 ? String(depositSource) : state.agreement.depositAmount,
+    depositEnabled: depositSource > 0 ? true : state.agreement.depositEnabled,
+    signatureName: String(state.agreement.signatureName || getBandContractDetails().bandSignatureName).trim(),
+    signatureDate: String(state.agreement.signatureDate || state.agreement.agreementCreatedDate || todayString()).trim(),
+    agreementCreatedDate: String(state.agreement.agreementCreatedDate || todayString()).trim(),
+  };
+
+  syncAgreementForm();
+  updatePerformanceHoursFromTimes();
+  updateAgreementPreview();
+  return { event, quote, contract };
 }
 
 function isBethBandDNA(dna = {}) {
@@ -2695,9 +2858,13 @@ function updateFeesAndDepositsFields(totals) {
 function updateAgreementPreview() {
   const totals = getAgreementTotals();
   const paymentConfig = getBandPaymentConfig();
+  const bandDetails = getBandContractDetails();
   updateFeesAndDepositsFields(totals);
-  setText("[data-fill='bandName']", state.bandDNA.bandName || "Rust and Ruin");
-  setText("[data-fill='bandContactLine']", [state.bandDNA.contactEmail, state.bandDNA.contactPhone].filter(Boolean).join(" · "));
+  setText("[data-fill='bandName']", bandDetails.bandName);
+  setText(
+    "[data-fill='bandContactLine']",
+    [bandDetails.bandAddress, bandDetails.bandEmail, bandDetails.bandPhone].filter(Boolean).join(" · ")
+  );
   setText("[data-fill='paymentSummary']", paymentConfig.paymentSummary);
   setText("[data-fill='contractPaymentMethods']", paymentConfig.paymentMethodsText);
   document.querySelectorAll("[data-fill='clientName']").forEach((el) => {
@@ -2760,7 +2927,8 @@ function updateAgreementPreview() {
   setText("[data-fill='depositDue']", toMoney(totals.depositAmount));
   setText("[data-fill='amountDueDayOf']", state.agreement.amountDueDayOf || "__");
   setText("[data-fill='requestedSongs']", state.agreement.requestedSongs || "None");
-  setText("[data-fill='signatureName']", state.agreement.signatureName || "__");
+  setText("[data-fill='signatureName']", state.agreement.signatureName || bandDetails.bandSignatureName || "__");
+  setText("[data-fill='signatureDate']", state.agreement.signatureDate || state.agreement.agreementCreatedDate || todayString());
   setText("[data-fill='agreementCreatedDate']", state.agreement.agreementCreatedDate || todayString());
 
   const promoBlock = document.getElementById("promoCreditsBlock");
@@ -2872,6 +3040,18 @@ function updateAgreementPreview() {
   const holidayDetails = document.getElementById("holidayDetails");
   if (holidayDetails) {
     holidayDetails.classList.toggle("hidden", !state.agreement.holidayWeekend);
+  }
+
+  const bandSignatureBlock = document.querySelector("#agreementPreview .contract-signatures > div:last-child");
+  if (bandSignatureBlock) {
+    bandSignatureBlock.innerHTML = `
+      <p>Band signature: ${escapeHtml(bandDetails.bandSignatureName || "__")}</p>
+      <p>${escapeHtml(bandDetails.bandName || "Band")}</p>
+      <p>Band address: ${escapeHtml(bandDetails.bandAddress || "__")}</p>
+      <p>Band email: ${escapeHtml(bandDetails.bandEmail || "__")}</p>
+      <p>Band phone: ${escapeHtml(bandDetails.bandPhone || "__")}</p>
+      <p>Venue address: ${escapeHtml(state.agreement.venueAddress || "__")}</p>
+    `;
   }
 
   const nonPerformanceField = document.getElementById("nonPerformanceHours");
@@ -3432,26 +3612,40 @@ function renderAgreementStepUI() {
   }
   if (contractBtn) {
     contractBtn.classList.toggle("hidden", !state.workspace.bookingSaved);
-    contractBtn.textContent = state.workspace.contractWizardOpen
-      ? "Contract Wizard Open"
-      : "Generate Contract";
+    contractBtn.textContent = "Generate Contract Link";
+    contractBtn.classList.remove("ghost");
   }
   if (quoteBtn) {
     quoteBtn.classList.remove("hidden");
   }
   if (contractNote) {
     if (state.workspace.bookingSaved) {
-      contractNote.textContent = "Booking saved. Contract generation is optional and stays separate from the booking flow.";
+      contractNote.textContent = "Booking saved. Generate a contract link whenever you're ready to send the agreement for signature.";
     } else if (state.workspace.bookingEventId) {
       contractNote.textContent = "Changes made — please re-save before generating contract.";
     } else {
-      contractNote.textContent = "Save the booking first. After that, you can open the contract wizard whenever you're ready.";
+      contractNote.textContent = "Save the booking first. After that, you can generate the contract link here.";
     }
   }
 
   const previewPanel = document.querySelector("#agreementTab .preview-panel");
   if (previewPanel) {
     previewPanel.classList.toggle("hidden", !state.workspace.contractWizardOpen);
+    let previewActions = document.getElementById("agreementPreviewActions");
+    if (!previewActions) {
+      previewActions = document.createElement("div");
+      previewActions.id = "agreementPreviewActions";
+      previewActions.style.cssText = "display:flex;justify-content:flex-end;gap:12px;margin-bottom:16px;";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.id = "agreementPreviewGenerateLinkBtn";
+      button.className = "btn";
+      button.textContent = "Generate Contract Link";
+      button.addEventListener("click", submitAgreement);
+      previewActions.appendChild(button);
+      previewPanel.insertBefore(previewActions, previewPanel.firstChild);
+    }
+    previewActions.classList.toggle("hidden", !state.workspace.contractWizardOpen);
   }
   const messagePreviewWrap = document.getElementById("messagePreviewWrap");
   const pdfActionsBar = document.getElementById("pdfActionsBar");
@@ -5326,11 +5520,21 @@ function setCreatedContractStatus(message, isError = false) {
 function buildAgreementContractDigitalPayload() {
   const totals = getAgreementTotals();
   const previewEl = document.getElementById("agreementPreview");
+  const bandDetails = getBandContractDetails();
+  const paymentConfig = getBandPaymentConfig();
+  const venueAddress = state.agreement.venueAddress || "";
   return {
-    band_name: state.bandDNA.bandName || "Rust and Ruin",
+    band_name: bandDetails.bandName,
+    band_address: bandDetails.bandAddress,
+    band_email: bandDetails.bandEmail,
+    band_phone: bandDetails.bandPhone,
+    band_signature_name: bandDetails.bandSignatureName,
     client_name: state.agreement.clientName || "",
+    client_email: state.agreement.clientEmail || "",
     contract_text: previewEl ? previewEl.innerHTML : "",
-    venue_name: state.agreement.venueAddress || "",
+    legal_text: previewEl ? previewEl.innerHTML : "",
+    venue_name: state.agreement.venueName || getVenueNameFallback(venueAddress) || venueAddress,
+    venue_address: venueAddress,
     event_date: state.agreement.performanceDate || "",
     event_type: state.agreement.eventType || "",
     performance_time: state.agreement.performanceTime || "",
@@ -5353,6 +5557,8 @@ function buildAgreementContractDigitalPayload() {
       totals.balanceDueAtShow + totals.addOnTotal + totals.travelFee + totals.lodgingFee
     ),
     payment_methods: buildDynamicPaymentMethodsText(),
+    venmo_handle: paymentConfig.venmoHandle,
+    paypal_handle: paymentConfig.paypalHandle,
   };
 }
 
@@ -5441,14 +5647,23 @@ async function checkContractSignatureStatus() {
   const shareId = state.workspace.contractShareId;
   const client = state.calendar.client;
   if (!shareId || !client || !state.calendar.session) return;
-  const { data, error } = await client
-    .from("contracts")
-    .select("signed_at, client_signature, name")
+  let data = null;
+  let error = null;
+  ({ data, error } = await client
+    .from("shared_contracts")
+    .select("signed_at, client_signature, client_name")
     .eq("id", shareId)
-    .single();
+    .maybeSingle());
+  if ((error || !data) && shareId) {
+    ({ data, error } = await client
+      .from("contracts")
+      .select("signed_at, client_signature, name")
+      .eq("id", shareId)
+      .maybeSingle());
+  }
   if (error || !data || !data.signed_at) return;
   stopContractSignaturePoll();
-  const name = data.client_signature || "your client";
+  const name = data.client_signature || data.client_name || data.name || "your client";
   const banner = document.getElementById("contractSignedBanner");
   if (banner) {
     banner.textContent = `✓ Contract signed by ${name}! Check Signed Contracts to view it.`;
@@ -8059,18 +8274,70 @@ async function saveBookingOnly() {
   setAgreementCalendarStatus(`Could not save booking${reasonLabel}.`, true);
 }
 
-async function submitAgreement() {
-  stopContractSignaturePoll();
-  if (!state.workspace.bookingSaved) {
-    setAgreementCalendarStatus("Save the booking first, then generate the contract.", true);
+async function generateAgreementContractLink() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) {
+    setAgreementCalendarStatus("Sign in on Calendar tab first, then generate the contract link.", true);
     return;
   }
-  state.workspace.contractShareId = "";
-  state.workspace.contractWizardOpen = true;
+  if (!state.workspace.bookingSaved || !state.workspace.bookingEventId) {
+    setAgreementCalendarStatus("Save the booking first, then generate the contract link.", true);
+    return;
+  }
+
+  stopContractSignaturePoll();
+  setAgreementCalendarStatus("Preparing contract link...");
+  await hydrateAgreementFromBookingRecord(state.workspace.bookingEventId);
   prepareAgreementForOutput();
+  state.workspace.contractWizardOpen = true;
+  renderAgreementStepUI();
+  updateAgreementPreview();
+
+  const shareId = crypto.randomUUID();
+  const payload = {
+    id: shareId,
+    event_id: state.workspace.bookingEventId || null,
+    ...buildAgreementContractDigitalPayload(),
+  };
+
+  const { error } = await client.from("shared_contracts").insert(payload);
+  if (error) {
+    setAgreementCalendarStatus(formatSupabaseError(error, "Could not generate contract link."), true);
+    showContractLinkToast("Could not generate contract link.", true);
+    return;
+  }
+
+  const sentAt = new Date().toISOString();
+  await client
+    .from("events")
+    .update({ contract_sent_at: sentAt })
+    .eq("id", state.workspace.bookingEventId);
+  const linkedEvent = state.calendar.events.find((item) => item.id === state.workspace.bookingEventId);
+  if (linkedEvent) linkedEvent.contract_sent_at = sentAt;
+
+  state.workspace.contractShareId = shareId;
+  state.workspace.contractWizardOpen = true;
+  const link = `https://gigos.netlify.app/contract.html?id=${shareId}`;
+  const contractSendWrap = document.getElementById("contractSendWrap");
+  const contractLinkDisplay = document.getElementById("contractLinkDisplay");
+  if (contractSendWrap) contractSendWrap.classList.remove("hidden");
+  if (contractLinkDisplay) contractLinkDisplay.value = link;
+
+  const copied = await copyTextToClipboard(link, {
+    statusEl: document.getElementById("contractSendStatus"),
+    successMessage: "Contract link copied.",
+    failureMessage: "Contract link ready, but could not copy it.",
+  });
+
+  showContractLinkToast(copied ? "Contract link copied." : "Contract link ready.");
+  setAgreementCalendarStatus("Contract link generated and ready to send.");
+  startContractSignaturePoll();
   renderAgreementStepUI();
   saveDraft();
-  setAgreementCalendarStatus("Contract wizard ready. Review the message and use the PDF actions when you're ready.");
+}
+
+async function submitAgreement() {
+  await generateAgreementContractLink();
   const previewPanel = document.querySelector("#agreementTab .preview-panel");
   if (previewPanel && typeof previewPanel.scrollIntoView === "function") {
     previewPanel.scrollIntoView({ behavior: "smooth", block: "start" });
