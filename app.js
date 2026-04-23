@@ -362,6 +362,9 @@ const state = {
   calendar: {
     overridePin: "",
     hiddenSeededEventKeys: [],
+    notificationJumpShowId: "",
+    notificationJumpStep: "",
+    notificationJumpNeedsPastInclude: false,
     client: null,
     monthOffset: 0,
     selectedDate: "",
@@ -4257,8 +4260,16 @@ function getBookingFlowStage(event, quoteMap = new Map()) {
 
 async function openBookingFlowNotificationTarget(event, target) {
   if (!event) return;
+  const showId = event.id || "";
+  const startTime = new Date(event.start_time || Date.now());
+  const today = startOfDay(new Date());
+  const needsPastInclude = Number.isFinite(startTime.getTime()) && startTime < today;
+  state.calendar.notificationJumpShowId = showId;
+  state.calendar.notificationJumpStep = target || "";
+  state.calendar.notificationJumpNeedsPastInclude = needsPastInclude;
   selectEventForEdit(event, formatDateInput(new Date(event.start_time || Date.now())));
   showHubFocusStep = target || "";
+  state.calendar.selectedEventId = showId;
   if (switchTopView) switchTopView("shows");
   await renderBookedDatesList();
 }
@@ -10938,6 +10949,16 @@ async function renderBookedDatesList() {
   if (!list) return;
   const client = state.calendar.client;
   const today = startOfDay(new Date());
+  const jumpShowId = state.calendar.notificationJumpShowId || "";
+  const jumpStep = state.calendar.notificationJumpStep || "";
+  const shouldIncludePastJumpShow = Boolean(
+    jumpShowId && state.calendar.notificationJumpNeedsPastInclude
+  );
+  const jumpEvent = jumpShowId
+    ? state.calendar.events.find((event) => event?.id === jumpShowId) || null
+    : null;
+  const jumpStart = jumpEvent?.start_time ? startOfDay(new Date(jumpEvent.start_time)) : null;
+  const rangeStart = shouldIncludePastJumpShow && jumpStart ? jumpStart : today;
   const endDate = new Date(today.getFullYear(), today.getMonth() + 12, 0, 23, 59, 59, 999);
   const quoteMap = buildQuoteMapByEventId(await fetchQuoteRowsForBookingFlow());
   const formatPipelineTime = (value, emptyLabel) => value ? formatShortDateTime(value) : emptyLabel;
@@ -11184,7 +11205,7 @@ async function renderBookedDatesList() {
   };
   const visibleLocalIds = new Set(state.calendar.events.map((event) => event.id).filter(Boolean));
   const hiddenSeededKeys = new Set(state.calendar.hiddenSeededEventKeys || []);
-  const booked = (await getShowsRangeEvents(today, endDate))
+  const booked = (await getShowsRangeEvents(rangeStart, endDate))
     .filter((event) => {
       if (event?.seeded) {
         const key = eventIdentityKey(event);
@@ -11220,6 +11241,7 @@ async function renderBookedDatesList() {
       const flow = getBookingFlowDetails(event, quoteMap);
       const card = document.createElement("div");
       card.className = "event-card shows-booked-card";
+      if (event?.id) card.dataset.showId = event.id;
       card.style.position = "relative";
       const isExpanded = state.calendar.selectedEventId === event.id;
       const title = document.createElement("strong");
@@ -11375,6 +11397,46 @@ async function renderBookedDatesList() {
     monthCard.appendChild(monthList);
     list.appendChild(monthCard);
   });
+  if (jumpShowId) {
+    const highlightCard = (card) => {
+      if (!card) return false;
+      if (typeof card.scrollIntoView === "function") {
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      const previousTransition = card.style.transition || "";
+      const previousBoxShadow = card.style.boxShadow || "";
+      const previousBorderColor = card.style.borderColor || "";
+      const previousBackground = card.style.background || "";
+      card.style.transition = "box-shadow 220ms ease, border-color 220ms ease, background 220ms ease";
+      card.style.boxShadow = "0 0 0 3px rgba(244, 124, 32, 0.22), 0 12px 28px rgba(232, 168, 85, 0.28)";
+      card.style.borderColor = "#f47c20";
+      card.style.background = "linear-gradient(180deg, #fff6ea 0%, #fdf0e3 100%)";
+      window.setTimeout(() => {
+        card.style.boxShadow = previousBoxShadow;
+        card.style.borderColor = previousBorderColor;
+        card.style.background = previousBackground;
+        card.style.transition = previousTransition;
+      }, 2000);
+      state.calendar.notificationJumpShowId = "";
+      state.calendar.notificationJumpStep = "";
+      state.calendar.notificationJumpNeedsPastInclude = false;
+      return true;
+    };
+    const tryHighlightJumpCard = () => {
+      const findJumpCard = () =>
+        Array.from(list.querySelectorAll("[data-show-id]")).find(
+          (card) => card.dataset.showId === jumpShowId
+        ) || null;
+      const card = findJumpCard();
+      if (highlightCard(card)) return;
+      window.requestAnimationFrame(() => {
+        const retryCard = findJumpCard();
+        highlightCard(retryCard);
+      });
+    };
+    if (jumpStep) showHubFocusStep = jumpStep;
+    window.setTimeout(tryHighlightJumpCard, 60);
+  }
   showHubFocusStep = "";
 }
 
