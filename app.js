@@ -346,10 +346,10 @@ const state = {
     videoLink: "",
     instagram: "",
     facebook: "",
-    loadInTime: "one hour",
-    soundCheckMinutes: "45",
-    breakPolicy: "A 10-minute break per 90 minutes is typical.",
-    cancellationDays: "90",
+    loadInTime: "",
+    soundCheckMinutes: "",
+    breakPolicy: "",
+    cancellationDays: "",
   },
   agreement: createInitialAgreementState(),
   invoice: createInitialInvoiceState(),
@@ -1151,6 +1151,26 @@ function renderOnboardingWizard() {
             <input id="onboardingPaypalHandle" type="text" value="${escapeHtml(dna.paypalHandle || "")}" />
             <span class="inline-help">Your PayPal.me link username — find it at paypal.me/yourusername</span>
           </label>
+          <label>
+            How early do you arrive before sound check?
+            <input id="onboardingLoadInTime" type="text" placeholder="1 hour" value="${escapeHtml(dna.loadInTime || "")}" />
+            <span class="inline-help">Used in your contract's scheduling clause</span>
+          </label>
+          <label>
+            How long does sound check take?
+            <input id="onboardingSoundCheckMinutes" type="text" placeholder="45 minutes" value="${escapeHtml(dna.soundCheckMinutes || "")}" />
+            <span class="inline-help">Used in your contract's load-in section</span>
+          </label>
+          <label>
+            Your break policy
+            <input id="onboardingBreakPolicy" type="text" placeholder="10-minute break per 90 minutes" value="${escapeHtml(dna.breakPolicy || "")}" />
+            <span class="inline-help">Used in your contract's scheduling clause</span>
+          </label>
+          <label>
+            Cancellation notice window (days)
+            <input id="onboardingCancellationDays" type="number" min="1" step="1" placeholder="90" value="${escapeHtml(dna.cancellationDays || "")}" />
+            <span class="inline-help">Used in your cancellation policy clause</span>
+          </label>
         </div>
         <label>
           Payment methods accepted
@@ -1407,6 +1427,10 @@ function saveOnboardingStep(stepNumber) {
       venmoHandle: document.getElementById("onboardingVenmoHandle")?.value.trim() || "",
       paypalHandle: document.getElementById("onboardingPaypalHandle")?.value.trim() || "",
       paymentMethods: document.getElementById("onboardingPaymentMethods")?.value.trim() || "",
+      loadInTime: document.getElementById("onboardingLoadInTime")?.value.trim() || "",
+      soundCheckMinutes: document.getElementById("onboardingSoundCheckMinutes")?.value.trim() || "",
+      breakPolicy: document.getElementById("onboardingBreakPolicy")?.value.trim() || "",
+      cancellationDays: document.getElementById("onboardingCancellationDays")?.value.trim() || "",
     });
     return;
   }
