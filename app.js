@@ -11113,7 +11113,7 @@ async function renderBookedDatesList() {
     const depositAmount = toNumber(state.bandDNA.defaultDeposit || 50);
     const bandDetails = getBandContractDetails();
     const paymentConfig = getBandPaymentConfig();
-    const { error } = await client.from("shared_contracts").insert({
+    const payload = {
       id: shareId,
       event_id: event.id,
       band_name: bandDetails.bandName,
@@ -11139,10 +11139,12 @@ async function renderBookedDatesList() {
       payment_methods: buildDynamicPaymentMethodsText(),
       venmo_handle: paymentConfig.venmoHandle || "",
       paypal_handle: paymentConfig.paypalHandle || "",
-    });
+    };
+    const { error } = await client.from("shared_contracts").insert(payload);
     if (error) {
+      console.error("shared_contracts insert failed:", JSON.stringify(error));
       if (detailStatus) {
-        detailStatus.textContent = "Could not generate contract link. Check Supabase connection.";
+        detailStatus.textContent = `Could not generate contract link: ${error.message || error.code || JSON.stringify(error)}`;
         detailStatus.style.color = "#b53b2b";
       }
       return;
