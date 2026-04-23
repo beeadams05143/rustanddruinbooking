@@ -11078,7 +11078,20 @@ async function renderBookedDatesList() {
     });
     if (!copied) return;
     await updateShowFlowFields(event.id, { quote_sent_at: new Date().toISOString() });
-    await renderBookedDatesList();
+    const freshQuoteMap = buildQuoteMapByEventId(await fetchQuoteRowsForBookingFlow());
+    const latestEvent = state.calendar.events.find((item) => item.id === event.id) || event;
+    const card = statusEl?.closest(".shows-booked-card");
+    const badge = card?.querySelector(".shows-stage-pill");
+    const stage = getBookingFlowStage(latestEvent, freshQuoteMap);
+    if (badge) {
+      badge.textContent = stage.label || "Quote sent";
+      badge.className = `dashboard-badge shows-stage-pill ${stage.className || "badge-done"}`;
+    }
+    if (statusEl) {
+      statusEl.textContent = "Quote link copied.";
+      statusEl.classList.remove("warning");
+    }
+    showContractLinkToast("Quote link copied.");
     await updateOpsProgress();
   };
   const copyContractLinkForShow = async (event, statusEl) => {
@@ -11115,7 +11128,20 @@ async function renderBookedDatesList() {
     if (!copied) return;
     await updateShowFlowFields(event.id, { contract_sent_at: new Date().toISOString() });
     await fetchContracts();
-    await renderBookedDatesList();
+    const freshQuoteMap = buildQuoteMapByEventId(await fetchQuoteRowsForBookingFlow());
+    const latestEvent = state.calendar.events.find((item) => item.id === event.id) || event;
+    const card = statusEl?.closest(".shows-booked-card");
+    const badge = card?.querySelector(".shows-stage-pill");
+    const stage = getBookingFlowStage(latestEvent, freshQuoteMap);
+    if (badge) {
+      badge.textContent = stage.label || "Quote sent";
+      badge.className = `dashboard-badge shows-stage-pill ${stage.className || "badge-done"}`;
+    }
+    if (statusEl) {
+      statusEl.textContent = "Contract link copied.";
+      statusEl.classList.remove("warning");
+    }
+    showContractLinkToast("Contract link copied.");
     await updateOpsProgress();
   };
   const copyInvoiceLinkForShow = async (event, statusEl) => {
@@ -11144,7 +11170,20 @@ async function renderBookedDatesList() {
     });
     if (!copied) return;
     await updateShowFlowFields(event.id, { invoice_sent_at: new Date().toISOString() });
-    await renderBookedDatesList();
+    const freshQuoteMap = buildQuoteMapByEventId(await fetchQuoteRowsForBookingFlow());
+    const latestEvent = state.calendar.events.find((item) => item.id === event.id) || event;
+    const card = statusEl?.closest(".shows-booked-card");
+    const badge = card?.querySelector(".shows-stage-pill");
+    const stage = getBookingFlowStage(latestEvent, freshQuoteMap);
+    if (badge) {
+      badge.textContent = stage.label || "Quote sent";
+      badge.className = `dashboard-badge shows-stage-pill ${stage.className || "badge-done"}`;
+    }
+    if (statusEl) {
+      statusEl.textContent = "Invoice link copied.";
+      statusEl.classList.remove("warning");
+    }
+    showContractLinkToast("Invoice link copied.");
     await updateOpsProgress();
   };
   const markInvoicePaidForShow = async (event, statusEl) => {
@@ -11170,7 +11209,20 @@ async function renderBookedDatesList() {
       statusEl.classList.remove("warning");
     }
     await fetchInvoices();
-    await renderBookedDatesList();
+    const freshQuoteMap = buildQuoteMapByEventId(await fetchQuoteRowsForBookingFlow());
+    const latestEvent = state.calendar.events.find((item) => item.id === event.id) || event;
+    const card = statusEl?.closest(".shows-booked-card");
+    const badge = card?.querySelector(".shows-stage-pill");
+    const stage = getBookingFlowStage(latestEvent, freshQuoteMap);
+    if (badge) {
+      badge.textContent = stage.label || "Quote sent";
+      badge.className = `dashboard-badge shows-stage-pill ${stage.className || "badge-done"}`;
+    }
+    if (statusEl) {
+      statusEl.textContent = "Marked paid.";
+      statusEl.classList.remove("warning");
+    }
+    showContractLinkToast("Marked paid.");
     await updateOpsProgress();
   };
   const copyReceiptLinkForShow = async (event, statusEl) => {
@@ -11200,7 +11252,20 @@ async function renderBookedDatesList() {
     });
     if (!copied) return;
     await updateShowFlowFields(event.id, { receipt_sent_at: new Date().toISOString() });
-    await renderBookedDatesList();
+    const freshQuoteMap = buildQuoteMapByEventId(await fetchQuoteRowsForBookingFlow());
+    const latestEvent = state.calendar.events.find((item) => item.id === event.id) || event;
+    const card = statusEl?.closest(".shows-booked-card");
+    const badge = card?.querySelector(".shows-stage-pill");
+    const stage = getBookingFlowStage(latestEvent, freshQuoteMap);
+    if (badge) {
+      badge.textContent = stage.label || "Quote sent";
+      badge.className = `dashboard-badge shows-stage-pill ${stage.className || "badge-done"}`;
+    }
+    if (statusEl) {
+      statusEl.textContent = "Receipt link copied.";
+      statusEl.classList.remove("warning");
+    }
+    showContractLinkToast("Receipt link copied.");
     await updateOpsProgress();
   };
   const visibleLocalIds = new Set(state.calendar.events.map((event) => event.id).filter(Boolean));
