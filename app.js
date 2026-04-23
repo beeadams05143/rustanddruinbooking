@@ -5788,12 +5788,8 @@ function initSupabaseClient() {
     if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
       safeStorageSet(CALENDAR_AUTH_SEEN_KEY, "1");
       updateSupabaseStatus("Signed in.");
-      if (switchTopView) {
-        const nextTop =
-          state.workspace.top && state.workspace.top !== "login"
-            ? state.workspace.top
-            : "home";
-        switchTopView(nextTop);
+      if (event === "SIGNED_IN") {
+        void refreshAuthState();
       }
       queueSupabaseSyncRefresh();
     } else if (event === "SIGNED_OUT") {
@@ -6088,6 +6084,15 @@ async function openContractForEvent(eventId) {
   await openSupabaseStoragePath(contract.file_path, setCalendarStatus);
 }
 
+/** Where to send the user after a session exists (login, magic link, session restore). */
+function getPostAuthTopView() {
+  if (!state.calendar.session) return "login";
+  if (!state.bandDNA.onboardingComplete) return "onboarding";
+  const top = state.workspace.top;
+  if (top && top !== "login" && top !== "onboarding") return top;
+  return "home";
+}
+
 async function refreshAuthState() {
   const client = state.calendar.client;
   if (!client) return;
@@ -6140,8 +6145,46 @@ async function refreshAuthState() {
     updateOpsProgress();
   }
   if (switchTopView) {
-    switchTopView(state.calendar.session ? state.workspace.top || "home" : "login");
+    switchTopView(getPostAuthTopView());
   }
+}
+
+async function signUpWithCredentials(email, password, confirmPassword) {
+  const client = state.calendar.client;
+  if (!client) {
+    updateSupabaseStatus("Supabase client not available.", true);
+    return false;
+  }
+  if (!email || !password) {
+    updateSupabaseStatus("Enter email and password.", true);
+    return false;
+  }
+  if (password !== confirmPassword) {
+    updateSupabaseStatus("Passwords do not match.", true);
+    return false;
+  }
+  const { error } = await client.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: getAuthRedirectUrl(),
+    },
+  });
+  if (error) {
+    updateSupabaseStatus(formatSupabaseError(error, "Sign up failed."), true);
+    return false;
+  }
+  updateSupabaseStatus("Check your email to confirm your account, then sign in.");
+  return true;
+}
+
+function setLoginTabMode(mode) {
+  const signInEl = document.getElementById("loginSignInPanel");
+  const signUpEl = document.getElementById("loginSignUpPanel");
+  if (!signInEl || !signUpEl) return;
+  const signup = mode === "signup";
+  signInEl.classList.toggle("hidden", signup);
+  signUpEl.classList.toggle("hidden", !signup);
 }
 
 async function restoreSupabaseSessionFromUrl() {
@@ -12981,6 +13024,7 @@ function setupListeners() {
       loginSignInBtn.textContent = "Sign in";
     }
     updateSupabaseStatus("Signed out.");
+    setLoginTabMode("signin");
     state.calendar.events = [];
     state.calendar.contracts = [];
     state.calendar.assignments = [];
@@ -13035,6 +13079,34 @@ function setupListeners() {
     loginMagicLinkBtn.addEventListener("click", async () => {
       const email = document.getElementById("loginEmail").value.trim();
       await requestMagicLink(email);
+    });
+  }
+
+  const loginShowSignUpBtn = document.getElementById("loginShowSignUp");
+  if (loginShowSignUpBtn) {
+    loginShowSignUpBtn.addEventListener("click", () => {
+      setLoginTabMode("signup");
+      updateSupabaseStatus("");
+    });
+  }
+  const loginBackToSignInBtn = document.getElementById("loginBackToSignIn");
+  if (loginBackToSignInBtn) {
+    loginBackToSignInBtn.addEventListener("click", () => {
+      setLoginTabMode("signin");
+    });
+  }
+  const loginSignUpSubmitBtn = document.getElementById("loginSignUpSubmit");
+  if (loginSignUpSubmitBtn) {
+    loginSignUpSubmitBtn.addEventListener("click", async () => {
+      const email = document.getElementById("loginSignUpEmail")?.value.trim() || "";
+      const password = document.getElementById("loginSignUpPassword")?.value || "";
+      const confirm = document.getElementById("loginSignUpPasswordConfirm")?.value || "";
+      const ok = await signUpWithCredentials(email, password, confirm);
+      if (ok) {
+        const loginEmailInput = document.getElementById("loginEmail");
+        if (loginEmailInput) loginEmailInput.value = email;
+        setLoginTabMode("signin");
+      }
     });
   }
 
