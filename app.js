@@ -298,8 +298,8 @@ function createInitialWorkOrderWorkspaceState() {
   };
 }
 
-const state = {
-  bandDNA: {
+function createInitialBandDNAState() {
+  return {
     onboardingComplete: false,
     migratedFromLegacy: false,
     bandName: "",
@@ -350,7 +350,11 @@ const state = {
     soundCheckMinutes: "",
     breakPolicy: "",
     cancellationDays: "",
-  },
+  };
+}
+
+const state = {
+  bandDNA: createInitialBandDNAState(),
   agreement: createInitialAgreementState(),
   invoice: createInitialInvoiceState(),
   receipt: createInitialReceiptState(),
@@ -723,6 +727,9 @@ async function hydrateAgreementFromBookingRecord(eventId = state.workspace.booki
 }
 
 function isBethBandDNA(dna = {}) {
+  const sessionEmail = state?.calendar?.session?.user?.email || "";
+  const allowedEmails = ["rustandruinvt@gmail.com", "jcadams05143@gmail.com"];
+  if (!allowedEmails.includes(sessionEmail.toLowerCase())) return false;
   return /rustandruin/i.test(String(dna.bandName || ""))
     || /rustandruinvt@gmail\.com/i.test(String(dna.contactEmail || ""));
 }
@@ -6123,6 +6130,13 @@ async function refreshAuthState() {
     await fetchInvoices();
     await fetchReceipts();
     await loadBandDNAFromSupabase();
+    if (
+      state.bandDNA.contactEmail &&
+      state.bandDNA.contactEmail !== state.calendar.session.user.email
+    ) {
+      state.bandDNA = createInitialBandDNAState();
+      saveDraft();
+    }
     repairLineupRates();
   } else {
     stopSupabaseSync();
