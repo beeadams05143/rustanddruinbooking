@@ -1261,14 +1261,14 @@ function renderOnboardingWizard() {
             <div class="form-grid">
               <button class="btn ghost${dna.depositModel === "credited" ? "" : " active"}" type="button" data-deposit-model="addition">
                 In addition to the fee
-                <span class="inline-help">
+                <span class="inline-help" style="${dna.depositModel === "credited" ? "" : "color:#fff;"}">
                   Client pays deposit + performance fee separately.
                   Total = $300 fee + $50 deposit = $350.
                 </span>
               </button>
               <button class="btn ghost${dna.depositModel === "credited" ? " active" : ""}" type="button" data-deposit-model="credited">
                 Credited toward the fee
-                <span class="inline-help">
+                <span class="inline-help" style="${dna.depositModel === "credited" ? "color:#fff;" : ""}">
                   Deposit comes out of the total fee.
                   Total = $300 fee, $50 paid upfront, $250 day of show.
                 </span>
