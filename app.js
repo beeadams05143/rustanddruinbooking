@@ -14219,7 +14219,7 @@ async function init() {
     });
     if (repaired) saveDraft();
   }
-  if (!state.bandDNA.onboardingComplete) {
+  if (state.calendar.session && !state.bandDNA.onboardingComplete) {
     if (switchTopView) switchTopView("onboarding");
   }
   syncPaymentHandlesSettingsForm();
@@ -14247,8 +14247,10 @@ async function init() {
   state.calendar.selectedDate = "";
   setCalendarEventFormExpanded(false);
   setupListeners();
-  if (!state.bandDNA.onboardingComplete) {
+  if (state.calendar.session && !state.bandDNA.onboardingComplete) {
     if (switchTopView) switchTopView("onboarding");
+  } else if (!state.calendar.session) {
+    if (switchTopView) switchTopView("login");
   }
   initSupabaseClient();
   updateCalendarAuthVisibility();
