@@ -831,8 +831,9 @@ async function saveBandDNAToSupabase() {
         {
           key: "band_dna",
           value: JSON.stringify(state.bandDNA),
+          user_id: state.calendar.session.user.id,
         },
-        { onConflict: "key" }
+        { onConflict: "key,user_id" }
       );
     if (error) console.error("Could not save bandDNA:", error);
   } catch (e) {
@@ -848,6 +849,7 @@ async function loadBandDNAFromSupabase() {
       .from("app_settings")
       .select("value")
       .eq("key", "band_dna")
+      .eq("user_id", state.calendar.session.user.id)
       .maybeSingle();
     if (error || !data?.value) return false;
     const parsed = JSON.parse(data.value);
