@@ -12410,7 +12410,7 @@ function setupListeners() {
 
   const switchTop = (topTarget) => {
     const signedIn = Boolean(state.calendar.session);
-    if (!signedIn && topTarget !== "login" && topTarget !== "onboarding") {
+    if (!signedIn && topTarget !== "login") {
       updateSupabaseStatus("Sign in first to open the rest of Booking Suite.", true);
       topTarget = "login";
     }
@@ -12433,6 +12433,10 @@ function setupListeners() {
     }
 
     if (topTarget === "onboarding") {
+      if (!state.calendar.session) {
+        switchPanel("login");
+        return;
+      }
       switchPanel("onboarding");
       return;
     }
@@ -14219,9 +14223,6 @@ async function init() {
     });
     if (repaired) saveDraft();
   }
-  if (state.calendar.session && !state.bandDNA.onboardingComplete) {
-    if (switchTopView) switchTopView("onboarding");
-  }
   syncPaymentHandlesSettingsForm();
   hydrateBandProfileFromLegacyData();
   hydrateBookingProfilesFromLegacyData();
@@ -14247,11 +14248,7 @@ async function init() {
   state.calendar.selectedDate = "";
   setCalendarEventFormExpanded(false);
   setupListeners();
-  if (state.calendar.session && !state.bandDNA.onboardingComplete) {
-    if (switchTopView) switchTopView("onboarding");
-  } else if (!state.calendar.session) {
-    if (switchTopView) switchTopView("login");
-  }
+  if (switchTopView) switchTopView("login");
   initSupabaseClient();
   updateCalendarAuthVisibility();
 
