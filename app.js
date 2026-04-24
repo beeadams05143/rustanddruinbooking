@@ -6165,7 +6165,7 @@ async function refreshAuthState() {
     updateOpsProgress();
   }
   if (switchTopView) {
-    switchTopView(getPostAuthTopView());
+    switchTopView(state.calendar.session ? getPostAuthTopView() : "login");
   }
 }
 
