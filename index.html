@@ -56,6 +56,9 @@
   <p style="text-align:center;margin-top:8px;">
     <button type="button" class="btn ghost" id="loginResetPassword" style="font-size:13px;opacity:0.7;">Forgot password?</button>
   </p>
+  <p style="text-align:center;margin-top:8px;">
+    <button type="button" class="btn ghost" id="loginShowJoinBand" style="font-size:13px;opacity:0.7;">Join a band</button>
+  </p>
 </div>
           <div id="loginSignUpPanel" class="hidden">
   <h3>Create your account</h3>
@@ -79,6 +82,34 @@
   </div>
   <p style="text-align:center;margin-top:12px;">
     <button type="button" class="btn ghost" id="loginBackToSignIn" style="font-size:13px;">Already have an account? Sign in</button>
+  </p>
+</div>
+          <div id="loginJoinBandPanel" class="hidden">
+  <h3>Join a band</h3>
+  <p class="muted">Enter the invite code your band manager sent you.</p>
+  <div class="form-grid login-grid">
+    <label>
+      Email
+      <input id="joinBandEmail" type="email" placeholder="you@email.com" autocomplete="email" />
+    </label>
+    <label>
+      Password
+      <input id="joinBandPassword" type="password" placeholder="Create a password" autocomplete="new-password" />
+    </label>
+    <label>
+      Confirm password
+      <input id="joinBandPasswordConfirm" type="password" placeholder="Confirm your password" autocomplete="new-password" />
+    </label>
+    <label>
+      Invite code
+      <input id="joinBandCode" type="text" placeholder="e.g. RUIN-1EB5" style="text-transform:uppercase" />
+    </label>
+  </div>
+  <div class="inline-actions login-actions">
+    <button type="button" class="btn" id="joinBandSubmit">Join band</button>
+  </div>
+  <p style="text-align:center;margin-top:12px;">
+    <button type="button" class="btn ghost" id="joinBandBackToSignIn" style="font-size:13px;">Back to sign in</button>
   </p>
 </div>
           <p id="loginStatus" class="muted"></p>

@@ -6137,6 +6137,10 @@ async function refreshAuthState() {
       state.bandDNA = createInitialBandDNAState();
       saveDraft();
     }
+    const pendingInviteCode = safeStorageGet("pendingBandInviteCode");
+    if (pendingInviteCode) {
+      await processBandInviteCode(pendingInviteCode);
+    }
     repairLineupRates();
   } else {
     stopSupabaseSync();
@@ -6194,13 +6198,66 @@ async function signUpWithCredentials(email, password, confirmPassword) {
   return true;
 }
 
+async function joinBandWithCode() {
+  const email = document.getElementById("joinBandEmail")?.value.trim() || "";
+  const password = document.getElementById("joinBandPassword")?.value || "";
+  const confirmPassword = document.getElementById("joinBandPasswordConfirm")?.value || "";
+  const code = (document.getElementById("joinBandCode")?.value || "").trim().toUpperCase();
+  if (!email || !password || !confirmPassword || !code) {
+    updateSupabaseStatus("Please fill in all fields.", true);
+    return;
+  }
+  if (password !== confirmPassword) {
+    updateSupabaseStatus("Passwords do not match.", true);
+    return;
+  }
+  const ok = await signUpWithCredentials(email, password, confirmPassword);
+  if (ok) {
+    safeStorageSet("pendingBandInviteCode", code);
+    updateSupabaseStatus(
+      `Check your email to confirm your account. Your invite code ${code} has been saved and will link you to the band when you sign in.`
+    );
+  }
+}
+
+async function processBandInviteCode(code) {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) return;
+  const userId = state.calendar.session.user.id;
+  const { data: band, error: bandError } = await client
+    .from("bands")
+    .select("id, name")
+    .eq("invite_code", code)
+    .maybeSingle();
+  if (bandError || !band) {
+    updateSupabaseStatus("Invite code not found. Please contact your band manager.", true);
+    localStorage.removeItem("pendingBandInviteCode");
+    return;
+  }
+  await client.from("band_members").insert({
+    user_id: userId,
+    band_id: band.id,
+    role: "member",
+    joined_at: new Date().toISOString(),
+  });
+  const tables = ["events", "contracts", "work_orders", "invoices", "receipts"];
+  await Promise.all(
+    tables.map((t) =>
+      client.from(t).update({ band_id: band.id }).eq("user_id", userId)
+    )
+  );
+  localStorage.removeItem("pendingBandInviteCode");
+  updateSupabaseStatus(`Welcome to ${band.name}! You have been linked to the band.`);
+}
+
 function setLoginTabMode(mode) {
   const signInEl = document.getElementById("loginSignInPanel");
   const signUpEl = document.getElementById("loginSignUpPanel");
+  const joinBandEl = document.getElementById("loginJoinBandPanel");
   if (!signInEl || !signUpEl) return;
-  const signup = mode === "signup";
-  signInEl.classList.toggle("hidden", signup);
-  signUpEl.classList.toggle("hidden", !signup);
+  signInEl.classList.toggle("hidden", mode !== "signin");
+  signUpEl.classList.toggle("hidden", mode !== "signup");
+  if (joinBandEl) joinBandEl.classList.toggle("hidden", mode !== "joinband");
 }
 
 async function restoreSupabaseSessionFromUrl() {
@@ -13110,6 +13167,23 @@ function setupListeners() {
     loginBackToSignInBtn.addEventListener("click", () => {
       setLoginTabMode("signin");
     });
+  }
+  const loginShowJoinBandBtn = document.getElementById("loginShowJoinBand");
+  if (loginShowJoinBandBtn) {
+    loginShowJoinBandBtn.addEventListener("click", () => {
+      setLoginTabMode("joinband");
+      updateSupabaseStatus("");
+    });
+  }
+  const joinBandBackToSignInBtn = document.getElementById("joinBandBackToSignIn");
+  if (joinBandBackToSignInBtn) {
+    joinBandBackToSignInBtn.addEventListener("click", () => {
+      setLoginTabMode("signin");
+    });
+  }
+  const joinBandSubmitBtn = document.getElementById("joinBandSubmit");
+  if (joinBandSubmitBtn) {
+    joinBandSubmitBtn.addEventListener("click", joinBandWithCode);
   }
   const loginSignUpSubmitBtn = document.getElementById("loginSignUpSubmit");
   if (loginSignUpSubmitBtn) {
