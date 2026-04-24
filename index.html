@@ -37,47 +37,50 @@
           <h2>Login</h2>
           <p class="muted">Sign in to access Booking Suite.</p>
           <div id="loginSignInPanel">
-            <div class="form-grid login-grid">
-              <label>
-                Email
-                <input id="loginEmail" type="email" placeholder="you@email.com" />
-              </label>
-              <label>
-                Password
-                <input id="loginPassword" type="password" placeholder="Password" />
-              </label>
-            </div>
-            <div class="inline-actions login-actions">
-              <button class="btn" id="loginSignIn">Sign in</button>
-              <button class="btn ghost" id="loginResetPassword">Reset password</button>
-              <button class="btn ghost" id="loginMagicLink">Email magic link</button>
-            </div>
-            <p class="login-create-account-wrap">
-              <button type="button" class="btn ghost" id="loginShowSignUp">Create account</button>
-            </p>
-          </div>
+  <div class="form-grid login-grid">
+    <label>
+      Email
+      <input id="loginEmail" type="email" placeholder="you@email.com" autocomplete="email" />
+    </label>
+    <label>
+      Password
+      <input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password" />
+    </label>
+  </div>
+  <div class="inline-actions login-actions">
+    <button class="btn" id="loginSignIn">Sign in</button>
+  </div>
+  <p style="text-align:center;margin-top:16px;">
+    <button type="button" class="btn ghost" id="loginShowSignUp">New here? Create an account</button>
+  </p>
+  <p style="text-align:center;margin-top:8px;">
+    <button type="button" class="btn ghost" id="loginResetPassword" style="font-size:13px;opacity:0.7;">Forgot password?</button>
+  </p>
+</div>
           <div id="loginSignUpPanel" class="hidden">
-            <h3>Create account</h3>
-            <p class="muted">We will email you a link to confirm before you can sign in.</p>
-            <div class="form-grid login-grid">
-              <label>
-                Email
-                <input id="loginSignUpEmail" type="email" placeholder="you@email.com" autocomplete="email" />
-              </label>
-              <label>
-                Password
-                <input id="loginSignUpPassword" type="password" placeholder="Password" autocomplete="new-password" />
-              </label>
-              <label>
-                Confirm password
-                <input id="loginSignUpPasswordConfirm" type="password" placeholder="Confirm password" autocomplete="new-password" />
-              </label>
-            </div>
-            <div class="inline-actions login-actions">
-              <button type="button" class="btn" id="loginSignUpSubmit">Create account</button>
-              <button type="button" class="btn ghost" id="loginBackToSignIn">Back to sign in</button>
-            </div>
-          </div>
+  <h3>Create your account</h3>
+  <p class="muted">You'll get a confirmation email before you can sign in.</p>
+  <div class="form-grid login-grid">
+    <label>
+      Email
+      <input id="loginSignUpEmail" type="email" placeholder="you@email.com" autocomplete="email" />
+    </label>
+    <label>
+      Password
+      <input id="loginSignUpPassword" type="password" placeholder="Create a password" autocomplete="new-password" />
+    </label>
+    <label>
+      Confirm password
+      <input id="loginSignUpPasswordConfirm" type="password" placeholder="Confirm your password" autocomplete="new-password" />
+    </label>
+  </div>
+  <div class="inline-actions login-actions">
+    <button type="button" class="btn" id="loginSignUpSubmit">Create account</button>
+  </div>
+  <p style="text-align:center;margin-top:12px;">
+    <button type="button" class="btn ghost" id="loginBackToSignIn" style="font-size:13px;">Already have an account? Sign in</button>
+  </p>
+</div>
           <p id="loginStatus" class="muted"></p>
         </section>
       </main>
