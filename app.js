@@ -354,6 +354,26 @@ function createInitialBandDNAState() {
   };
 }
 
+function createMemberOnboardingDraft() {
+  return {
+    fullName: "",
+    email: "",
+    profilePhotoLabel: "",
+    primaryInstrument: "",
+    isVocalist: false,
+    voiceType: "",
+    yearsPlaying: "",
+    equipmentList: "",
+    needsDiBox: false,
+    needsMonitor: false,
+    techRequirements: "",
+    bioBlurb: "",
+    musicalInfluences: "",
+    memorableShow: "",
+    playedWhere: "",
+  };
+}
+
 const state = {
   bandDNA: createInitialBandDNAState(),
   agreement: createInitialAgreementState(),
@@ -411,7 +431,8 @@ const state = {
   },
   musicianShowBookings: [],
   musicians: [],
-  onboardingStep: 0,
+  onboardingStep: 1,
+  memberOnboardingDraft: createMemberOnboardingDraft(),
   activeTab: "agreement",
 };
 
@@ -972,317 +993,255 @@ function migrateLegacyToBandDNA() {
 function getOnboardingStepTitle(stepNumber = 1) {
   return [
     "Who are you",
-    "What you offer",
-    "Travel + mileage",
-    "Your sound",
-    "Your presence + outreach tone",
+    "Your instrument",
+    "Your gear",
+    "Your story",
+    "You're in",
   ][Number(stepNumber || 1) - 1] || "Who are you";
 }
 
-function syncPaymentHandlesSettingsForm() {
-  const venmoInput = document.getElementById("settingsVenmoHandle");
-  const paypalInput = document.getElementById("settingsPaypalHandle");
-  if (venmoInput) venmoInput.value = state.bandDNA.venmoHandle || "";
-  if (paypalInput) paypalInput.value = state.bandDNA.paypalHandle || "";
-}
-
-function showPaymentHandlesToast(message, isError = false) {
-  const toast = document.getElementById("paymentHandlesToast");
-  if (!toast) return;
-  toast.textContent = message;
-  toast.classList.remove("hidden", "warning");
-  toast.classList.toggle("warning", isError);
-  window.clearTimeout(showPaymentHandlesToast.timeoutId);
-  showPaymentHandlesToast.timeoutId = window.setTimeout(() => {
-    toast.classList.add("hidden");
-  }, 2200);
-}
-
-async function savePaymentHandlesSettings() {
+async function getCurrentUserBandId() {
   const client = state.calendar.client;
-  const venmoHandle = normalizeVenmoHandle(document.getElementById("settingsVenmoHandle")?.value || "");
-  const paypalHandle = normalizePaypalHandle(document.getElementById("settingsPaypalHandle")?.value || "");
-  const nextBandDNA = {
-    ...state.bandDNA,
-    venmoHandle,
-    paypalHandle,
-  };
-  nextBandDNA.paymentMethods = buildDynamicPaymentMethodsText(nextBandDNA);
-  const bethRepair = getBethBandDNARepair(nextBandDNA);
-  state.bandDNA = bethRepair.bandDNA;
-  saveDraft();
-  syncPaymentHandlesSettingsForm();
-  if (!client || !state.calendar.session) {
-    showPaymentHandlesToast("Sign in to save payment handles.", true);
+  if (!client || !state.calendar.session?.user?.id) return "";
+  const { data: members, error } = await client
+    .from("band_members")
+    .select("band_id")
+    .eq("user_id", state.calendar.session.user.id)
+    .limit(1);
+  if (error || !members?.length || !members[0].band_id) return "";
+  return members[0].band_id;
+}
+
+function collectMemberOnboardingFromStep(step) {
+  const d = state.memberOnboardingDraft;
+  if (step === 1) {
+    d.fullName = document.getElementById("onboardingMemberFullName")?.value.trim() || "";
+    d.email = document.getElementById("onboardingMemberEmail")?.value.trim() || d.email;
+    const file = document.getElementById("onboardingMemberPhoto")?.files?.[0];
+    d.profilePhotoLabel = file ? file.name : d.profilePhotoLabel || "";
     return;
   }
-  try {
-    const { error } = await client
-      .from("app_settings")
-      .upsert(
-        {
-          key: "band_dna",
-          value: JSON.stringify(state.bandDNA),
-        },
-        { onConflict: "key" }
-      );
-    if (error) {
-      showPaymentHandlesToast(formatSupabaseError(error, "Could not save payment handles."), true);
-      return;
-    }
-    updateInvoicePreview();
-    updateReceiptPreview();
-    showPaymentHandlesToast("Payment handles saved.");
-  } catch (error) {
-    showPaymentHandlesToast(formatSupabaseError(error, "Could not save payment handles."), true);
+  if (step === 2) {
+    d.primaryInstrument = document.getElementById("onboardingPrimaryInstrument")?.value.trim() || "";
+    d.isVocalist = Boolean(document.getElementById("onboardingIsVocalist")?.checked);
+    d.voiceType = document.getElementById("onboardingVoiceType")?.value || "";
+    d.yearsPlaying = document.getElementById("onboardingYearsPlaying")?.value.trim() || "";
+    return;
+  }
+  if (step === 3) {
+    d.equipmentList = document.getElementById("onboardingEquipmentList")?.value.trim() || "";
+    d.needsDiBox = Boolean(document.getElementById("onboardingNeedsDi")?.checked);
+    d.needsMonitor = Boolean(document.getElementById("onboardingNeedsMonitor")?.checked);
+    d.techRequirements = document.getElementById("onboardingTechRequirements")?.value.trim() || "";
+    return;
+  }
+  if (step === 4) {
+    d.bioBlurb = document.getElementById("onboardingBioBlurb")?.value.trim() || "";
+    d.musicalInfluences = document.getElementById("onboardingMusicalInfluences")?.value.trim() || "";
+    d.memorableShow = document.getElementById("onboardingMemorableShow")?.value.trim() || "";
+    d.playedWhere = document.getElementById("onboardingPlayedWhere")?.value.trim() || "";
   }
 }
 
-function getOnboardingGenreTagsFromDom() {
-  return Array.from(document.querySelectorAll("#onboardingGenreChipList [data-tag]"))
-    .map((chip) => chip.getAttribute("data-tag") || "")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
+function buildMemberOnboardingNotesPayload(d) {
+  const lines = [
+    "Member onboarding profile",
+    "---",
+    `Primary instrument: ${d.primaryInstrument || "—"}`,
+    `Vocalist: ${d.isVocalist ? "Yes" : "No"}`,
+    d.isVocalist ? `Voice type: ${d.voiceType || "—"}` : "",
+    `Years playing: ${d.yearsPlaying || "—"}`,
+    "",
+    "Gear:",
+    d.equipmentList || "—",
+    `DI box needed: ${d.needsDiBox ? "Yes" : "No"}`,
+    `Monitor needed: ${d.needsMonitor ? "Yes" : "No"}`,
+    d.techRequirements ? `Tech notes: ${d.techRequirements}` : "",
+    "",
+    "Bio (EPK):",
+    d.bioBlurb || "—",
+    "",
+    `Influences: ${d.musicalInfluences || "—"}`,
+    "",
+    "Memorable show:",
+    d.memorableShow || "—",
+    "",
+    "Played where:",
+    d.playedWhere || "—",
+    "",
+    d.profilePhotoLabel ? `Profile photo file: ${d.profilePhotoLabel}` : "",
+  ];
+  return lines.filter(Boolean).join("\n");
 }
 
-function renderOnboardingGenreChips() {
-  const wrap = document.getElementById("onboardingGenreChipList");
-  if (!wrap) return;
-  const tags = Array.isArray(state.bandDNA.genreTags) ? state.bandDNA.genreTags : [];
-  wrap.innerHTML = tags.length
-    ? tags.map((tag) => `
-      <button class="btn ghost" type="button" data-remove-genre="${escapeHtml(tag)}" data-tag="${escapeHtml(tag)}">
-        ${escapeHtml(tag)} ×
-      </button>
-    `).join("")
-    : `<span class="muted">No genre tags added yet.</span>`;
-}
-
-function getLineupMusicianCount(lineupName = "", lineup = null) {
-  if (lineup?.count && Number(lineup.count) > 0) {
-    return Number(lineup.count);
+async function completeMemberOnboarding() {
+  const statusEl = document.getElementById("onboardingStatus");
+  const client = state.calendar.client;
+  const d = state.memberOnboardingDraft;
+  if (!d.fullName?.trim()) {
+    if (statusEl) statusEl.textContent = "Please enter your full name.";
+    return;
   }
-  const normalized = String(lineupName || "").toLowerCase();
-  if (normalized.includes("duo")) return 2;
-  if (normalized.includes("trio")) return 3;
-  if (normalized.includes("full") || normalized.includes("band")) return 4;
-  if (normalized.includes("solo")) return 1;
-  return 1;
-}
-
-function getAutoCalculatedLineupRate(lineupName = "", musicianHourlyRate = "50") {
-  return String(toNumber(musicianHourlyRate || "50") * getLineupMusicianCount(lineupName));
-}
-
-function updateOnboardingLineupRatePreviews() {
-  const musicianHourlyRate = toNumber(
-    document.getElementById("onboardingMusicianHourlyRate")?.value.trim() || "50"
-  );
-  document.querySelectorAll("#onboardingLineupList [data-lineup-row]").forEach((row) => {
-    const name = row.querySelector("[data-lineup-name]")?.value.trim() || "";
-    const countValue = row.querySelector("[data-lineup-count]")?.value.trim() || "";
-    const count = Math.max(1, Number(countValue) || getLineupMusicianCount(name));
-    const total = musicianHourlyRate * count;
-    const preview = row.querySelector(".lineup-rate-preview");
-    if (preview) {
-      preview.textContent = `$${formatNumberInput(total)}/hr total (${count} musicians × $${formatNumberInput(musicianHourlyRate)}/hr)`;
+  if (!client || !state.calendar.session) {
+    if (statusEl) statusEl.textContent = "Sign in required.";
+    return;
+  }
+  const bandId = await getCurrentUserBandId();
+  if (!bandId) {
+    if (statusEl) {
+      statusEl.textContent =
+        "We could not find your band membership. Join a band with an invite code first, then try again.";
     }
-  });
+    return;
+  }
+  const roleParts = [d.primaryInstrument?.trim() || "Musician"];
+  if (d.isVocalist) {
+    roleParts.push(`Vocals (${d.voiceType || "unspecified"})`);
+  }
+  const role = roleParts.join(" · ");
+  const notes = buildMemberOnboardingNotesPayload(d);
+  const payload = {
+    name: d.fullName.trim(),
+    email: d.email?.trim() || state.calendar.session.user.email || "",
+    role,
+    phone: "",
+    notes,
+    active: true,
+    band_id: bandId,
+  };
+  let { data, error } = await client.from("musicians").insert(payload).select("*").single();
+  if (error && payload.band_id) {
+    const fallbackPayload = { ...payload };
+    delete fallbackPayload.band_id;
+    const second = await client.from("musicians").insert(fallbackPayload).select("*").single();
+    data = second.data;
+    error = second.error;
+  }
+  if (error) {
+    if (statusEl) {
+      statusEl.textContent =
+        error.message || "Could not save your profile. If this persists, ask your band admin to check the musicians table.";
+    }
+    return;
+  }
+  state.musicians.push(data);
+  updateBandDNA({ onboardingComplete: true });
+  state.memberOnboardingDraft = createMemberOnboardingDraft();
+  state.memberOnboardingDraft.email = state.calendar.session.user.email || "";
+  state.onboardingStep = 1;
+  saveDraft();
+  if (statusEl) statusEl.textContent = "You're in! Opening your dashboard…";
+  await fetchMusicians();
+  window.setTimeout(() => {
+    if (switchTopView) switchTopView("home");
+  }, 900);
 }
 
 function renderOnboardingWizard() {
-  // state.onboardingStep = Math.min(5, Math.max(1, Number(state.onboardingStep || 1)));
+  state.onboardingStep = Math.min(5, Math.max(1, Number(state.onboardingStep) || 1));
+  const d = state.memberOnboardingDraft;
+  if (!d.email && state.calendar.session?.user?.email) {
+    d.email = state.calendar.session.user.email;
+  }
   const step = state.onboardingStep;
-  const dna = getBandDNA();
   const stepBar = document.getElementById("onboardingStepBar");
   const stepLabel = document.getElementById("onboardingStepLabel");
   const backBtn = document.getElementById("onboardingBack");
   const nextBtn = document.getElementById("onboardingNext");
 
   if (stepBar) {
-    stepBar.innerHTML = [1, 2, 3, 4, 5].map((pip) => `
+    stepBar.innerHTML = [1, 2, 3, 4, 5]
+      .map(
+        (pip) => `
       <button
         type="button"
         class="btn ghost${pip === step ? " active" : ""}"
         data-onboarding-goto="${pip}"
         aria-label="Go to step ${pip}"
       >${pip}</button>
-    `).join("");
+    `
+      )
+      .join("");
   }
 
   if (stepLabel) {
     stepLabel.textContent = `Step ${step} of 5 · ${getOnboardingStepTitle(step)}`;
+    stepLabel.className = "member-onboarding-step-label";
   }
+
+  const emailVal = escapeHtml(d.email || "");
+  const fullNameVal = escapeHtml(d.fullName || "");
+  const instrumentVal = escapeHtml(d.primaryInstrument || "");
+  const yearsVal = escapeHtml(d.yearsPlaying || "");
+  const equipmentVal = escapeHtml(d.equipmentList || "");
+  const techVal = escapeHtml(d.techRequirements || "");
+  const bioVal = escapeHtml(d.bioBlurb || "");
+  const inflVal = escapeHtml(d.musicalInfluences || "");
+  const memVal = escapeHtml(d.memorableShow || "");
+  const playedVal = escapeHtml(d.playedWhere || "");
 
   const step1 = document.getElementById("onboardingStep1");
   if (step1) {
     step1.innerHTML = `
-      <section class="panel form-panel">
-        <h2>Who are you?</h2>
-        <p class="muted">Let's start with the essentials you want reused across contracts, outreach, and booking details.</p>
-        <div class="form-grid">
+      <section class="member-onboarding-step panel form-panel">
+        <h2 class="member-onboarding-title">Who are you</h2>
+        <p class="member-onboarding-muted">Tell us how to list you in the band roster and EPK.</p>
+        <div class="form-grid member-onboarding-grid">
           <label>
-            Band / act name
-            <input id="onboardingBandName" type="text" value="${escapeHtml(dna.bandName || "")}" />
-            <span class="inline-help">Used in your contract header and outreach materials.</span>
+            Full name <span class="member-onboarding-req">*</span>
+            <input id="onboardingMemberFullName" class="member-onboarding-input" type="text" required value="${fullNameVal}" />
           </label>
           <label>
-            Your hometown or base
-            <input id="onboardingHometown" type="text" value="${escapeHtml(dna.hometown || "")}" />
-            <span class="inline-help">Used to describe your act in outreach and EPK copy.</span>
+            Email
+            <input id="onboardingMemberEmail" class="member-onboarding-input" type="email" readonly value="${emailVal}" />
+            <span class="inline-help member-onboarding-help">From your GigOS account.</span>
           </label>
           <label>
-            Booking contact name
-            <input id="onboardingSignoffName" type="text" value="${escapeHtml(dna.signoffName || "")}" />
-            <span class="inline-help">Used in your contract header and email signoff.</span>
-          </label>
-          <label>
-            Booking email
-            <input id="onboardingContactEmail" type="email" value="${escapeHtml(dna.contactEmail || "")}" />
-            <span class="inline-help">Used in EPK contact blocks and outreach signoffs.</span>
-          </label>
-          <label>
-            Booking phone
-            <input id="onboardingContactPhone" type="tel" value="${escapeHtml(dna.contactPhone || "")}" />
-            <span class="inline-help">Used when venues or clients need a direct callback number.</span>
-          </label>
-          <label>
-            Home address for travel calculation
-            <input id="onboardingHomeAddress" type="text" value="${escapeHtml(dna.homeAddress || "")}" />
-            <span class="inline-help">Used as the home base for future travel calculations.</span>
-          </label>
-          <label>
-            Venmo username (without @)
-            <input id="onboardingVenmoHandle" type="text" value="${escapeHtml(dna.venmoHandle || "")}" />
-            <span class="inline-help">Found at venmo.com/yourusername — do not include the @ symbol</span>
-          </label>
-          <label>
-            PayPal.me username
-            <input id="onboardingPaypalHandle" type="text" value="${escapeHtml(dna.paypalHandle || "")}" />
-            <span class="inline-help">Your PayPal.me link username — find it at paypal.me/yourusername</span>
-          </label>
-          <label>
-            How early do you arrive before sound check?
-            <input id="onboardingLoadInTime" type="text" placeholder="1 hour" value="${escapeHtml(dna.loadInTime || "")}" />
-            <span class="inline-help">Used in your contract's scheduling clause</span>
-          </label>
-          <label>
-            How long does sound check take?
-            <input id="onboardingSoundCheckMinutes" type="text" placeholder="45 minutes" value="${escapeHtml(dna.soundCheckMinutes || "")}" />
-            <span class="inline-help">Used in your contract's load-in section</span>
-          </label>
-          <label>
-            Your break policy
-            <input id="onboardingBreakPolicy" type="text" placeholder="10-minute break per 90 minutes" value="${escapeHtml(dna.breakPolicy || "")}" />
-            <span class="inline-help">Used in your contract's scheduling clause</span>
-          </label>
-          <label>
-            Cancellation notice window (days)
-            <input id="onboardingCancellationDays" type="number" min="1" step="1" placeholder="90" value="${escapeHtml(dna.cancellationDays || "")}" />
-            <span class="inline-help">Used in your cancellation policy clause</span>
+            Profile photo (optional)
+            <input id="onboardingMemberPhoto" class="member-onboarding-input" type="file" accept="image/*" />
+            <span class="inline-help member-onboarding-help">Optional — used for roster previews when available.</span>
           </label>
         </div>
-        <label>
-          Payment methods accepted
-          <textarea id="onboardingPaymentMethods">${escapeHtml(dna.paymentMethods || "")}</textarea>
-          <span class="inline-help">Used in invoices, receipts, and booking follow-up details.</span>
-        </label>
       </section>
     `;
   }
 
   const step2 = document.getElementById("onboardingStep2");
   if (step2) {
-    const lineups = Array.isArray(dna.lineups) && dna.lineups.length
-      ? dna.lineups
-      : [
-          { name: "Duo", rate: "", count: 2, rateType: "hourly" },
-          { name: "Full Band", rate: "", count: 4, rateType: "hourly" },
-        ];
-    const musicianHourlyRate = dna.musicianHourlyRate || "50";
+    const vocChecked = d.isVocalist ? "checked" : "";
+    const voiceHidden = d.isVocalist ? "" : "hidden";
+    const leadSel = d.voiceType === "Lead" ? "selected" : "";
+    const harmSel = d.voiceType === "Harmony" ? "selected" : "";
+    const bothSel = d.voiceType === "Both" ? "selected" : "";
     step2.innerHTML = `
-      <section class="panel form-panel">
-        <h2>What do you offer?</h2>
-        <p class="muted">Set up your base musician rate, minimum hours, and lineups so new quotes are calculated automatically.</p>
-
-        <div class="form-section booking-nested-section">
-          <h3>Your base rate</h3>
-          <div class="form-grid">
+      <section class="member-onboarding-step panel form-panel">
+        <h2 class="member-onboarding-title">Your instrument</h2>
+        <p class="member-onboarding-muted">How you show up on stage.</p>
+        <div class="form-grid member-onboarding-grid">
+          <label>
+            Primary instrument
+            <input id="onboardingPrimaryInstrument" class="member-onboarding-input" type="text" placeholder="Guitar, Drums, Bass, Keys, Fiddle…" value="${instrumentVal}" />
+          </label>
+          <label class="checkbox inline-note member-onboarding-check">
+            <input id="onboardingIsVocalist" type="checkbox" ${vocChecked}
+              onchange="document.getElementById('onboardingVoiceTypeWrap').classList.toggle('hidden', !this.checked)" />
+            Are you a vocalist?
+          </label>
+          <div id="onboardingVoiceTypeWrap" class="${voiceHidden}">
             <label>
-              Rate per musician per hour
-              <input id="onboardingMusicianHourlyRate" type="number" min="0" step="1" value="${escapeHtml(dna.musicianHourlyRate || "50")}" />
-              <span class="inline-help">This is what each musician earns per hour. We'll calculate lineup totals automatically.</span>
-            </label>
-            <label>
-              Minimum hours per show
-              <input id="onboardingMinimumHours" type="number" min="0" step="0.5" value="${escapeHtml(dna.minimumHours || "2")}" />
-              <span class="inline-help">Most shows have a 2-hour minimum.</span>
+              Voice type
+              <select id="onboardingVoiceType" class="member-onboarding-input">
+                <option value="">Select…</option>
+                <option value="Lead" ${leadSel}>Lead</option>
+                <option value="Harmony" ${harmSel}>Harmony</option>
+                <option value="Both" ${bothSel}>Both</option>
+              </select>
             </label>
           </div>
-        </div>
-
-        <div class="form-section booking-nested-section">
-          <h3>Your lineups</h3>
-          <div id="onboardingLineupList">
-            ${lineups.map((lineup, index) => {
-              const count = getLineupMusicianCount(lineup.name, lineup);
-              const totalRate = toNumber(musicianHourlyRate) * count;
-              return `
-                <div class="form-section booking-nested-section onboarding-lineup-row" data-lineup-row="${index}">
-                  <div class="form-grid">
-                    <label>
-                      Lineup name
-                      <input type="text" data-lineup-name value="${escapeHtml(lineup.name || "")}" />
-                    </label>
-                    <label>
-                      Musician count
-                      <input type="number" min="1" step="1" data-lineup-count value="${escapeHtml(count)}" />
-                    </label>
-                  </div>
-                  <p class="lineup-rate-preview">$${formatNumberInput(totalRate)}/hr total (${count} musicians × $${formatNumberInput(toNumber(musicianHourlyRate))}/hr)</p>
-                  <div class="inline-actions">
-                    <button class="btn ghost" type="button" data-remove-lineup="${index}">Remove</button>
-                  </div>
-                </div>
-              `;
-            }).join("")}
-          </div>
-          <p><button class="btn ghost" id="onboardingAddLineup" type="button">Add lineup</button></p>
-        </div>
-
-        <div class="form-section booking-nested-section">
-          <h3>Deposit</h3>
-          <div class="form-grid">
-            <label>
-              Default deposit amount
-              <input id="onboardingDefaultDeposit" type="number" min="0" step="1" value="${escapeHtml(dna.defaultDeposit || "")}" />
-              <span class="inline-help">Used as the default booking deposit.</span>
-            </label>
-            <p>How does your deposit work?</p>
-            <div class="form-grid">
-              <button class="btn ghost${dna.depositModel === "credited" ? "" : " active"}" type="button" data-deposit-model="addition">
-                In addition to the fee
-                <span class="inline-help" style="${dna.depositModel === "credited" ? "" : "color:#fff;"}">
-                  Client pays deposit + performance fee separately.
-                  Total = $300 fee + $50 deposit = $350.
-                </span>
-              </button>
-              <button class="btn ghost${dna.depositModel === "credited" ? " active" : ""}" type="button" data-deposit-model="credited">
-                Credited toward the fee
-                <span class="inline-help" style="${dna.depositModel === "credited" ? "color:#fff;" : ""}">
-                  Deposit comes out of the total fee.
-                  Total = $300 fee, $50 paid upfront, $250 day of show.
-                </span>
-              </button>
-            </div>
-            <input type="hidden" id="onboardingDepositModel" 
-              value="${escapeHtml(dna.depositModel || "addition")}" />
-            <label class="checkbox inline-note">
-              <input id="onboardingDepositEnabled" type="checkbox" ${dna.depositEnabled !== false ? "checked" : ""} />
-              Deposit enabled
-              <span class="inline-help">Turns deposit defaults on for new bookings.</span>
-            </label>
-          </div>
+          <label>
+            Years playing
+            <input id="onboardingYearsPlaying" class="member-onboarding-input" type="number" min="0" step="1" placeholder="e.g. 12" value="${yearsVal}" />
+          </label>
         </div>
       </section>
     `;
@@ -1290,40 +1249,28 @@ function renderOnboardingWizard() {
 
   const step3 = document.getElementById("onboardingStep3");
   if (step3) {
+    const diChk = d.needsDiBox ? "checked" : "";
+    const monChk = d.needsMonitor ? "checked" : "";
     step3.innerHTML = `
-      <section class="panel form-panel">
-        <h2>Travel + mileage</h2>
-        <p>How far will you drive before charging for travel?</p>
-        <label>
-          Free travel radius (hours)
-          <input id="onboardingTravelFreeWithinHours" type="number" min="0" step="0.25" value="${escapeHtml(dna.travelFreeWithinHours || "")}" />
-          <span class="inline-help">Used as your included travel distance before extra charges apply.</span>
-        </label>
-        <p>How do you charge for travel beyond that?</p>
-        <div class="form-grid">
-          <button class="btn ghost${dna.travelChargeType === "irs_mileage" ? " active" : ""}" type="button" data-travel-type="irs_mileage">
-            IRS mileage rate · $0.67/mile
-          </button>
-          <button class="btn ghost${dna.travelChargeType === "hourly_per_performer" ? " active" : ""}" type="button" data-travel-type="hourly_per_performer">
-            Per performer, per hour · custom rate
-          </button>
-          <button class="btn ghost${dna.travelChargeType === "flat_fee" ? " active" : ""}" type="button" data-travel-type="flat_fee">
-            Flat fee per show · custom amount
-          </button>
-        </div>
-        <input id="onboardingTravelChargeType" type="hidden" value="${escapeHtml(dna.travelChargeType || "hourly_per_performer")}" />
-        <div id="onboardingTravelHourlyWrap" class="${dna.travelChargeType === "hourly_per_performer" ? "" : "hidden"}">
-          <label>
-            Travel hourly rate
-            <input id="onboardingTravelHourlyRate" type="number" min="0" step="1" value="${escapeHtml(dna.travelHourlyRate || "")}" />
-            <span class="inline-help">Used when you charge per performer per hour outside your free radius.</span>
+      <section class="member-onboarding-step panel form-panel">
+        <h2 class="member-onboarding-title">Your gear</h2>
+        <p class="member-onboarding-muted">So tech can prep backline and stage.</p>
+        <div class="form-grid member-onboarding-grid">
+          <label class="member-onboarding-fullwidth">
+            Equipment list
+            <textarea id="onboardingEquipmentList" class="member-onboarding-input" rows="4" placeholder="Fender Telecaster, Marshall amp, Shure SM58">${equipmentVal}</textarea>
           </label>
-        </div>
-        <div id="onboardingTravelFlatWrap" class="${dna.travelChargeType === "flat_fee" ? "" : "hidden"}">
-          <label>
-            Flat fee per show
-            <input id="onboardingTravelFlatFee" type="number" min="0" step="1" value="${escapeHtml(dna.travelFlatFee || "")}" />
-            <span class="inline-help">Used when you prefer one flat travel add-on per show.</span>
+          <label class="checkbox inline-note member-onboarding-check">
+            <input id="onboardingNeedsDi" type="checkbox" ${diChk} />
+            Do you need a DI box?
+          </label>
+          <label class="checkbox inline-note member-onboarding-check">
+            <input id="onboardingNeedsMonitor" type="checkbox" ${monChk} />
+            Do you need a monitor?
+          </label>
+          <label class="member-onboarding-fullwidth">
+            Any special technical requirements (optional)
+            <textarea id="onboardingTechRequirements" class="member-onboarding-input" rows="3" placeholder="Wireless in-ear, extra power drop…">${techVal}</textarea>
           </label>
         </div>
       </section>
@@ -1333,82 +1280,68 @@ function renderOnboardingWizard() {
   const step4 = document.getElementById("onboardingStep4");
   if (step4) {
     step4.innerHTML = `
-      <section class="panel form-panel">
-        <h2>Your sound</h2>
-        <p>How would you describe your sound in one sentence?</p>
-        <label>
-          <textarea id="onboardingOneLineBio">${escapeHtml(dna.oneLineBio || "")}</textarea>
-          <span class="inline-help">Shows up in your outreach emails and EPK bio.</span>
-        </label>
-        <p>Who are 2-3 artists you're compared to or inspired by?</p>
-        <label>
-          <input id="onboardingArtistReferences" type="text" value="${escapeHtml(dna.artistReferences || "")}" />
-          <span class="inline-help">Used automatically in cold outreach scripts.</span>
-        </label>
-        <p>Genre tags</p>
-        <div id="onboardingGenreChipList"></div>
-        <label>
-          Add a genre tag
-          <input id="onboardingGenreInput" type="text" placeholder="Americana" />
-          <span class="inline-help">Press Add to save a tag you want reused in outreach and EPK copy.</span>
-        </label>
-        <p><button class="btn ghost" id="onboardingAddGenre" type="button">Add genre tag</button></p>
-        <p>What events are you the best fit for?</p>
-        <label>
-          <input id="onboardingBestFitEvents" type="text" value="${escapeHtml(dna.bestFitEvents || "")}" />
-          <span class="inline-help">Used in booking copy to describe where you shine most.</span>
-        </label>
-        <p>What's a proof point — something concrete about your track record?</p>
-        <label>
-          <input id="onboardingProofPoint" type="text" value="${escapeHtml(dna.proofPoint || "")}" />
-          <span class="inline-help">Used in first-contact outreach e.g. "We play 100+ shows a year".</span>
-        </label>
+      <section class="member-onboarding-step panel form-panel">
+        <h2 class="member-onboarding-title">Your story</h2>
+        <p class="member-onboarding-muted">This copy can feed your EPK and promo.</p>
+        <div class="form-grid member-onboarding-grid">
+          <label class="member-onboarding-fullwidth">
+            Bio blurb
+            <textarea id="onboardingBioBlurb" class="member-onboarding-input" rows="4" placeholder="2–3 sentences about you">${bioVal}</textarea>
+          </label>
+          <label>
+            Musical influences
+            <input id="onboardingMusicalInfluences" class="member-onboarding-input" type="text" placeholder="Johnny Cash, Emmylou Harris, Gillian Welch" value="${inflVal}" />
+            <span class="inline-help member-onboarding-help">Comma separated.</span>
+          </label>
+          <label class="member-onboarding-fullwidth">
+            Most memorable show (optional)
+            <textarea id="onboardingMemorableShow" class="member-onboarding-input" rows="3" placeholder="Tell us about a show that sticks with you">${memVal}</textarea>
+          </label>
+          <label class="member-onboarding-fullwidth">
+            Where have you played (optional)
+            <textarea id="onboardingPlayedWhere" class="member-onboarding-input" rows="3" placeholder="Venues, cities, festivals…">${playedVal}</textarea>
+          </label>
+        </div>
       </section>
     `;
-    renderOnboardingGenreChips();
   }
 
   const step5 = document.getElementById("onboardingStep5");
   if (step5) {
+    const sumName = escapeHtml(d.fullName || "—");
+    const sumEmail = escapeHtml(d.email || "—");
+    const sumInst = escapeHtml(d.primaryInstrument || "—");
+    const sumVoc = d.isVocalist ? escapeHtml(d.voiceType || "Yes") : "No";
+    const sumYears = escapeHtml(d.yearsPlaying || "—");
+    const sumGear = escapeHtml(d.equipmentList || "—");
+    const sumDi = d.needsDiBox ? "Yes" : "No";
+    const sumMon = d.needsMonitor ? "Yes" : "No";
+    const sumTech = escapeHtml(d.techRequirements || "—");
+    const sumBio = escapeHtml(d.bioBlurb || "—");
+    const sumInfl = escapeHtml(d.musicalInfluences || "—");
+    const sumMem = escapeHtml(d.memorableShow || "—");
+    const sumPlayed = escapeHtml(d.playedWhere || "—");
+    const sumPhoto = escapeHtml(d.profilePhotoLabel || "None");
     step5.innerHTML = `
-      <section class="panel form-panel">
-        <h2>Your presence + outreach tone</h2>
-        <div class="form-grid">
-          <label>
-            Website URL
-            <input id="onboardingWebsite" type="url" value="${escapeHtml(dna.website || "")}" />
-            <span class="inline-help">Used in EPK summaries and outreach signoffs.</span>
-          </label>
-          <label>
-            Music link
-            <input id="onboardingMusicLink" type="url" value="${escapeHtml(dna.musicLink || "")}" />
-            <span class="inline-help">Used in outreach messages and EPK contact blocks.</span>
-          </label>
-          <label>
-            Video link
-            <input id="onboardingVideoLink" type="url" value="${escapeHtml(dna.videoLink || "")}" />
-            <span class="inline-help">Used when a venue wants a fast performance sample.</span>
-          </label>
-          <label>
-            Instagram handle
-            <input id="onboardingInstagram" type="text" value="${escapeHtml(dna.instagram || "")}" />
-            <span class="inline-help">Used in your EPK preview and outreach footer.</span>
-          </label>
-          <label>
-            Facebook handle
-            <input id="onboardingFacebook" type="text" value="${escapeHtml(dna.facebook || "")}" />
-            <span class="inline-help">Used in your EPK preview and social links.</span>
-          </label>
-        </div>
-        <p>Choose the outreach tone that feels most like you.</p>
-        <div class="form-grid">
-          ${["Warm", "Professional", "Upbeat"].map((tone) => `
-            <button class="btn ghost${dna.tone === tone ? " active" : ""}" type="button" data-onboarding-tone="${tone}">
-              ${tone}
-            </button>
-          `).join("")}
-        </div>
-        <input id="onboardingTone" type="hidden" value="${escapeHtml(dna.tone || "Warm")}" />
+      <section class="member-onboarding-step panel form-panel">
+        <h2 class="member-onboarding-title">You're in</h2>
+        <p class="member-onboarding-muted">Review your answers, then join the band roster.</p>
+        <dl class="member-onboarding-summary">
+          <dt>Full name</dt><dd>${sumName}</dd>
+          <dt>Email</dt><dd>${sumEmail}</dd>
+          <dt>Photo</dt><dd>${sumPhoto}</dd>
+          <dt>Instrument</dt><dd>${sumInst}</dd>
+          <dt>Vocalist</dt><dd>${sumVoc}</dd>
+          <dt>Years playing</dt><dd>${sumYears}</dd>
+          <dt>Gear</dt><dd>${sumGear}</dd>
+          <dt>DI box</dt><dd>${sumDi}</dd>
+          <dt>Monitor</dt><dd>${sumMon}</dd>
+          <dt>Tech requirements</dt><dd>${sumTech}</dd>
+          <dt>Bio</dt><dd>${sumBio}</dd>
+          <dt>Influences</dt><dd>${sumInfl}</dd>
+          <dt>Memorable show</dt><dd>${sumMem}</dd>
+          <dt>Played where</dt><dd>${sumPlayed}</dd>
+        </dl>
       </section>
     `;
   }
@@ -1419,113 +1352,41 @@ function renderOnboardingWizard() {
   });
 
   if (backBtn) backBtn.classList.toggle("hidden", step === 1);
-  if (nextBtn) nextBtn.textContent = step === 5 ? "Finish setup" : "Continue";
-}
-
-function saveOnboardingStep(stepNumber) {
-  const step = Number(stepNumber || state.onboardingStep || 1);
-
-  if (step === 1) {
-    updateBandDNA({
-      bandName: document.getElementById("onboardingBandName")?.value.trim() || "",
-      hometown: document.getElementById("onboardingHometown")?.value.trim() || "",
-      signoffName: document.getElementById("onboardingSignoffName")?.value.trim() || "",
-      managerName: document.getElementById("onboardingSignoffName")?.value.trim() || "",
-      contactEmail: document.getElementById("onboardingContactEmail")?.value.trim() || "",
-      contactPhone: document.getElementById("onboardingContactPhone")?.value.trim() || "",
-      homeAddress: document.getElementById("onboardingHomeAddress")?.value.trim() || "",
-      venmoHandle: document.getElementById("onboardingVenmoHandle")?.value.trim() || "",
-      paypalHandle: document.getElementById("onboardingPaypalHandle")?.value.trim() || "",
-      paymentMethods: document.getElementById("onboardingPaymentMethods")?.value.trim() || "",
-      loadInTime: document.getElementById("onboardingLoadInTime")?.value.trim() || "",
-      soundCheckMinutes: document.getElementById("onboardingSoundCheckMinutes")?.value.trim() || "",
-      breakPolicy: document.getElementById("onboardingBreakPolicy")?.value.trim() || "",
-      cancellationDays: document.getElementById("onboardingCancellationDays")?.value.trim() || "",
-    });
-    return;
+  if (nextBtn) {
+    nextBtn.textContent = step === 5 ? "Join the band 🎸" : "Continue";
+    nextBtn.classList.toggle("member-onboarding-join-btn", step === 5);
   }
 
-  if (step === 2) {
-    const musicianHourlyRate = document.getElementById("onboardingMusicianHourlyRate")?.value.trim() || "50";
-    const lineups = Array.from(document.querySelectorAll("#onboardingLineupList [data-lineup-row]"))
-      .map((row) => ({
-        name: row.querySelector("[data-lineup-name]")?.value.trim() || "",
-        count: Math.max(1, Number(row.querySelector("[data-lineup-count]")?.value.trim() || 1)),
-      }))
-      .map((entry) => ({
-        name: entry.name,
-        rate: String(toNumber(musicianHourlyRate) * entry.count),
-        count: entry.count,
-        rateType: "hourly",
-      }))
-      .filter((entry) => entry.name || entry.count);
-    updateBandDNA({
-      lineups: lineups.length ? lineups : [
-        { name: "Duo", rate: String(toNumber(musicianHourlyRate) * 2), count: 2, rateType: "hourly" },
-        { name: "Full Band", rate: String(toNumber(musicianHourlyRate) * 4), count: 4, rateType: "hourly" },
-      ],
-      musicianHourlyRate,
-      minimumHours: document.getElementById("onboardingMinimumHours")?.value.trim() || "2",
-      defaultDeposit: document.getElementById("onboardingDefaultDeposit")?.value.trim() || "",
-      depositEnabled: Boolean(document.getElementById("onboardingDepositEnabled")?.checked),
-      depositModel: document.getElementById("onboardingDepositModel")?.value || "addition",
-    });
-    return;
-  }
-
-  if (step === 3) {
-    const travelChargeType = document.getElementById("onboardingTravelChargeType")?.value || "hourly_per_performer";
-    updateBandDNA({
-      travelFreeWithinHours: document.getElementById("onboardingTravelFreeWithinHours")?.value.trim() || "",
-      travelChargeType,
-      travelHourlyRate: document.getElementById("onboardingTravelHourlyRate")?.value.trim() || "",
-      travelFlatFee: document.getElementById("onboardingTravelFlatFee")?.value.trim() || "",
-    });
-    return;
-  }
-
-  if (step === 4) {
-    updateBandDNA({
-      oneLineBio: document.getElementById("onboardingOneLineBio")?.value.trim() || "",
-      artistReferences: document.getElementById("onboardingArtistReferences")?.value.trim() || "",
-      genreTags: getOnboardingGenreTagsFromDom(),
-      bestFitEvents: document.getElementById("onboardingBestFitEvents")?.value.trim() || "",
-      proofPoint: document.getElementById("onboardingProofPoint")?.value.trim() || "",
-    });
-    return;
-  }
-
-  if (step === 5) {
-    updateBandDNA({
-      website: document.getElementById("onboardingWebsite")?.value.trim() || "",
-      musicLink: document.getElementById("onboardingMusicLink")?.value.trim() || "",
-      videoLink: document.getElementById("onboardingVideoLink")?.value.trim() || "",
-      instagram: document.getElementById("onboardingInstagram")?.value.trim() || "",
-      facebook: document.getElementById("onboardingFacebook")?.value.trim() || "",
-      tone: document.getElementById("onboardingTone")?.value || "Warm",
+  if (stepBar) {
+    stepBar.querySelectorAll("[data-onboarding-goto]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        collectMemberOnboardingFromStep(state.onboardingStep);
+        state.onboardingStep = Number(btn.getAttribute("data-onboarding-goto")) || 1;
+        state.onboardingStep = Math.min(5, Math.max(1, state.onboardingStep));
+        saveDraft();
+        renderOnboardingWizard();
+      });
     });
   }
 }
 
 function advanceOnboardingStep() {
-  saveOnboardingStep(state.onboardingStep);
   const statusEl = document.getElementById("onboardingStatus");
+  collectMemberOnboardingFromStep(state.onboardingStep);
 
-  if (Number(state.onboardingStep || 1) === 5) {
-    state.bandDNA.onboardingComplete = true;
-    updateBandDNA({ onboardingComplete: true });
-    saveDraft();
-    if (statusEl) {
-      statusEl.textContent = "You're all set. Your profile is saved and ready to use across bookings, outreach, and your EPK.";
-    }
-    window.setTimeout(() => {
-      if (switchTopView) switchTopView("home");
-    }, 1500);
+  if (state.onboardingStep === 5) {
+    void completeMemberOnboarding();
     return;
   }
 
-  // state.onboardingStep = Math.min(5, Number(state.onboardingStep || 1) + 1);
+  if (state.onboardingStep === 1 && !state.memberOnboardingDraft.fullName?.trim()) {
+    if (statusEl) statusEl.textContent = "Please enter your full name to continue.";
+    return;
+  }
+
+  state.onboardingStep = Math.min(5, state.onboardingStep + 1);
   if (statusEl) statusEl.textContent = "";
+  saveDraft();
   renderOnboardingWizard();
 }
 
@@ -1889,6 +1750,8 @@ function saveDraft() {
       blackouts: state.calendar.blackouts,
       hiddenSeededEventKeys: state.calendar.hiddenSeededEventKeys,
       musicianShowBookings: state.musicianShowBookings,
+      onboardingStep: state.onboardingStep,
+      memberOnboardingDraft: state.memberOnboardingDraft,
     };
     safeStorageSet(STORAGE_KEY, JSON.stringify(payload));
   } catch (error) {
@@ -2002,6 +1865,15 @@ function loadDraft() {
     }
     if (Array.isArray(parsed.musicianShowBookings)) {
       state.musicianShowBookings = parsed.musicianShowBookings;
+    }
+    if (parsed.memberOnboardingDraft && typeof parsed.memberOnboardingDraft === "object") {
+      state.memberOnboardingDraft = {
+        ...createMemberOnboardingDraft(),
+        ...parsed.memberOnboardingDraft,
+      };
+    }
+    if (typeof parsed.onboardingStep === "number" && Number.isFinite(parsed.onboardingStep)) {
+      state.onboardingStep = Math.min(5, Math.max(1, parsed.onboardingStep));
     }
   } catch (error) {
     // ignore invalid storage
@@ -12791,7 +12663,7 @@ function setupListeners() {
   const homeEditBandDNABtn = document.getElementById("homeEditBandDNA");
   if (homeEditBandDNABtn) {
     homeEditBandDNABtn.addEventListener("click", () => {
-      // state.onboardingStep = 1;
+      state.onboardingStep = 1;
       switchTop("onboarding");
     });
   }
@@ -12868,113 +12740,12 @@ function setupListeners() {
   const onboardingBackBtn = document.getElementById("onboardingBack");
   if (onboardingBackBtn) {
     onboardingBackBtn.addEventListener("click", () => {
-      // state.onboardingStep = Math.max(1, Number(state.onboardingStep || 1) - 1);
+      collectMemberOnboardingFromStep(state.onboardingStep);
+      state.onboardingStep = Math.max(1, Number(state.onboardingStep || 1) - 1);
+      const statusEl = document.getElementById("onboardingStatus");
+      if (statusEl) statusEl.textContent = "";
+      saveDraft();
       renderOnboardingWizard();
-    });
-  }
-  const onboardingWizard = document.getElementById("onboardingWizard");
-  if (false && onboardingWizard) {
-    onboardingWizard.addEventListener("click", (event) => {
-      const gotoBtn = event.target.closest("[data-onboarding-goto]");
-      if (gotoBtn) {
-        // state.onboardingStep = Number(gotoBtn.getAttribute("data-onboarding-goto")) || 1;
-        renderOnboardingWizard();
-        return;
-      }
-
-      const depositModelBtn = event.target.closest("[data-deposit-model]");
-      if (depositModelBtn) {
-        const model = depositModelBtn.getAttribute("data-deposit-model") || "addition";
-        updateBandDNA({ depositModel: model });
-        document.querySelectorAll("[data-deposit-model]").forEach((btn) => {
-          btn.classList.toggle(
-            "active",
-            btn.getAttribute("data-deposit-model") === model
-          );
-        });
-        const hiddenInput = document.getElementById("onboardingDepositModel");
-        if (hiddenInput) hiddenInput.value = model;
-        return;
-      }
-
-      const removeLineupBtn = event.target.closest("[data-remove-lineup]");
-      if (removeLineupBtn) {
-        saveOnboardingStep(2);
-        const removeIndex = Number(removeLineupBtn.getAttribute("data-remove-lineup"));
-        state.bandDNA.lineups = (state.bandDNA.lineups || []).filter((_, index) => index !== removeIndex);
-        if (!state.bandDNA.lineups.length) {
-          state.bandDNA.lineups = [{ name: "Duo", rate: "", count: 2, rateType: "hourly" }];
-        }
-        saveDraft();
-        renderOnboardingWizard();
-        return;
-      }
-
-      if (event.target.closest("#onboardingAddLineup")) {
-        saveOnboardingStep(2);
-        state.bandDNA.lineups = [
-          ...(Array.isArray(state.bandDNA.lineups) ? state.bandDNA.lineups : []),
-          { name: "", rate: "", count: 1, rateType: "hourly" },
-        ];
-        saveDraft();
-        renderOnboardingWizard();
-        updateOnboardingLineupRatePreviews();
-        return;
-      }
-
-      const travelTypeBtn = event.target.closest("[data-travel-type]");
-      if (travelTypeBtn) {
-        const travelType = travelTypeBtn.getAttribute("data-travel-type")
-          || "hourly_per_performer";
-        state.bandDNA.travelChargeType = travelType;
-        updateBandDNA({ travelChargeType: travelType });
-        document.querySelectorAll("[data-travel-type]").forEach((btn) => {
-          btn.classList.toggle("active",
-            btn.getAttribute("data-travel-type") === travelType);
-        });
-        const hourlyWrap = document.getElementById("onboardingTravelHourlyWrap");
-        const flatWrap = document.getElementById("onboardingTravelFlatWrap");
-        if (hourlyWrap) hourlyWrap.classList.toggle("hidden",
-          travelType !== "hourly_per_performer");
-        if (flatWrap) flatWrap.classList.toggle("hidden",
-          travelType !== "flat_fee");
-        return;
-      }
-
-      const toneBtn = event.target.closest("[data-onboarding-tone]");
-      if (toneBtn) {
-        const tone = toneBtn.getAttribute("data-onboarding-tone") || "Warm";
-        state.bandDNA.tone = tone;
-        updateBandDNA({ tone });
-        const hiddenInput = document.getElementById("onboardingTone");
-        if (hiddenInput) hiddenInput.value = tone;
-        document.querySelectorAll("[data-onboarding-tone]").forEach((btn) => {
-          btn.classList.toggle("active", btn.getAttribute("data-onboarding-tone") === tone);
-        });
-        return;
-      }
-
-      if (event.target.closest("#onboardingAddGenre")) {
-        const input = document.getElementById("onboardingGenreInput");
-        const nextTag = input?.value.trim() || "";
-        if (!nextTag) return;
-        const currentTags = Array.isArray(state.bandDNA.genreTags) ? state.bandDNA.genreTags : [];
-        if (!currentTags.includes(nextTag)) {
-          updateBandDNA({ genreTags: [...currentTags, nextTag] });
-        }
-        renderOnboardingWizard();
-        return;
-      }
-
-      const removeGenreBtn = event.target.closest("[data-remove-genre]");
-      if (removeGenreBtn) {
-        const tagToRemove = removeGenreBtn.getAttribute("data-remove-genre") || "";
-        updateBandDNA({
-          genreTags: (Array.isArray(state.bandDNA.genreTags) ? state.bandDNA.genreTags : [])
-            .filter((tag) => tag !== tagToRemove),
-        });
-        renderOnboardingWizard();
-      }
     });
   }
 
@@ -13123,15 +12894,6 @@ function setupListeners() {
       saveDraft();
     });
   }
-  onboardingWizard?.addEventListener("input", (event) => {
-    if (
-      event.target.matches("#onboardingMusicianHourlyRate")
-      || event.target.matches("[data-lineup-name]")
-      || event.target.matches("[data-lineup-count]")
-    ) {
-      updateOnboardingLineupRatePreviews();
-    }
-  });
   const generatePdfBtn = document.getElementById("generatePdfBtn") || document.getElementById("invoicePdf");
   generatePdfBtn?.addEventListener("click", async (event) => {
     event.preventDefault();

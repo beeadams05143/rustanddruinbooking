@@ -219,6 +219,155 @@ body {
   color: #888888;
 }
 
+#onboardingTab {
+  background: #1e1e24;
+  padding: 24px 16px 48px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+#onboardingWizard {
+  color: #f0ede8;
+}
+
+.member-onboarding-step-label {
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #f0ede8;
+  margin: 12px 0 20px;
+}
+
+#onboardingStepBar {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+#onboardingStepBar .btn.ghost {
+  border-color: #d4a96a;
+  color: #f5c48a;
+}
+
+#onboardingStepBar .btn.ghost.active {
+  background: #f47c20;
+  border-color: #f47c20;
+  color: #fff;
+}
+
+.member-onboarding-step .form-panel {
+  background: #28282f;
+  border: 0.5px solid #3a3a44;
+  text-align: left;
+}
+
+.member-onboarding-title {
+  margin: 0 0 8px;
+  font-size: 1.45rem;
+  color: #f47c20;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.member-onboarding-muted {
+  margin: 0 0 20px;
+  color: #c4bdb4;
+  font-size: 0.95rem;
+}
+
+.member-onboarding-grid {
+  max-width: 100%;
+}
+
+.member-onboarding-grid label {
+  color: #f0ede8;
+}
+
+.member-onboarding-input,
+.member-onboarding-step textarea,
+.member-onboarding-step select {
+  background: #f5efe3 !important;
+  color: #2c1a00 !important;
+  border: 1px solid #d4a96a;
+  border-radius: 10px;
+}
+
+.member-onboarding-help {
+  color: #a8a0a0 !important;
+}
+
+.member-onboarding-req {
+  color: #f47c20;
+}
+
+.member-onboarding-check {
+  color: #f0ede8;
+}
+
+.member-onboarding-fullwidth {
+  grid-column: 1 / -1;
+}
+
+#onboardingNav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+#onboardingNav .btn {
+  background: #f47c20;
+  border: none;
+  color: #fff;
+  border-radius: 24px;
+  padding: 12px 24px;
+  font-weight: 600;
+}
+
+#onboardingNav .btn.ghost {
+  background: transparent;
+  border: 1.5px solid #f47c20;
+  color: #f47c20;
+}
+
+#onboardingNav .btn.ghost:hover {
+  background: rgba(244, 124, 32, 0.12);
+  color: #f5c48a;
+}
+
+#onboardingNext.member-onboarding-join-btn {
+  margin-left: auto;
+}
+
+.member-onboarding-summary {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.35fr) 1fr;
+  gap: 8px 16px;
+  margin: 0;
+  font-size: 0.92rem;
+  color: #f0ede8;
+}
+
+.member-onboarding-summary dt {
+  margin: 0;
+  color: #f47c20;
+  font-weight: 600;
+}
+
+.member-onboarding-summary dd {
+  margin: 0;
+  color: #e8e0d8;
+}
+
+#onboardingStatus {
+  text-align: center;
+  margin-top: 16px;
+  color: #f5c48a;
+}
+
 .dashboard-board {
   padding: 0;
   background: transparent;
