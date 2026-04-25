@@ -349,13 +349,13 @@ body {
 .more-band-invite-action {
   flex: 1;
   min-width: 140px;
-  padding: 10px 16px;
-  border-radius: 12px;
+  padding: 8px 16px;
+  border-radius: 20px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   background: transparent;
-  border: 2px solid #f47c20;
+  border: 1.5px solid #f47c20;
   color: #f47c20;
 }
 
@@ -1218,6 +1218,83 @@ body {
 .login-actions {
   justify-content: center;
   margin-top: 16px;
+}
+
+.login-signin-primary-wrap {
+  width: 100%;
+  max-width: 520px;
+  margin: 16px auto 0;
+}
+
+.login-signin-submit {
+  width: 100%;
+}
+
+.login-divider-new {
+  display: flex;
+  align-items: center;
+  max-width: 520px;
+  margin: 16px auto;
+  width: 100%;
+}
+
+.login-divider-line {
+  flex: 1;
+  border-top: 1px solid #3a3a4a;
+  min-height: 1px;
+}
+
+.login-divider-text {
+  padding: 0 12px;
+  color: #8a6840;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.login-create-join-row {
+  display: flex;
+  gap: 12px;
+  max-width: 520px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.login-create-join-btn {
+  flex: 1;
+  border: 1.5px solid #f47c20;
+  color: #f47c20;
+  background: #f5efe3;
+  border-radius: 24px;
+  padding: 12px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-create-join-btn:hover {
+  background: #fdf0e3;
+  color: #d4621a;
+  border-color: #d4621a;
+}
+
+.login-forgot-wrap {
+  text-align: center;
+  margin: 16px 0 0;
+}
+
+.login-forgot-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #8a6840;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.login-forgot-link:hover {
+  color: #f47c20;
 }
 
 #loginTab label {

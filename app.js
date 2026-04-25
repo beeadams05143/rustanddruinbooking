@@ -5798,7 +5798,15 @@ function initSupabaseClient() {
 
     const loginSignInBtn = document.getElementById("loginSignIn");
     if (loginSignInBtn) {
-      loginSignInBtn.textContent = state.calendar.session ? "Sign out" : "Sign in";
+      loginSignInBtn.textContent = state.calendar.session ? "Sign out" : "Sign In";
+    }
+
+    if (!state.calendar.session || event === "SIGNED_OUT") {
+      if (event === "SIGNED_OUT") {
+        updateSupabaseStatus("Signed out.");
+      }
+      if (switchTopView) switchTopView("login");
+      return;
     }
 
     if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
@@ -5808,9 +5816,6 @@ function initSupabaseClient() {
         void refreshAuthState();
       }
       queueSupabaseSyncRefresh();
-    } else if (event === "SIGNED_OUT") {
-      updateSupabaseStatus("Signed out.");
-      if (switchTopView) switchTopView("login");
     } else if (event === "PASSWORD_RECOVERY") {
       updateSupabaseStatus("Password recovery ready. Set your new password in the Supabase screen, then return here.");
     }
@@ -6114,42 +6119,16 @@ async function refreshAuthState() {
   if (!client) return;
   const { data } = await client.auth.getSession();
   state.calendar.session = data?.session || null;
-  if (state.calendar.session) {
-    safeStorageSet(CALENDAR_AUTH_SEEN_KEY, "1");
-  }
   syncTopAuthTabLabel();
   updateLandingHeaderVisibility();
   updateCalendarAuthVisibility();
   updateSupabaseStatus(state.calendar.session ? "Signed in." : "Signed out.");
   const loginSignInBtn = document.getElementById("loginSignIn");
   if (loginSignInBtn) {
-    loginSignInBtn.textContent = state.calendar.session ? "Sign out" : "Sign in";
+    loginSignInBtn.textContent = state.calendar.session ? "Sign out" : "Sign In";
   }
-  if (state.calendar.session) {
-    startSupabaseSync();
-    await loadOverridePin();
-    await fetchEventsForMonth();
-    await fetchContracts();
-    await fetchMusicians();
-    await fetchMusicianAssignments();
-    await fetchMusicianBlackouts();
-    await fetchWorkOrders();
-    await fetchInvoices();
-    await fetchReceipts();
-    await loadBandDNAFromSupabase();
-    if (
-      state.bandDNA.contactEmail &&
-      state.bandDNA.contactEmail !== state.calendar.session.user.email
-    ) {
-      state.bandDNA = createInitialBandDNAState();
-      saveDraft();
-    }
-    const pendingInviteCode = safeStorageGet("pendingBandInviteCode");
-    if (pendingInviteCode) {
-      await processBandInviteCode(pendingInviteCode);
-    }
-    repairLineupRates();
-  } else {
+
+  if (!state.calendar.session) {
     stopSupabaseSync();
     state.calendar.events = [];
     state.calendar.contracts = [];
@@ -6170,11 +6149,37 @@ async function refreshAuthState() {
     updateInvoiceList();
     updateReceiptList();
     updateOpsProgress();
+    void renderMoreTab();
+    if (switchTopView) switchTopView("login");
+    return;
   }
+
+  safeStorageSet(CALENDAR_AUTH_SEEN_KEY, "1");
+  startSupabaseSync();
+  await loadOverridePin();
+  await fetchEventsForMonth();
+  await fetchContracts();
+  await fetchMusicians();
+  await fetchMusicianAssignments();
+  await fetchMusicianBlackouts();
+  await fetchWorkOrders();
+  await fetchInvoices();
+  await fetchReceipts();
+  await loadBandDNAFromSupabase();
+  if (
+    state.bandDNA.contactEmail &&
+    state.bandDNA.contactEmail !== state.calendar.session.user.email
+  ) {
+    state.bandDNA = createInitialBandDNAState();
+    saveDraft();
+  }
+  const pendingInviteCode = safeStorageGet("pendingBandInviteCode");
+  if (pendingInviteCode) {
+    await processBandInviteCode(pendingInviteCode);
+  }
+  repairLineupRates();
   void renderMoreTab();
-  if (switchTopView) {
-    switchTopView(state.calendar.session ? getPostAuthTopView() : "login");
-  }
+  if (switchTopView) switchTopView(getPostAuthTopView());
 }
 
 async function signUpWithCredentials(email, password, confirmPassword) {
@@ -6287,7 +6292,7 @@ async function renderMoreTab() {
   const card = document.createElement("article");
   card.className = "more-band-invite-card";
   card.style.cssText =
-    "background:#fdf0e3;border:1px solid #e8a855;border-radius:12px;padding:20px;";
+    "background:#fdf0e3;border:1px solid #e8a855;border-radius:12px;padding:20px;margin-bottom:16px;";
 
   const label = document.createElement("p");
   label.textContent = "BAND INVITE CODE";
@@ -6339,8 +6344,16 @@ async function renderMoreTab() {
 
   copyBtn.addEventListener("click", async () => {
     if (!inviteCode) return;
-    const ok = await copyTextToClipboard(inviteCode);
-    if (!ok) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(inviteCode);
+      } else {
+        const ok = await copyTextToClipboard(inviteCode);
+        if (!ok) return;
+      }
+    } catch {
+      return;
+    }
     copyBtn.textContent = "✓ Copied!";
     window.setTimeout(() => {
       copyBtn.textContent = copyBtnDefault;
@@ -6356,6 +6369,14 @@ async function renderMoreTab() {
         return;
       } catch (err) {
         if (err && err.name === "AbortError") return;
+      }
+    }
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(shareText);
+        return;
+      } catch {
+        /* fall through */
       }
     }
     await copyTextToClipboard(shareText);
@@ -13260,7 +13281,7 @@ function setupListeners() {
     updateCalendarAuthVisibility();
     const loginSignInBtn = document.getElementById("loginSignIn");
     if (loginSignInBtn) {
-      loginSignInBtn.textContent = "Sign in";
+      loginSignInBtn.textContent = "Sign In";
     }
     updateSupabaseStatus("Signed out.");
     setLoginTabMode("signin");

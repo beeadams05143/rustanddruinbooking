@@ -37,29 +37,32 @@
           <h2>Login</h2>
           <p class="muted">Sign in to access Booking Suite.</p>
           <div id="loginSignInPanel">
-  <div class="form-grid login-grid">
-    <label>
-      Email
-      <input id="loginEmail" type="email" placeholder="you@email.com" autocomplete="email" />
-    </label>
-    <label>
-      Password
-      <input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password" />
-    </label>
-  </div>
-  <div class="inline-actions login-actions">
-    <button class="btn" id="loginSignIn">Sign in</button>
-  </div>
-  <p style="text-align:center;margin-top:16px;">
-    <button type="button" class="btn ghost" id="loginShowSignUp">New here? Create an account</button>
-  </p>
-  <p style="text-align:center;margin-top:8px;">
-    <button type="button" class="btn ghost" id="loginResetPassword" style="font-size:13px;opacity:0.7;">Forgot password?</button>
-  </p>
-  <p style="text-align:center;margin-top:8px;">
-    <button type="button" class="btn ghost" id="loginShowJoinBand" style="font-size:13px;opacity:0.7;">Join a band</button>
-  </p>
-</div>
+            <div class="form-grid login-grid">
+              <label>
+                Email
+                <input id="loginEmail" type="email" placeholder="you@email.com" autocomplete="email" />
+              </label>
+              <label>
+                Password
+                <input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password" />
+              </label>
+            </div>
+            <div class="login-signin-primary-wrap">
+              <button class="btn login-signin-submit" id="loginSignIn" type="button">Sign In</button>
+            </div>
+            <div class="login-divider-new" aria-hidden="true">
+              <span class="login-divider-line"></span>
+              <span class="login-divider-text">New to GigOS?</span>
+              <span class="login-divider-line"></span>
+            </div>
+            <div class="login-create-join-row">
+              <button type="button" class="login-create-join-btn" id="loginShowSignUp">🎸 Create an Account</button>
+              <button type="button" class="login-create-join-btn" id="loginShowJoinBand">🤝 Join a Band</button>
+            </div>
+            <p class="login-forgot-wrap">
+              <button type="button" class="login-forgot-link" id="loginResetPassword">Forgot password?</button>
+            </p>
+          </div>
           <div id="loginSignUpPanel" class="hidden">
   <h3>Create your account</h3>
   <p class="muted">You'll get a confirmation email before you can sign in.</p>
