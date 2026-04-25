@@ -1156,7 +1156,13 @@ async function completeMemberOnboarding() {
     if (statusEl) statusEl.textContent = "Sign in required.";
     return;
   }
-  const bandId = await getCurrentUserBandId();
+  let bandId = await getCurrentUserBandId();
+  if (!bandId) {
+    const pending = safeStorageGet("pendingBandInviteCode");
+    if (pending && String(pending).trim()) {
+      bandId = (await processBandInviteCode(String(pending).trim())) || "";
+    }
+  }
   if (!bandId) {
     if (statusEl) {
       statusEl.textContent =
@@ -1178,6 +1184,7 @@ async function completeMemberOnboarding() {
     notes,
     active: true,
     band_id: bandId,
+    user_id: state.calendar.session.user.id,
   };
   let { data, error } = await client.from("musicians").insert(payload).select("*").single();
   if (error && payload.band_id) {
@@ -6177,32 +6184,55 @@ async function joinBandWithCode() {
 
 async function processBandInviteCode(code) {
   const client = state.calendar.client;
-  if (!client || !state.calendar.session) return;
+  if (!client || !state.calendar.session) return null;
   const userId = state.calendar.session.user.id;
-  const { data: band, error: bandError } = await client
+  const norm = String(code || "").trim();
+  if (!norm) return null;
+
+  const { data: bandRows, error: bandError } = await client
     .from("bands")
-    .select("id, name")
-    .eq("invite_code", code)
-    .maybeSingle();
-  if (bandError || !band) {
+    .select("id, name, invite_code")
+    .ilike("invite_code", norm);
+  const band =
+    Array.isArray(bandRows) && bandRows.length ? bandRows[0] : null;
+
+  if (bandError || !band?.id) {
     updateSupabaseStatus("Invite code not found. Please contact your band manager.", true);
-    localStorage.removeItem("pendingBandInviteCode");
-    return;
+    return null;
   }
-  await client.from("band_members").insert({
-    user_id: userId,
-    band_id: band.id,
-    role: "member",
-    joined_at: new Date().toISOString(),
-  });
+
+  const joinedAt = new Date().toISOString();
+  const { error: memberError } = await client.from("band_members").upsert(
+    {
+      user_id: userId,
+      band_id: band.id,
+      role: "member",
+      joined_at: joinedAt,
+    },
+    { onConflict: "user_id,band_id" }
+  );
+  if (memberError) {
+    updateSupabaseStatus(
+      formatSupabaseError(memberError, "Could not join band."),
+      true
+    );
+    return null;
+  }
+
   const tables = ["events", "contracts", "work_orders", "invoices", "receipts"];
   await Promise.all(
     tables.map((t) =>
       client.from(t).update({ band_id: band.id }).eq("user_id", userId)
     )
   );
-  localStorage.removeItem("pendingBandInviteCode");
+
+  try {
+    localStorage.removeItem("pendingBandInviteCode");
+  } catch (e) {
+    /* ignore */
+  }
   updateSupabaseStatus(`Welcome to ${band.name}! You have been linked to the band.`);
+  return band.id;
 }
 
 async function fetchBandInviteCodeForCurrentUser() {
