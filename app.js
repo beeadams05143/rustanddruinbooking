@@ -1439,28 +1439,41 @@ function parseMusicianStoredProfileForDisplay(notesRaw) {
 function appendMusicianProfileLabeledFields(container, musician, options = {}) {
   if (!container || !musician) return;
   const skipName = options.skipName === true;
+  const styleOrangeCream = options.styleOrangeCream === true;
+  const showEmptyFields = options.showEmptyFields === true;
   const parsed = parseMusicianStoredProfileForDisplay(musician.notes);
   const wrap = document.createElement("div");
   wrap.className = "member-profile-readonly-fields";
-  wrap.style.cssText = "display:grid;gap:10px;color:#2c1a00;font-size:14px;line-height:1.45;";
+  wrap.style.cssText = "display:grid;gap:12px;color:#2c1a00;font-size:14px;line-height:1.45;";
+
+  const labelCss = styleOrangeCream
+    ? "font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#f47c20;"
+    : "font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#8a5010;";
+  const valueCss = styleOrangeCream
+    ? "margin-top:6px;padding:10px 12px;background:#fdf0e3;border:1px solid #f5c48a;border-radius:10px;color:#3d2914;font-size:14px;white-space:pre-wrap;"
+    : "margin-top:4px;";
 
   const addRow = (label, value, isParagraph = false) => {
-    const v = String(value || "").trim();
-    if (!v || v === "—") return;
+    let v = String(value ?? "").trim();
+    const empty = !v || v === "—";
+    if (empty && !showEmptyFields) return;
+    if (empty) v = "—";
     const row = document.createElement("div");
     row.style.marginTop = "2px";
     const dt = document.createElement("div");
-    dt.style.cssText = "font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#8a5010;";
+    dt.style.cssText = labelCss;
     dt.textContent = label;
     row.appendChild(dt);
     if (isParagraph) {
       const p = document.createElement("p");
-      p.style.cssText = "margin:4px 0 0;white-space:pre-wrap;";
+      p.style.cssText = styleOrangeCream
+        ? "margin:6px 0 0;padding:10px 12px;background:#fdf0e3;border:1px solid #f5c48a;border-radius:10px;color:#3d2914;font-size:14px;white-space:pre-wrap;"
+        : "margin:4px 0 0;white-space:pre-wrap;";
       p.textContent = v;
       row.appendChild(p);
     } else {
       const dd = document.createElement("div");
-      dd.style.cssText = "margin-top:4px;";
+      dd.style.cssText = valueCss;
       dd.textContent = v;
       row.appendChild(dd);
     }
@@ -1469,27 +1482,70 @@ function appendMusicianProfileLabeledFields(container, musician, options = {}) {
 
   if (parsed.mode === "freeform") {
     if (!skipName) addRow("Name", musician.name || "");
-    if (parsed.freeformText) addRow("Notes", parsed.freeformText, true);
+    if (showEmptyFields) addRow("Email", musician.email || "");
+    if (parsed.freeformText || showEmptyFields) addRow("Notes", parsed.freeformText || "", true);
     container.appendChild(wrap);
     return;
   }
 
-  if (!skipName) addRow("Name", musician.name || "");
-  addRow("Instrument", parsed.primaryInstrument || "");
-  if (parsed.vocalistLine) {
-    const voc = parsed.vocalistLine.toLowerCase() === "yes";
-    addRow("Vocalist", voc ? "Yes" : "No");
-    if (voc && parsed.voiceType) addRow("Vocalist type", parsed.voiceType);
+  if (showEmptyFields) {
+    if (!skipName) addRow("Name", musician.name || "");
+    addRow("Email", musician.email || "");
+    addRow("Instrument", parsed.primaryInstrument || "");
+    if (parsed.vocalistLine) {
+      const voc = parsed.vocalistLine.toLowerCase() === "yes";
+      addRow("Are you a vocalist?", voc ? "Yes" : "No");
+      addRow("Voice type", parsed.voiceType || "");
+    } else {
+      addRow("Are you a vocalist?", "");
+      addRow("Voice type", parsed.voiceType || "");
+    }
+    addRow("Years playing", parsed.yearsPlaying || "");
+    addRow("Gear / equipment", parsed.gearText || "", true);
+    addRow("Need DI box?", parsed.diBox || "");
+    addRow("Need monitor?", parsed.monitor || "");
+    addRow("Tech requirements", parsed.techNotes || "", true);
+    addRow("Your bio (used in EPK and band materials)", parsed.bio || "", true);
+    addRow("Influences", parsed.influences || "");
+    addRow("Memorable show", parsed.memorableShow || "", true);
+    addRow("Where have you played", parsed.playedWhere || "", true);
+  } else {
+    if (!skipName) addRow("Name", musician.name || "");
+    addRow("Instrument", parsed.primaryInstrument || "");
+    if (parsed.vocalistLine) {
+      const voc = parsed.vocalistLine.toLowerCase() === "yes";
+      addRow("Vocalist", voc ? "Yes" : "No");
+      if (voc && parsed.voiceType) addRow("Vocalist type", parsed.voiceType);
+    }
+    addRow("Years playing", parsed.yearsPlaying || "");
+    if (parsed.bio && parsed.bio !== "—") addRow("Bio", parsed.bio, true);
+    addRow("Influences", parsed.influences || "");
+    addRow("Memorable show", parsed.memorableShow || "", true);
+    addRow("Gear list", parsed.gearText || "", true);
+    if (parsed.techNotes) addRow("Tech notes", parsed.techNotes, true);
+    if (parsed.playedWhere) addRow("Played where", parsed.playedWhere, true);
   }
-  addRow("Years playing", parsed.yearsPlaying || "");
-  if (parsed.bio && parsed.bio !== "—") addRow("Bio", parsed.bio, true);
-  addRow("Influences", parsed.influences || "");
-  addRow("Memorable show", parsed.memorableShow || "", true);
-  addRow("Gear list", parsed.gearText || "", true);
-  if (parsed.techNotes) addRow("Tech notes", parsed.techNotes, true);
-  if (parsed.playedWhere) addRow("Played where", parsed.playedWhere, true);
 
   container.appendChild(wrap);
+}
+
+function memberProfileVoiceTypeForSelect(parsed) {
+  const s = String(parsed?.voiceType || "").trim().toLowerCase();
+  if (s.includes("both")) return "Both";
+  if (s.includes("harmony")) return "Harmony";
+  if (s.includes("lead")) return "Lead";
+  const t = String(parsed?.voiceType || "").trim();
+  if (["Lead", "Harmony", "Both"].includes(t)) return t;
+  return "";
+}
+
+function memberProfileVocalistYesNoValue(parsed) {
+  if (!parsed || !parsed.vocalistLine) return "no";
+  return String(parsed.vocalistLine).trim().toLowerCase() === "yes" ? "yes" : "no";
+}
+
+function memberProfileYesNoSelectValue(raw) {
+  return String(raw || "").trim().toLowerCase() === "yes" ? "yes" : "no";
 }
 
 async function fetchMusicianRowForCurrentUser() {
@@ -1646,38 +1702,59 @@ async function saveMemberOwnProfileEdits() {
   draft.fullName = name;
   draft.email = document.getElementById("memberEditEmail")?.value.trim() || musician.email || "";
   draft.primaryInstrument = document.getElementById("memberEditInstrument")?.value.trim() || "";
-  draft.isVocalist = document.getElementById("memberEditIsVocalist")?.checked === true;
+  draft.isVocalist = (document.getElementById("memberEditVocalistYesNo")?.value || "no") === "yes";
   draft.voiceType = document.getElementById("memberEditVoiceType")?.value.trim() || "";
-  draft.yearsPlaying = document.getElementById("memberEditYears")?.value.trim() || "";
+  draft.yearsPlaying = String(document.getElementById("memberEditYears")?.value ?? "").trim() || "";
+  draft.equipmentList = document.getElementById("memberEditGear")?.value.trim() || "";
+  draft.needsDiBox = (document.getElementById("memberEditDi")?.value || "no") === "yes";
+  draft.needsMonitor = (document.getElementById("memberEditMonitor")?.value || "no") === "yes";
+  draft.techRequirements = document.getElementById("memberEditTech")?.value.trim() || "";
   draft.bioBlurb = document.getElementById("memberEditBio")?.value.trim() || "";
   draft.musicalInfluences = document.getElementById("memberEditInfluences")?.value.trim() || "";
   draft.memorableShow = document.getElementById("memberEditMemorable")?.value.trim() || "";
-  draft.equipmentList = document.getElementById("memberEditGear")?.value.trim() || "";
-  if (parsed.mode === "structured") {
-    draft.needsDiBox = String(parsed.diBox || "").toLowerCase() === "yes";
-    draft.needsMonitor = String(parsed.monitor || "").toLowerCase() === "yes";
-    draft.techRequirements = parsed.techNotes || "";
-    draft.playedWhere = parsed.playedWhere || "";
-    draft.profilePhotoLabel = parsed.photoLabel || "";
-  }
+  draft.playedWhere = document.getElementById("memberEditPlayedWhere")?.value.trim() || "";
+  draft.profilePhotoLabel = parsed.mode === "structured" ? (parsed.photoLabel || "") : "";
   const roleParts = [draft.primaryInstrument || "Musician"];
   if (draft.isVocalist) {
     roleParts.push(`Vocals (${draft.voiceType || "unspecified"})`);
   }
   const role = roleParts.join(" · ");
   const notes = buildMemberOnboardingNotesPayload(draft);
-  const payload = {
+  const phoneVal = String(musician.phone || "").trim();
+  const upsertBody = {
+    user_id: uid,
     name,
     email: draft.email || null,
     role,
     notes,
+    phone: phoneVal || null,
+    active: musician.active !== false,
   };
-  const { data, error } = await client
+  const bandForRow = musician.band_id || state.userBandId || null;
+  if (bandForRow) upsertBody.band_id = bandForRow;
+
+  let { data, error } = await client
     .from("musicians")
-    .update(payload)
-    .eq("id", musician.id)
+    .upsert(upsertBody, { onConflict: "user_id" })
     .select("*")
     .single();
+  if (error) {
+    const retry = await client
+      .from("musicians")
+      .update({
+        name,
+        email: draft.email || null,
+        role,
+        notes,
+        phone: upsertBody.phone,
+        active: musician.active !== false,
+      })
+      .eq("user_id", uid)
+      .select("*")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
   if (error || !data) {
     if (statusEl) statusEl.textContent = error?.message || "Could not update profile.";
     return;
@@ -1686,14 +1763,19 @@ async function saveMemberOwnProfileEdits() {
     if (statusEl) statusEl.textContent = "You can only update your own profile.";
     return;
   }
-  const idx = state.musicians.findIndex((m) => m.id === data.id);
+  const idx = state.musicians.findIndex((m) => m.id === data.id || m.user_id === uid);
   if (idx !== -1) state.musicians[idx] = data;
-  if (statusEl) statusEl.textContent = "Profile saved.";
-  const mount = document.getElementById("memberMyProfileMount");
-  if (mount) {
-    mount.dataset.editMode = "";
-    void renderMemberMyProfilePanel(mount);
-  }
+  else state.musicians.push(data);
+  if (statusEl) statusEl.textContent = "Profile updated!";
+  window.setTimeout(async () => {
+    const m = document.getElementById("memberMyProfileMount");
+    if (!m) return;
+    m.dataset.editMode = "";
+    await fetchMusicianRowForCurrentUser();
+    void renderMemberMyProfilePanel(m);
+    const el = document.getElementById("memberMyProfileStatus");
+    if (el) el.textContent = "";
+  }, 2000);
 }
 
 async function renderMemberMyProfilePanel(mount) {
@@ -1707,10 +1789,22 @@ async function renderMemberMyProfilePanel(mount) {
   const musician = await fetchMusicianRowForCurrentUser();
   const parsed = musician ? parseMusicianStoredProfileForDisplay(musician.notes) : { mode: "freeform", freeformText: "" };
   const editing = mount.dataset.editMode === "1";
+  const voiceSel = memberProfileVoiceTypeForSelect(parsed);
+  const vocYN = memberProfileVocalistYesNoValue(parsed);
+  const diSel = memberProfileYesNoSelectValue(parsed.mode === "structured" ? parsed.diBox : "");
+  const monSel = memberProfileYesNoSelectValue(parsed.mode === "structured" ? parsed.monitor : "");
+  const instVal = parsed.mode === "structured" ? parsed.primaryInstrument : "";
+  const yearsVal = parsed.mode === "structured" ? parsed.yearsPlaying : "";
+  const gearVal = parsed.mode === "structured" ? parsed.gearText : "";
+  const techVal = parsed.mode === "structured" ? parsed.techNotes : "";
+  const bioVal = parsed.mode === "structured" ? parsed.bio : (parsed.freeformText || "");
+  const inflVal = parsed.mode === "structured" ? parsed.influences : "";
+  const memVal = parsed.mode === "structured" ? parsed.memorableShow : "";
+  const playedVal = parsed.mode === "structured" ? parsed.playedWhere : "";
 
   const readCardHtml = musician
     ? `
-    <div class="form-section" style="background:#fdf0e3;border:1px solid #e8a855;border-radius:12px;padding:16px;">
+    <div class="form-section" style="background:#1e1e24;border:1px solid #e8a855;border-radius:12px;padding:16px;">
       <div id="memberProfileReadInner"></div>
     </div>`
     : "<p class=\"muted\">No musician profile is linked to your account yet. Complete onboarding or ask your band admin to connect your login.</p>";
@@ -1719,19 +1813,45 @@ async function renderMemberMyProfilePanel(mount) {
     ? `
     <div class="form-section hidden" id="memberProfileEditSection" style="margin-top:12px;">
       <div class="form-grid">
-        <label>Name <input id="memberEditName" class="member-onboarding-input" type="text" value="${escapeHtml(musician.name || "")}" /></label>
+        <label>Full name <input id="memberEditName" class="member-onboarding-input" type="text" value="${escapeHtml(musician.name || "")}" /></label>
         <label>Email <input id="memberEditEmail" class="member-onboarding-input" type="email" value="${escapeHtml(musician.email || "")}" /></label>
-        <label>Instrument <input id="memberEditInstrument" class="member-onboarding-input" type="text" value="${escapeHtml(parsed.mode === "structured" ? parsed.primaryInstrument : "")}" /></label>
-        <label class="checkbox inline-note"><input id="memberEditIsVocalist" type="checkbox" ${parsed.mode === "structured" && String(parsed.vocalistLine).toLowerCase() === "yes" ? "checked" : ""} /> Vocalist</label>
-        <label>Vocalist type <input id="memberEditVoiceType" class="member-onboarding-input" type="text" value="${escapeHtml(parsed.mode === "structured" ? parsed.voiceType : "")}" placeholder="Lead, harmony…" /></label>
-        <label>Years playing <input id="memberEditYears" class="member-onboarding-input" type="text" value="${escapeHtml(parsed.mode === "structured" ? parsed.yearsPlaying : "")}" /></label>
-        <label class="member-onboarding-fullwidth">Bio <textarea id="memberEditBio" class="member-onboarding-input" rows="4">${escapeHtml(parsed.mode === "structured" ? parsed.bio : "")}</textarea></label>
-        <label class="member-onboarding-fullwidth">Influences <input id="memberEditInfluences" class="member-onboarding-input" type="text" value="${escapeHtml(parsed.mode === "structured" ? parsed.influences : "")}" /></label>
-        <label class="member-onboarding-fullwidth">Memorable show <textarea id="memberEditMemorable" class="member-onboarding-input" rows="3">${escapeHtml(parsed.mode === "structured" ? parsed.memorableShow : "")}</textarea></label>
-        <label class="member-onboarding-fullwidth">Gear list <textarea id="memberEditGear" class="member-onboarding-input" rows="4">${escapeHtml(parsed.mode === "structured" ? parsed.gearText : "")}</textarea></label>
+        <label>Instrument <input id="memberEditInstrument" class="member-onboarding-input" type="text" value="${escapeHtml(instVal)}" placeholder="e.g. Guitar, drums" /></label>
+        <label>Are you a vocalist?
+          <select id="memberEditVocalistYesNo" class="member-onboarding-input">
+            <option value="no" ${vocYN === "no" ? "selected" : ""}>No</option>
+            <option value="yes" ${vocYN === "yes" ? "selected" : ""}>Yes</option>
+          </select>
+        </label>
+        <label>Voice type
+          <select id="memberEditVoiceType" class="member-onboarding-input">
+            <option value="" ${!voiceSel ? "selected" : ""}>Select…</option>
+            <option value="Lead" ${voiceSel === "Lead" ? "selected" : ""}>Lead</option>
+            <option value="Harmony" ${voiceSel === "Harmony" ? "selected" : ""}>Harmony</option>
+            <option value="Both" ${voiceSel === "Both" ? "selected" : ""}>Both</option>
+          </select>
+        </label>
+        <label>Years playing <input id="memberEditYears" class="member-onboarding-input" type="number" min="0" step="1" value="${escapeHtml(String(yearsVal).replace(/[^0-9.-]/g, "") || "")}" placeholder="0" /></label>
+        <label class="member-onboarding-fullwidth">Gear / equipment <textarea id="memberEditGear" class="member-onboarding-input" rows="4">${escapeHtml(gearVal)}</textarea></label>
+        <label>Need DI box?
+          <select id="memberEditDi" class="member-onboarding-input">
+            <option value="no" ${diSel === "no" ? "selected" : ""}>No</option>
+            <option value="yes" ${diSel === "yes" ? "selected" : ""}>Yes</option>
+          </select>
+        </label>
+        <label>Need monitor?
+          <select id="memberEditMonitor" class="member-onboarding-input">
+            <option value="no" ${monSel === "no" ? "selected" : ""}>No</option>
+            <option value="yes" ${monSel === "yes" ? "selected" : ""}>Yes</option>
+          </select>
+        </label>
+        <label class="member-onboarding-fullwidth">Tech requirements <textarea id="memberEditTech" class="member-onboarding-input" rows="3">${escapeHtml(techVal)}</textarea></label>
+        <label class="member-onboarding-fullwidth">Your bio (used in EPK and band materials) <textarea id="memberEditBio" class="member-onboarding-input" rows="4">${escapeHtml(bioVal)}</textarea></label>
+        <label>Influences <input id="memberEditInfluences" class="member-onboarding-input" type="text" value="${escapeHtml(inflVal)}" placeholder="Artists you draw from" /></label>
+        <label class="member-onboarding-fullwidth">Memorable show <textarea id="memberEditMemorable" class="member-onboarding-input" rows="3">${escapeHtml(memVal)}</textarea></label>
+        <label class="member-onboarding-fullwidth">Where have you played <textarea id="memberEditPlayedWhere" class="member-onboarding-input" rows="3">${escapeHtml(playedVal)}</textarea></label>
       </div>
       <div class="inline-actions" style="margin-top:12px;">
-        <button type="button" class="btn" id="memberProfileSaveBtn">Save changes</button>
+        <button type="button" class="btn" id="memberProfileSaveBtn">Save Profile</button>
         <button type="button" class="btn ghost" id="memberProfileCancelEditBtn">Cancel</button>
       </div>
     </div>`
@@ -1770,7 +1890,10 @@ async function renderMemberMyProfilePanel(mount) {
 
   const readInner = document.getElementById("memberProfileReadInner");
   if (readInner && musician) {
-    appendMusicianProfileLabeledFields(readInner, musician);
+    appendMusicianProfileLabeledFields(readInner, musician, {
+      styleOrangeCream: true,
+      showEmptyFields: true,
+    });
   }
 
   const editSection = document.getElementById("memberProfileEditSection");
@@ -1903,23 +2026,19 @@ async function completeMemberOnboarding() {
   if (bandId) {
     state.userBandId = state.userBandId || bandId;
   }
-  state.bandDNA.onboardingComplete = true;
-  try {
-    const { error: onboardingSettingsError } = await client.from("app_settings").upsert(
-      {
-        key: "memberOnboardingComplete",
-        value: "true",
-        user_id: state.calendar.session.user.id,
-        band_id: state.userBandId ?? bandId ?? null,
-      },
-      { onConflict: "key,user_id" }
-    );
-    if (onboardingSettingsError) {
-      console.warn("memberOnboardingComplete app_settings upsert:", onboardingSettingsError);
-    }
-  } catch (settingsErr) {
-    console.warn("memberOnboardingComplete app_settings upsert failed:", settingsErr);
+  const { error: flagError } = await client.from("app_settings").upsert(
+    {
+      key: "memberOnboardingComplete",
+      value: "true",
+      user_id: state.calendar.session.user.id,
+      band_id: state.userBandId,
+    },
+    { onConflict: "key,user_id" }
+  );
+  if (flagError) {
+    console.error("Failed to save onboarding flag:", flagError);
   }
+  state.bandDNA.onboardingComplete = true;
   if (switchTopView) switchTopView("home");
   updateBandDNA({ onboardingComplete: true });
   state.memberOnboardingDraft = createMemberOnboardingDraft();
