@@ -807,6 +807,47 @@ body {
   cursor: pointer;
 }
 
+.book-hub-calendar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  background: #fdf0e3;
+  color: #2c1a00;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.book-hub-calendar-nav .book-hub-calendar-title {
+  flex: 1;
+  text-align: center;
+  margin-bottom: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.book-hub-calendar-nav-btn {
+  border: none;
+  background: transparent;
+  color: #2c1a00;
+  font-size: 1.35rem;
+  line-height: 1;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.book-hub-calendar-nav-btn:hover:not(:disabled) {
+  color: #f47c20;
+}
+
+.book-hub-calendar-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .book-hub-calendar-title {
   margin-bottom: 12px;
   color: #2c1a00;

@@ -1,3 +1,4 @@
+console.log("APP LOADED");
 const depositDefault = 50;
 const additionalSongFee = 50;
 const AGREEMENT_STEP_COUNT = 5;
@@ -410,7 +411,7 @@ const state = {
   },
   musicianShowBookings: [],
   musicians: [],
-  onboardingStep: 1,
+  onboardingStep: 0,
   activeTab: "agreement",
 };
 
@@ -1090,7 +1091,7 @@ function updateOnboardingLineupRatePreviews() {
 }
 
 function renderOnboardingWizard() {
-  state.onboardingStep = Math.min(5, Math.max(1, Number(state.onboardingStep || 1)));
+  // state.onboardingStep = Math.min(5, Math.max(1, Number(state.onboardingStep || 1)));
   const step = state.onboardingStep;
   const dna = getBandDNA();
   const stepBar = document.getElementById("onboardingStepBar");
@@ -1523,7 +1524,7 @@ function advanceOnboardingStep() {
     return;
   }
 
-  state.onboardingStep = Math.min(5, Number(state.onboardingStep || 1) + 1);
+  // state.onboardingStep = Math.min(5, Number(state.onboardingStep || 1) + 1);
   if (statusEl) statusEl.textContent = "";
   renderOnboardingWizard();
 }
@@ -4471,6 +4472,14 @@ function renderBookHubCalendar() {
   const summary = document.getElementById("bookHubCalendarSummary");
   if (!title || !grid || !summary) return;
 
+  const prevBtn = document.getElementById("bookHubCalendarPrev");
+  const nextBtn = document.getElementById("bookHubCalendarNext");
+  if (prevBtn && nextBtn) {
+    const { minOffset, maxOffset } = getBookHubCalendarNavBounds();
+    prevBtn.disabled = state.calendar.monthOffset <= minOffset;
+    nextBtn.disabled = state.calendar.monthOffset >= maxOffset;
+  }
+
   const monthStart = getCalendarMonth();
   const monthEvents = getBookHubMonthEvents();
   const blackoutKeys = getBookHubBlackoutKeys();
@@ -4584,9 +4593,7 @@ function renderBookHubCalendar() {
       const deleteButton = createConfirmDeleteButton(async () => {
         deleteButton.textContent = "Deleting...";
         deleteButton.style.cssText = "border-color:#e58a4a;color:#9a3f00;";
-        await deleteCalendarEvent(event);
-        renderBookHubCalendar();
-        await renderBookedDatesList();
+        await deleteEventById(event.id, event);
       });
       deleteButton.style.cssText = "border-color:#e58a4a;color:#9a3f00;";
       actions.appendChild(editButton);
@@ -5823,7 +5830,7 @@ function hasSupabaseAuthParams() {
     hashParams.has("access_token") ||
     hashParams.has("refresh_token") ||
     hashParams.has("type") ||
-    queryParams.has("code") ||
+    window.location.search.includes("code=") ||
     queryParams.has("token") ||
     queryParams.has("type")
   );
@@ -6269,7 +6276,9 @@ async function restoreSupabaseSessionFromUrl() {
   try {
     const queryParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    const existingSession = await client.auth.getSession();
+    console.log("Checking session...");
+const existingSession = await client.auth.getSession();
+console.log("Session result:", existingSession);;
 
     if (existingSession.data?.session) {
       state.calendar.session = existingSession.data.session;
@@ -6277,7 +6286,7 @@ async function restoreSupabaseSessionFromUrl() {
       return true;
     }
 
-    if (queryParams.has("code") && typeof client.auth.exchangeCodeForSession === "function") {
+    if (window.location.search.includes("code=") && typeof client.auth.exchangeCodeForSession === "function") {
       const { error } = await client.auth.exchangeCodeForSession(window.location.href);
       if (error) {
         updateSupabaseStatus(`Could not finish sign-in: ${error.message}`, true);
@@ -6403,13 +6412,14 @@ async function fetchEventsForMonth() {
     state.calendar.events = [];
     renderCalendar();
     updateEventList();
+    void renderBookedDatesList();
+    void renderAvailableDatesList();
+    renderBookHubCalendar();
     updateOpsProgress();
     return;
   }
 
-  const monthStart = getCalendarMonth();
-  const rangeStart = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1);
-  const rangeEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0, 23, 59, 59);
+  const { rangeStart, rangeEnd } = getCalendarEventsFetchRange();
 
   const { data, error } = await client
     .from("events")
@@ -6464,6 +6474,28 @@ async function fetchContracts() {
 function getCalendarMonth() {
   const base = new Date();
   return new Date(base.getFullYear(), base.getMonth() + state.calendar.monthOffset, 1);
+}
+
+/** Book hub + availability: allow one month before today’s month, forward through Dec 2026. */
+function getBookHubCalendarNavBounds() {
+  const anchor = new Date();
+  const minOffset = -1;
+  const dec2026 = new Date(2026, 11, 1);
+  let maxOffset =
+    (dec2026.getFullYear() - anchor.getFullYear()) * 12 +
+    (dec2026.getMonth() - anchor.getMonth());
+  if (maxOffset < 0) maxOffset = 0;
+  return { minOffset, maxOffset: Math.max(minOffset, maxOffset) };
+}
+
+function getCalendarEventsFetchRange() {
+  const anchor = new Date();
+  const rangeStart = new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1, 0, 0, 0, 0);
+  let rangeEnd = new Date(2026, 11, 31, 23, 59, 59, 999);
+  if (rangeEnd.getTime() < rangeStart.getTime()) {
+    rangeEnd = new Date(anchor.getFullYear(), anchor.getMonth() + 13, 0, 23, 59, 59, 999);
+  }
+  return { rangeStart, rangeEnd };
 }
 
 function renderCalendar() {
@@ -7006,7 +7038,9 @@ function buildEventCard(event, selected, compact = false) {
   const del = document.createElement("button");
   del.className = "btn ghost";
   del.textContent = "Delete";
-  del.addEventListener("click", () => deleteCalendarEvent(event));
+  del.addEventListener("click", async () => {
+    await deleteEventById(event.id, event);
+  });
   actions.appendChild(del);
 
   const contract = state.calendar.contracts.find((item) => item.event_id === event.id);
@@ -7088,12 +7122,13 @@ function updateEventList() {
   renderMusicianAssignments();
 }
 
-async function deleteCalendarEvent(eventOrId) {
-  const event = typeof eventOrId === "object"
-    ? eventOrId
-    : state.calendar.events.find((item) => item.id === eventOrId) || null;
-  const id = event?.id || (typeof eventOrId === "string" ? eventOrId : "");
-  if (!event && !id) return;
+async function deleteEventById(id, eventHint = null) {
+  const event =
+    eventHint ||
+    (id ? state.calendar.events.find((item) => item.id === id) : null) ||
+    null;
+  const resolvedId = String(id || event?.id || "");
+  if (!event && !resolvedId) return;
   const seededKey = event?.seeded ? eventIdentityKey(event) : "";
   const previousEvents = [...state.calendar.events];
   const previousContracts = [...state.calendar.contracts];
@@ -7101,11 +7136,16 @@ async function deleteCalendarEvent(eventOrId) {
   const previousShowBookings = [...state.musicianShowBookings];
   const previousHiddenSeededEventKeys = [...(state.calendar.hiddenSeededEventKeys || [])];
   const previousSelectedEventId = state.calendar.selectedEventId;
-  const rerenderDeletedEventViews = () => {
-    renderBookedDatesList();
-    updateEventList();
+  const refreshAfterEventDelete = async () => {
+    renderCalendar();
+    await renderBookedDatesList();
+    await renderAvailableDatesList();
     renderBookHubCalendar();
+    updateEventList();
     updateManagerDesk();
+  };
+  const rerenderDeletedEventViews = () => {
+    void refreshAfterEventDelete();
   };
   const restoreDeletedEventViews = () => {
     state.calendar.events = previousEvents;
@@ -7114,14 +7154,14 @@ async function deleteCalendarEvent(eventOrId) {
     state.musicianShowBookings = previousShowBookings;
     state.calendar.hiddenSeededEventKeys = previousHiddenSeededEventKeys;
     state.calendar.selectedEventId = previousSelectedEventId;
-    rerenderDeletedEventViews();
+    void refreshAfterEventDelete();
   };
 
-  if (id) {
-    state.calendar.events = state.calendar.events.filter((item) => item.id !== id);
-    state.calendar.contracts = state.calendar.contracts.filter((item) => item.event_id !== id);
-    state.calendar.assignments = state.calendar.assignments.filter((item) => item.event_id !== id);
-    if (state.calendar.selectedEventId === id) {
+  if (resolvedId) {
+    state.calendar.events = state.calendar.events.filter((item) => item.id !== resolvedId);
+    state.calendar.contracts = state.calendar.contracts.filter((item) => item.event_id !== resolvedId);
+    state.calendar.assignments = state.calendar.assignments.filter((item) => item.event_id !== resolvedId);
+    if (state.calendar.selectedEventId === resolvedId) {
       state.calendar.selectedEventId = "";
     }
   }
@@ -7131,7 +7171,8 @@ async function deleteCalendarEvent(eventOrId) {
     );
   }
   state.musicianShowBookings = state.musicianShowBookings.filter(
-    (booking) => !eventMatchesMusicianShowBooking(event || { id, seeded: Boolean(seededKey) }, booking)
+    (booking) =>
+      !eventMatchesMusicianShowBooking(event || { id: resolvedId, seeded: Boolean(seededKey) }, booking)
   );
   rerenderDeletedEventViews();
 
@@ -7139,11 +7180,11 @@ async function deleteCalendarEvent(eventOrId) {
   if (event?.seeded) {
     removeEventFromEverywhere(event);
     updateSupabaseStatus("Show removed everywhere in the app.");
-  } else if (client && state.calendar.session && id) {
+  } else if (client && state.calendar.session && resolvedId) {
     const { error: assignmentError } = await client
       .from("musician_assignments")
       .delete()
-      .eq("event_id", id);
+      .eq("event_id", resolvedId);
     if (assignmentError) {
       restoreDeletedEventViews();
       updateSupabaseStatus(`Could not delete assignments: ${assignmentError.message}`, true);
@@ -7154,7 +7195,7 @@ async function deleteCalendarEvent(eventOrId) {
     const { error: clearDraftContractsError } = await client
       .from("contracts")
       .delete()
-      .eq("event_id", id)
+      .eq("event_id", resolvedId)
       .is("file_path", null);
     if (clearDraftContractsError) {
       restoreDeletedEventViews();
@@ -7167,7 +7208,7 @@ async function deleteCalendarEvent(eventOrId) {
     const { error: unlinkSignedContractsError } = await client
       .from("contracts")
       .update({ event_id: null })
-      .eq("event_id", id)
+      .eq("event_id", resolvedId)
       .not("file_path", "is", null);
     if (unlinkSignedContractsError) {
       restoreDeletedEventViews();
@@ -7178,19 +7219,19 @@ async function deleteCalendarEvent(eventOrId) {
       return;
     }
 
-    const { error: eventError } = await client.from("events").delete().eq("id", id);
+    const { error: eventError } = await client.from("events").delete().eq("id", resolvedId);
     if (eventError) {
       restoreDeletedEventViews();
       updateSupabaseStatus(`Could not delete event: ${eventError.message}`, true);
       return;
     }
-    const cleanup = removeEventFromEverywhere(event || { id });
+    const cleanup = removeEventFromEverywhere(event || { id: resolvedId });
     const showFileNote = cleanup.removedShowFiles
       ? ` Removed ${cleanup.removedShowFiles} linked musician show file${cleanup.removedShowFiles === 1 ? "" : "s"}.`
       : "";
     updateSupabaseStatus(`Event deleted everywhere.${showFileNote}`);
   } else {
-    const cleanup = removeEventFromEverywhere(event || { id });
+    const cleanup = removeEventFromEverywhere(event || { id: resolvedId });
     const showFileNote = cleanup.removedShowFiles
       ? ` Removed ${cleanup.removedShowFiles} linked musician show file${cleanup.removedShowFiles === 1 ? "" : "s"}.`
       : "";
@@ -7202,7 +7243,7 @@ async function deleteCalendarEvent(eventOrId) {
   await fetchMusicianAssignments();
   await fetchEventsForMonth();
   await fetchContracts();
-  rerenderDeletedEventViews();
+  await refreshAfterEventDelete();
   updateManagerDesk();
   renderUpcomingShowsCard(getUpcomingEvents(3));
   void updateOpsProgress();
@@ -11566,9 +11607,7 @@ async function renderBookedDatesList() {
         deleteButton.textContent = "Deleting...";
         card.style.opacity = "0.65";
         deleteButton.style.cssText = "border-color:#e58a4a;color:#9a3f00;";
-        await deleteCalendarEvent(event);
-        await renderBookedDatesList();
-        renderBookHubCalendar();
+        await deleteEventById(event.id, event);
       });
       deleteButton.style.cssText = "border-color:#e58a4a;color:#9a3f00;";
       card.addEventListener("click", (clickEvt) => { if (clickEvt.target.closest("button") || clickEvt.target.closest("input") || clickEvt.target.closest("a") || document.getElementById("clw-"+event.id)) return;
@@ -11862,85 +11901,91 @@ function renderMarketingTab() {
 async function renderAvailableDatesList() {
   const list = document.getElementById("availableDatesList");
   if (!list) return;
+
   const today = startOfDay(new Date());
-  const displayStart = new Date(today.getFullYear(), 4, 1);
-  const endDate = new Date(today.getFullYear(), 11, 31);
-  const rangeEnd = new Date(
-    endDate.getFullYear(),
-    endDate.getMonth(),
-    endDate.getDate(),
-    23,
-    59,
-    59,
-    999
-  );
-  const eventsForAvailability = await getShowsRangeEvents(displayStart, rangeEnd);
+  const endDate = startOfDay(new Date(2026, 11, 31));
 
-  const busyKeys = new Set(
-    eventsForAvailability
-      .filter((event) => String(event.type || "").toLowerCase() !== "blackout")
-      .flatMap((event) => {
-        const start = startOfDay(new Date(event.start_time));
-        const end = startOfDay(new Date(event.end_time || event.start_time));
-        if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return [];
-        const keys = [];
-        for (
-          let cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-          cursor <= end;
-          cursor.setDate(cursor.getDate() + 1)
-        ) {
-          keys.push(formatDateInput(cursor));
-        }
-        return keys;
-      })
-  );
-  const monthBuckets = new Map();
+  const busyKeys = new Set();
+  (state.calendar.events || []).forEach((event) => {
+    if (String(event?.type || "").toLowerCase() === "blackout") return;
+    const rawDate = event?.date;
+    if (rawDate) {
+      const nk = normalizeDateValue(String(rawDate).slice(0, 10));
+      if (nk) busyKeys.add(nk);
+    }
+    const start = startOfDay(new Date(event.start_time));
+    const end = startOfDay(new Date(event.end_time || event.start_time));
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return;
+    const cursor = new Date(start);
+    while (cursor <= end) {
+      busyKeys.add(formatDateInput(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  });
 
-  for (
-    let date = new Date(displayStart.getFullYear(), displayStart.getMonth(), displayStart.getDate());
-    date <= endDate;
-    date.setDate(date.getDate() + 1)
-  ) {
-    const day = date.getDay();
-    const isFridayOrSaturday = day === 5 || day === 6;
-    const holidayWindowDay = isHolidayWeekend(date) && (day === 0 || day === 1);
-    if (!isFridayOrSaturday && !holidayWindowDay) continue;
-    const key = formatDateInput(date);
+  const formatWeekendLine = (dateKey) => {
+    const [y, m, d] = dateKey.split("-").map(Number);
+    if (!y || !m || !d) return dateKey;
+    const date = new Date(y, m - 1, d);
+    const baseLabel = date.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    });
+    const holidayName = getHolidayWeekendLabel(date);
+    return holidayName ? `${baseLabel} (${holidayName})` : baseLabel;
+  };
+
+  const monthOrder = [];
+  const monthMap = new Map();
+
+  for (let cursor = new Date(today); cursor <= endDate; cursor.setDate(cursor.getDate() + 1)) {
+    const dow = cursor.getDay();
+    if (dow !== 0 && dow !== 6) continue;
+    const key = formatDateInput(cursor);
     if (busyKeys.has(key)) continue;
-    const monthLabel = formatMonthYearLabel(date);
-    const existing = monthBuckets.get(monthLabel) || [];
-    existing.push(formatAvailableDateLabel(key));
-    monthBuckets.set(monthLabel, existing);
+
+    const orderKey = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
+    if (!monthMap.has(orderKey)) {
+      monthMap.set(orderKey, { label: formatMonthYearLabel(cursor), dates: [] });
+      monthOrder.push(orderKey);
+    }
+    monthMap.get(orderKey).dates.push(formatWeekendLine(key));
   }
 
-  const availableCount = [...monthBuckets.values()].reduce((sum, dates) => sum + dates.length, 0);
-  if (!availableCount) {
-    list.innerHTML = `<p class="muted">No open weekend days from ${displayStart.toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    })} through ${endDate.toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    })}.</p>`;
+  list.innerHTML = "";
+  const totalOpen = monthOrder.reduce((sum, k) => sum + (monthMap.get(k)?.dates.length || 0), 0);
+  if (!totalOpen) {
+    list.innerHTML = "<p class=\"muted\">No open weekend dates remaining this year.</p>";
     return;
   }
-  list.innerHTML = `<p class="muted">${availableCount} open weekend day(s) from ${displayStart.toLocaleDateString("en-US", {
+
+  const summary = document.createElement("p");
+  summary.className = "muted";
+  summary.textContent = `${totalOpen} open weekend date${totalOpen === 1 ? "" : "s"} from ${today.toLocaleDateString("en-US", {
     month: "long",
+    day: "numeric",
     year: "numeric",
   })} through ${endDate.toLocaleDateString("en-US", {
     month: "long",
+    day: "numeric",
     year: "numeric",
-  })}.</p>`;
-  monthBuckets.forEach((dates, monthLabel) => {
+  })}.`;
+  list.appendChild(summary);
+
+  monthOrder.forEach((orderKey) => {
+    const entry = monthMap.get(orderKey);
+    if (!entry?.dates?.length) return;
+    const { label, dates } = entry;
     const card = document.createElement("div");
     card.className = "event-card";
     const header = document.createElement("header");
-    header.innerHTML = `<span>${monthLabel}</span><span>${dates.length} open</span>`;
+    header.innerHTML = `<span>${escapeHtml(label)}</span><span>${dates.length} open</span>`;
     const dateList = document.createElement("ul");
     dateList.className = "board-list";
-    dates.forEach((label) => {
+    dates.forEach((line) => {
       const item = document.createElement("li");
-      item.textContent = label;
+      item.textContent = line;
       dateList.appendChild(item);
     });
     card.appendChild(header);
@@ -12608,7 +12653,7 @@ function setupListeners() {
   const homeEditBandDNABtn = document.getElementById("homeEditBandDNA");
   if (homeEditBandDNABtn) {
     homeEditBandDNABtn.addEventListener("click", () => {
-      state.onboardingStep = 1;
+      // state.onboardingStep = 1;
       switchTop("onboarding");
     });
   }
@@ -12685,16 +12730,16 @@ function setupListeners() {
   const onboardingBackBtn = document.getElementById("onboardingBack");
   if (onboardingBackBtn) {
     onboardingBackBtn.addEventListener("click", () => {
-      state.onboardingStep = Math.max(1, Number(state.onboardingStep || 1) - 1);
+      // state.onboardingStep = Math.max(1, Number(state.onboardingStep || 1) - 1);
       renderOnboardingWizard();
     });
   }
   const onboardingWizard = document.getElementById("onboardingWizard");
-  if (onboardingWizard) {
+  if (false && onboardingWizard) {
     onboardingWizard.addEventListener("click", (event) => {
       const gotoBtn = event.target.closest("[data-onboarding-goto]");
       if (gotoBtn) {
-        state.onboardingStep = Number(gotoBtn.getAttribute("data-onboarding-goto")) || 1;
+        // state.onboardingStep = Number(gotoBtn.getAttribute("data-onboarding-goto")) || 1;
         renderOnboardingWizard();
         return;
       }
@@ -13710,6 +13755,27 @@ function setupListeners() {
     calendarNext.addEventListener("click", () => {
       state.calendar.monthOffset += 1;
       fetchEventsForMonth();
+    });
+  }
+
+  const bookHubCalendarPrev = document.getElementById("bookHubCalendarPrev");
+  const bookHubCalendarNext = document.getElementById("bookHubCalendarNext");
+  if (bookHubCalendarPrev) {
+    bookHubCalendarPrev.addEventListener("click", () => {
+      const { minOffset } = getBookHubCalendarNavBounds();
+      if (state.calendar.monthOffset > minOffset) {
+        state.calendar.monthOffset -= 1;
+        void fetchEventsForMonth();
+      }
+    });
+  }
+  if (bookHubCalendarNext) {
+    bookHubCalendarNext.addEventListener("click", () => {
+      const { maxOffset } = getBookHubCalendarNavBounds();
+      if (state.calendar.monthOffset < maxOffset) {
+        state.calendar.monthOffset += 1;
+        void fetchEventsForMonth();
+      }
     });
   }
 
