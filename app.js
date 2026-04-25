@@ -6171,6 +6171,7 @@ async function refreshAuthState() {
     updateReceiptList();
     updateOpsProgress();
   }
+  void renderMoreTab();
   if (switchTopView) {
     switchTopView(state.calendar.session ? getPostAuthTopView() : "login");
   }
@@ -6255,6 +6256,119 @@ async function processBandInviteCode(code) {
   );
   localStorage.removeItem("pendingBandInviteCode");
   updateSupabaseStatus(`Welcome to ${band.name}! You have been linked to the band.`);
+}
+
+async function fetchBandInviteCodeForCurrentUser() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session?.user?.id) return "";
+  const userId = state.calendar.session.user.id;
+  const { data: members, error: memberError } = await client
+    .from("band_members")
+    .select("band_id")
+    .eq("user_id", userId)
+    .limit(1);
+  if (memberError || !members?.length || !members[0]?.band_id) return "";
+  const { data: band, error: bandError } = await client
+    .from("bands")
+    .select("invite_code")
+    .eq("id", members[0].band_id)
+    .maybeSingle();
+  if (bandError || !band) return "";
+  return String(band.invite_code || "").trim();
+}
+
+async function renderMoreTab() {
+  const mount = document.getElementById("moreTabInviteSectionMount");
+  if (!mount) return;
+
+  mount.replaceChildren();
+  const inviteCode = await fetchBandInviteCodeForCurrentUser();
+
+  const card = document.createElement("article");
+  card.className = "more-band-invite-card";
+  card.style.cssText =
+    "background:#fdf0e3;border:1px solid #e8a855;border-radius:12px;padding:20px;";
+
+  const label = document.createElement("p");
+  label.textContent = "BAND INVITE CODE";
+  label.style.cssText =
+    "color:#8a6840;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin:0 0 8px;";
+
+  const desc = document.createElement("p");
+  desc.textContent = "Share this code with musicians to invite them to join your band.";
+  desc.style.cssText = "color:#8a6840;font-size:13px;margin:0 0 16px;line-height:1.4;";
+
+  const codeEl = document.createElement("div");
+  codeEl.setAttribute("role", "status");
+  codeEl.style.cssText =
+    "font-size:28px;font-weight:700;color:#f47c20;letter-spacing:0.15em;text-align:center;margin:12px 0 20px;word-break:break-all;";
+
+  const session = Boolean(state.calendar.session);
+  if (!session) {
+    codeEl.style.fontSize = "15px";
+    codeEl.style.fontWeight = "600";
+    codeEl.style.color = "#8a6840";
+    codeEl.style.letterSpacing = "normal";
+    codeEl.textContent = "Sign in to load your invite code.";
+  } else if (!inviteCode) {
+    codeEl.style.fontSize = "15px";
+    codeEl.style.fontWeight = "600";
+    codeEl.style.color = "#8a6840";
+    codeEl.style.letterSpacing = "normal";
+    codeEl.textContent = "No invite code found for your band.";
+  } else {
+    codeEl.textContent = inviteCode;
+  }
+
+  const btnRow = document.createElement("div");
+  btnRow.style.cssText =
+    "display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:stretch;";
+
+  const copyBtn = document.createElement("button");
+  copyBtn.type = "button";
+  copyBtn.className = "more-band-invite-action";
+  const copyBtnDefault = "📋 Copy Code";
+  copyBtn.textContent = copyBtnDefault;
+  copyBtn.disabled = !session || !inviteCode;
+
+  const shareBtn = document.createElement("button");
+  shareBtn.type = "button";
+  shareBtn.className = "more-band-invite-action";
+  shareBtn.textContent = "📤 Share";
+  shareBtn.disabled = !session || !inviteCode;
+
+  copyBtn.addEventListener("click", async () => {
+    if (!inviteCode) return;
+    const ok = await copyTextToClipboard(inviteCode);
+    if (!ok) return;
+    copyBtn.textContent = "✓ Copied!";
+    window.setTimeout(() => {
+      copyBtn.textContent = copyBtnDefault;
+    }, 2000);
+  });
+
+  shareBtn.addEventListener("click", async () => {
+    if (!inviteCode) return;
+    const shareText = `Join our band on GigOS! Use invite code: ${inviteCode}`;
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({ text: shareText });
+        return;
+      } catch (err) {
+        if (err && err.name === "AbortError") return;
+      }
+    }
+    await copyTextToClipboard(shareText);
+  });
+
+  btnRow.appendChild(copyBtn);
+  btnRow.appendChild(shareBtn);
+
+  card.appendChild(label);
+  card.appendChild(desc);
+  card.appendChild(codeEl);
+  card.appendChild(btnRow);
+  mount.appendChild(card);
 }
 
 function setLoginTabMode(mode) {
@@ -12415,6 +12529,9 @@ function setupListeners() {
     }
     if (target === "marketing") {
       renderMarketingTab();
+    }
+    if (target === "more") {
+      void renderMoreTab();
     }
     if (target === "agreement") {
       renderAgreementStepUI();
