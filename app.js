@@ -1214,6 +1214,634 @@ function buildMemberOnboardingNotesPayload(d) {
   return lines.filter(Boolean).join("\n");
 }
 
+function findMemberAssignmentForEvent(eventId, userId) {
+  if (!eventId || !userId) return null;
+  const assigns = state.calendar.assignments || [];
+  for (let i = 0; i < assigns.length; i += 1) {
+    const a = assigns[i];
+    if (a.event_id !== eventId) continue;
+    if (a.user_id && a.user_id === userId) return a;
+    const m = state.musicians.find((x) => x.id === a.musician_id);
+    if (m && m.user_id === userId) return a;
+  }
+  return null;
+}
+
+async function fetchMemberAssignedEventIdsForCurrentUser() {
+  const client = state.calendar.client;
+  const uid = state.calendar.session?.user?.id;
+  const ids = new Set();
+  if (!uid) return ids;
+
+  const mergeAssignmentsFromState = () => {
+    (state.calendar.assignments || []).forEach((a) => {
+      if (!a || !a.event_id) return;
+      if (a.user_id && a.user_id === uid) ids.add(a.event_id);
+      else {
+        const m = state.musicians.find((x) => x.id === a.musician_id);
+        if (m && m.user_id === uid) ids.add(a.event_id);
+      }
+    });
+  };
+
+  if (client) {
+    const { data, error } = await client
+      .from("musician_assignments")
+      .select("event_id")
+      .eq("user_id", uid);
+    if (!error && Array.isArray(data) && data.length) {
+      data.forEach((row) => {
+        if (row && row.event_id) ids.add(row.event_id);
+      });
+      return ids;
+    }
+  }
+  mergeAssignmentsFromState();
+  return ids;
+}
+
+function getVenueDisplayNameForMemberShow(event) {
+  const v = String(event?.venue_address || event?.venue_name || event?.venue || "").trim();
+  if (v) return v;
+  return event?.title || eventTypeLabel(event?.type);
+}
+
+function formatMemberSetTimeLine(event) {
+  const startVal = event?.start_time;
+  if (!startVal) return "";
+  const endVal = event?.end_time || event?.start_time;
+  try {
+    const s = formatTimeInput(new Date(startVal));
+    const e = formatTimeInput(new Date(endVal));
+    return `Set time: ${s} – ${e}`;
+  } catch (e) {
+    return "";
+  }
+}
+
+function formatMemberCallArrivalLine(assignment) {
+  const notes = String(assignment?.notes || "").trim();
+  if (!notes) return "";
+  return `Call / arrival: ${notes}`;
+}
+
+/**
+ * Parses onboarding-shaped musician notes into display fields (FIX 3).
+ * Returns { mode: "structured"|"freeform", fields: {...}, bioHtml, ... }.
+ */
+function parseMusicianStoredProfileForDisplay(notesRaw) {
+  const raw = String(notesRaw || "").trim();
+  if (!/^member onboarding profile/i.test(raw)) {
+    return { mode: "freeform", freeformText: raw };
+  }
+  const lines = raw.split(/\r?\n/);
+  let i = 0;
+  if (/^member onboarding profile/i.test(lines[0] || "")) i = 1;
+  if (String(lines[i] || "").trim() === "---") i += 1;
+
+  const pick = (prefix) => {
+    const line = String(lines[i] || "");
+    const low = line.toLowerCase();
+    const pre = prefix.toLowerCase();
+    if (!low.startsWith(pre)) return null;
+    const cut = line.indexOf(":");
+    const value = cut === -1 ? "" : line.slice(cut + 1).trim();
+    i += 1;
+    return value;
+  };
+
+  const out = {
+    mode: "structured",
+    primaryInstrument: "",
+    vocalistLine: "",
+    voiceType: "",
+    yearsPlaying: "",
+    gearText: "",
+    diBox: "",
+    monitor: "",
+    techNotes: "",
+    bio: "",
+    influences: "",
+    memorableShow: "",
+    playedWhere: "",
+    photoLabel: "",
+  };
+
+  const pi = pick("Primary instrument:");
+  if (pi != null) out.primaryInstrument = pi;
+  const voc = pick("Vocalist:");
+  if (voc != null) out.vocalistLine = voc;
+  if (String(lines[i] || "").toLowerCase().startsWith("voice type:")) {
+    out.voiceType = pick("Voice type:") || "";
+  }
+  const yp = pick("Years playing:");
+  if (yp != null) out.yearsPlaying = yp;
+
+  while (i < lines.length && !String(lines[i] || "").trim()) i += 1;
+  if (String(lines[i] || "").trim() === "Gear:") {
+    i += 1;
+    const gearBuf = [];
+    while (i < lines.length) {
+      const L = lines[i];
+      const t = String(L || "").trim();
+      if (
+        t.toLowerCase().startsWith("di box needed:")
+        || t.toLowerCase().startsWith("monitor needed:")
+        || t.toLowerCase().startsWith("tech notes:")
+        || t === "Bio (EPK):"
+      ) {
+        break;
+      }
+      if (t || gearBuf.length) gearBuf.push(L);
+      i += 1;
+    }
+    out.gearText = gearBuf.join("\n").trim();
+  }
+
+  while (i < lines.length) {
+    const t = String(lines[i] || "").trim();
+    if (t.toLowerCase().startsWith("di box needed:")) {
+      const ci = t.indexOf(":");
+      out.diBox = ci === -1 ? "" : t.slice(ci + 1).trim();
+      i += 1;
+      continue;
+    }
+    if (t.toLowerCase().startsWith("monitor needed:")) {
+      const ci = t.indexOf(":");
+      out.monitor = ci === -1 ? "" : t.slice(ci + 1).trim();
+      i += 1;
+      continue;
+    }
+    if (t.toLowerCase().startsWith("tech notes:")) {
+      const ci = t.indexOf(":");
+      out.techNotes = ci === -1 ? "" : t.slice(ci + 1).trim();
+      i += 1;
+      continue;
+    }
+    break;
+  }
+
+  while (i < lines.length && !String(lines[i] || "").trim()) i += 1;
+  if (String(lines[i] || "").trim() === "Bio (EPK):") {
+    i += 1;
+    const bioBuf = [];
+    while (i < lines.length) {
+      const t = String(lines[i] || "").trim();
+      if (t.toLowerCase().startsWith("influences:")) break;
+      bioBuf.push(lines[i]);
+      i += 1;
+    }
+    out.bio = bioBuf.join("\n").trim();
+  }
+
+  const inflLine = lines[i] || "";
+  if (inflLine.toLowerCase().startsWith("influences:")) {
+    const ci = inflLine.indexOf(":");
+    out.influences = ci === -1 ? "" : inflLine.slice(ci + 1).trim();
+    i += 1;
+  }
+
+  while (i < lines.length && !String(lines[i] || "").trim()) i += 1;
+  if (String(lines[i] || "").trim().toLowerCase() === "memorable show:") {
+    i += 1;
+    const memBuf = [];
+    while (i < lines.length) {
+      const t = String(lines[i] || "").trim();
+      if (t.toLowerCase() === "played where:") break;
+      memBuf.push(lines[i]);
+      i += 1;
+    }
+    out.memorableShow = memBuf.join("\n").trim();
+  }
+
+  while (i < lines.length && !String(lines[i] || "").trim()) i += 1;
+  if (String(lines[i] || "").trim().toLowerCase() === "played where:") {
+    i += 1;
+    const pb = [];
+    while (i < lines.length) {
+      const t = String(lines[i] || "").trim();
+      if (t.toLowerCase().startsWith("profile photo file:")) break;
+      pb.push(lines[i]);
+      i += 1;
+    }
+    out.playedWhere = pb.join("\n").trim();
+  }
+
+  const ph = lines[i] || "";
+  if (ph.toLowerCase().startsWith("profile photo file:")) {
+    const ci = ph.indexOf(":");
+    out.photoLabel = ci === -1 ? "" : ph.slice(ci + 1).trim();
+  }
+
+  return out;
+}
+
+function appendMusicianProfileLabeledFields(container, musician, options = {}) {
+  if (!container || !musician) return;
+  const skipName = options.skipName === true;
+  const parsed = parseMusicianStoredProfileForDisplay(musician.notes);
+  const wrap = document.createElement("div");
+  wrap.className = "member-profile-readonly-fields";
+  wrap.style.cssText = "display:grid;gap:10px;color:#2c1a00;font-size:14px;line-height:1.45;";
+
+  const addRow = (label, value, isParagraph = false) => {
+    const v = String(value || "").trim();
+    if (!v || v === "—") return;
+    const row = document.createElement("div");
+    row.style.marginTop = "2px";
+    const dt = document.createElement("div");
+    dt.style.cssText = "font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#8a5010;";
+    dt.textContent = label;
+    row.appendChild(dt);
+    if (isParagraph) {
+      const p = document.createElement("p");
+      p.style.cssText = "margin:4px 0 0;white-space:pre-wrap;";
+      p.textContent = v;
+      row.appendChild(p);
+    } else {
+      const dd = document.createElement("div");
+      dd.style.cssText = "margin-top:4px;";
+      dd.textContent = v;
+      row.appendChild(dd);
+    }
+    wrap.appendChild(row);
+  };
+
+  if (parsed.mode === "freeform") {
+    if (!skipName) addRow("Name", musician.name || "");
+    if (parsed.freeformText) addRow("Notes", parsed.freeformText, true);
+    container.appendChild(wrap);
+    return;
+  }
+
+  if (!skipName) addRow("Name", musician.name || "");
+  addRow("Instrument", parsed.primaryInstrument || "");
+  if (parsed.vocalistLine) {
+    const voc = parsed.vocalistLine.toLowerCase() === "yes";
+    addRow("Vocalist", voc ? "Yes" : "No");
+    if (voc && parsed.voiceType) addRow("Vocalist type", parsed.voiceType);
+  }
+  addRow("Years playing", parsed.yearsPlaying || "");
+  if (parsed.bio && parsed.bio !== "—") addRow("Bio", parsed.bio, true);
+  addRow("Influences", parsed.influences || "");
+  addRow("Memorable show", parsed.memorableShow || "", true);
+  addRow("Gear list", parsed.gearText || "", true);
+  if (parsed.techNotes) addRow("Tech notes", parsed.techNotes, true);
+  if (parsed.playedWhere) addRow("Played where", parsed.playedWhere, true);
+
+  container.appendChild(wrap);
+}
+
+async function fetchMusicianRowForCurrentUser() {
+  const client = state.calendar.client;
+  const uid = state.calendar.session?.user?.id;
+  if (!client || !uid) {
+    return state.musicians.find((m) => m.user_id === uid) || null;
+  }
+  const { data, error } = await client.from("musicians").select("*").eq("user_id", uid).maybeSingle();
+  if (error || !data) {
+    return state.musicians.find((m) => m.user_id === uid) || null;
+  }
+  const idx = state.musicians.findIndex((m) => m.id === data.id);
+  if (idx !== -1) state.musicians[idx] = data;
+  else state.musicians.push(data);
+  return data;
+}
+
+function memberBlackoutRowsForCurrentUser() {
+  const uid = state.calendar.session?.user?.id;
+  if (!uid) return [];
+  const myMid = state.musicians.find((m) => m.user_id === uid)?.id;
+  return (state.calendar.blackouts || []).filter((b) => {
+    if (b.user_id && b.user_id === uid) return true;
+    if (myMid && b.musician_id === myMid) return true;
+    const m = state.musicians.find((x) => x.id === b.musician_id);
+    return m && m.user_id === uid;
+  });
+}
+
+async function deleteMemberBlackoutById(blackoutId) {
+  const client = state.calendar.client;
+  const uid = state.calendar.session?.user?.id;
+  if (!blackoutId || !uid) return;
+  const row = (state.calendar.blackouts || []).find((b) => b.id === blackoutId);
+  if (!row) return;
+  const allowed = memberBlackoutRowsForCurrentUser().some((b) => b.id === blackoutId);
+  if (!allowed) return;
+  if (client && state.calendar.session) {
+    const { error } = await client.from("musician_blackouts").delete().eq("id", blackoutId);
+    if (error) {
+      updateRosterBlackoutStatus(`Could not delete blackout: ${error.message}`, true);
+      return;
+    }
+    await fetchMusicianBlackouts();
+  } else {
+    state.calendar.blackouts = state.calendar.blackouts.filter((b) => b.id !== blackoutId);
+    saveDraft();
+    renderBlackoutList();
+  }
+  const status = document.getElementById("memberMyProfileBlackoutStatus");
+  if (status) status.textContent = "Blackout removed.";
+  const mount = document.getElementById("memberMyProfileMount");
+  if (mount) void renderMemberMyProfilePanel(mount);
+}
+
+async function saveMemberBlackoutFromMyProfile() {
+  const uid = state.calendar.session?.user?.id;
+  const musician = state.musicians.find((m) => m.user_id === uid);
+  if (!musician?.id) {
+    const el = document.getElementById("memberMyProfileBlackoutStatus");
+    if (el) el.textContent = "Save your musician profile first before adding blackouts.";
+    return;
+  }
+  const startDate = document.getElementById("memberBlackoutStartDate")?.value || "";
+  const startTimeInput = document.getElementById("memberBlackoutStartTime")?.value || "";
+  const endDateInput = document.getElementById("memberBlackoutEndDate")?.value || "";
+  const endTimeInput = document.getElementById("memberBlackoutEndTime")?.value || "";
+  const notes = document.getElementById("memberBlackoutNotes")?.value.trim() || "";
+  const allDay = document.getElementById("memberBlackoutAllDay")?.checked === true;
+  if (!startDate) {
+    const el = document.getElementById("memberMyProfileBlackoutStatus");
+    if (el) el.textContent = "Start date is required.";
+    return;
+  }
+  const startTime = allDay ? "00:00" : startTimeInput;
+  const endDate = endDateInput || startDate;
+  const endTime = allDay ? "23:59" : endTimeInput;
+  const start = combineDateTime(startDate, startTime);
+  const end = combineDateTime(endDate, endTime);
+  if (!start || !end || end <= start) {
+    const el = document.getElementById("memberMyProfileBlackoutStatus");
+    if (el) el.textContent = "Valid start and end date/time are required.";
+    return;
+  }
+  const payload = {
+    musician_id: musician.id,
+    start_time: start.toISOString(),
+    end_time: end.toISOString(),
+    all_day: allDay,
+    notes: notes || null,
+  };
+  if (uid) payload.user_id = uid;
+  const client = state.calendar.client;
+  if (client && state.calendar.session) {
+    const { error } = await client.from("musician_blackouts").insert(payload);
+    if (error) {
+      const tryPayload = { ...payload };
+      delete tryPayload.user_id;
+      const { error: e2 } = await client.from("musician_blackouts").insert(tryPayload);
+      if (e2) {
+        const el = document.getElementById("memberMyProfileBlackoutStatus");
+        if (el) el.textContent = `Could not save blackout: ${e2.message}`;
+        return;
+      }
+    }
+    await fetchMusicianBlackouts();
+  } else {
+    state.calendar.blackouts.unshift({
+      id: `local-blackout-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
+      ...payload,
+    });
+    saveDraft();
+    renderBlackoutList();
+  }
+  [
+    "memberBlackoutStartDate",
+    "memberBlackoutStartTime",
+    "memberBlackoutEndDate",
+    "memberBlackoutEndTime",
+    "memberBlackoutNotes",
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  const ad = document.getElementById("memberBlackoutAllDay");
+  if (ad) ad.checked = false;
+  const st = document.getElementById("memberMyProfileBlackoutStatus");
+  if (st) st.textContent = "Blackout saved.";
+  const mount = document.getElementById("memberMyProfileMount");
+  if (mount) void renderMemberMyProfilePanel(mount);
+}
+
+async function saveMemberOwnProfileEdits() {
+  const uid = state.calendar.session?.user?.id;
+  const client = state.calendar.client;
+  const statusEl = document.getElementById("memberMyProfileStatus");
+  if (!uid || !client || !state.calendar.session) {
+    if (statusEl) statusEl.textContent = "Sign in to save your profile.";
+    return;
+  }
+  const name = document.getElementById("memberEditName")?.value.trim() || "";
+  if (!name) {
+    if (statusEl) statusEl.textContent = "Name is required.";
+    return;
+  }
+  const musician = await fetchMusicianRowForCurrentUser();
+  if (!musician || musician.user_id !== uid) {
+    if (statusEl) statusEl.textContent = "Could not find your musician profile.";
+    return;
+  }
+  const parsed = parseMusicianStoredProfileForDisplay(musician.notes);
+  const draft = createMemberOnboardingDraft();
+  draft.fullName = name;
+  draft.email = document.getElementById("memberEditEmail")?.value.trim() || musician.email || "";
+  draft.primaryInstrument = document.getElementById("memberEditInstrument")?.value.trim() || "";
+  draft.isVocalist = document.getElementById("memberEditIsVocalist")?.checked === true;
+  draft.voiceType = document.getElementById("memberEditVoiceType")?.value.trim() || "";
+  draft.yearsPlaying = document.getElementById("memberEditYears")?.value.trim() || "";
+  draft.bioBlurb = document.getElementById("memberEditBio")?.value.trim() || "";
+  draft.musicalInfluences = document.getElementById("memberEditInfluences")?.value.trim() || "";
+  draft.memorableShow = document.getElementById("memberEditMemorable")?.value.trim() || "";
+  draft.equipmentList = document.getElementById("memberEditGear")?.value.trim() || "";
+  if (parsed.mode === "structured") {
+    draft.needsDiBox = String(parsed.diBox || "").toLowerCase() === "yes";
+    draft.needsMonitor = String(parsed.monitor || "").toLowerCase() === "yes";
+    draft.techRequirements = parsed.techNotes || "";
+    draft.playedWhere = parsed.playedWhere || "";
+    draft.profilePhotoLabel = parsed.photoLabel || "";
+  }
+  const roleParts = [draft.primaryInstrument || "Musician"];
+  if (draft.isVocalist) {
+    roleParts.push(`Vocals (${draft.voiceType || "unspecified"})`);
+  }
+  const role = roleParts.join(" · ");
+  const notes = buildMemberOnboardingNotesPayload(draft);
+  const payload = {
+    name,
+    email: draft.email || null,
+    role,
+    notes,
+  };
+  const { data, error } = await client
+    .from("musicians")
+    .update(payload)
+    .eq("id", musician.id)
+    .select("*")
+    .single();
+  if (error || !data) {
+    if (statusEl) statusEl.textContent = error?.message || "Could not update profile.";
+    return;
+  }
+  if (data.user_id && data.user_id !== uid) {
+    if (statusEl) statusEl.textContent = "You can only update your own profile.";
+    return;
+  }
+  const idx = state.musicians.findIndex((m) => m.id === data.id);
+  if (idx !== -1) state.musicians[idx] = data;
+  if (statusEl) statusEl.textContent = "Profile saved.";
+  const mount = document.getElementById("memberMyProfileMount");
+  if (mount) {
+    mount.dataset.editMode = "";
+    void renderMemberMyProfilePanel(mount);
+  }
+}
+
+async function renderMemberMyProfilePanel(mount) {
+  if (!mount) return;
+  const uid = state.calendar.session?.user?.id;
+  if (!uid) {
+    mount.innerHTML = "<p class=\"muted\">Sign in to view your profile.</p>";
+    return;
+  }
+
+  const musician = await fetchMusicianRowForCurrentUser();
+  const parsed = musician ? parseMusicianStoredProfileForDisplay(musician.notes) : { mode: "freeform", freeformText: "" };
+  const editing = mount.dataset.editMode === "1";
+
+  const readCardHtml = musician
+    ? `
+    <div class="form-section" style="background:#fdf0e3;border:1px solid #e8a855;border-radius:12px;padding:16px;">
+      <div id="memberProfileReadInner"></div>
+    </div>`
+    : "<p class=\"muted\">No musician profile is linked to your account yet. Complete onboarding or ask your band admin to connect your login.</p>";
+
+  const editBlock = musician
+    ? `
+    <div class="form-section hidden" id="memberProfileEditSection" style="margin-top:12px;">
+      <div class="form-grid">
+        <label>Name <input id="memberEditName" class="member-onboarding-input" type="text" value="${escapeHtml(musician.name || "")}" /></label>
+        <label>Email <input id="memberEditEmail" class="member-onboarding-input" type="email" value="${escapeHtml(musician.email || "")}" /></label>
+        <label>Instrument <input id="memberEditInstrument" class="member-onboarding-input" type="text" value="${escapeHtml(parsed.mode === "structured" ? parsed.primaryInstrument : "")}" /></label>
+        <label class="checkbox inline-note"><input id="memberEditIsVocalist" type="checkbox" ${parsed.mode === "structured" && String(parsed.vocalistLine).toLowerCase() === "yes" ? "checked" : ""} /> Vocalist</label>
+        <label>Vocalist type <input id="memberEditVoiceType" class="member-onboarding-input" type="text" value="${escapeHtml(parsed.mode === "structured" ? parsed.voiceType : "")}" placeholder="Lead, harmony…" /></label>
+        <label>Years playing <input id="memberEditYears" class="member-onboarding-input" type="text" value="${escapeHtml(parsed.mode === "structured" ? parsed.yearsPlaying : "")}" /></label>
+        <label class="member-onboarding-fullwidth">Bio <textarea id="memberEditBio" class="member-onboarding-input" rows="4">${escapeHtml(parsed.mode === "structured" ? parsed.bio : "")}</textarea></label>
+        <label class="member-onboarding-fullwidth">Influences <input id="memberEditInfluences" class="member-onboarding-input" type="text" value="${escapeHtml(parsed.mode === "structured" ? parsed.influences : "")}" /></label>
+        <label class="member-onboarding-fullwidth">Memorable show <textarea id="memberEditMemorable" class="member-onboarding-input" rows="3">${escapeHtml(parsed.mode === "structured" ? parsed.memorableShow : "")}</textarea></label>
+        <label class="member-onboarding-fullwidth">Gear list <textarea id="memberEditGear" class="member-onboarding-input" rows="4">${escapeHtml(parsed.mode === "structured" ? parsed.gearText : "")}</textarea></label>
+      </div>
+      <div class="inline-actions" style="margin-top:12px;">
+        <button type="button" class="btn" id="memberProfileSaveBtn">Save changes</button>
+        <button type="button" class="btn ghost" id="memberProfileCancelEditBtn">Cancel</button>
+      </div>
+    </div>`
+    : "";
+
+  mount.innerHTML = `
+    <div class="form-section">
+      <h3>My Profile</h3>
+      ${readCardHtml}
+      ${musician ? `<div class="inline-actions" style="margin-top:12px;">
+        <button type="button" class="btn ghost" id="memberProfileEditToggleBtn">${editing ? "Close editor" : "Edit My Profile"}</button>
+      </div>` : ""}
+      ${editBlock}
+      <p id="memberMyProfileStatus" class="muted"></p>
+    </div>
+    <div class="form-section blackout-section" style="margin-top:8px;">
+      <h3>My Blackout Dates</h3>
+      <p class="muted">Dates you cannot play. Only your own blackouts are listed here.</p>
+      <div class="form-grid">
+        <label>Start date <input id="memberBlackoutStartDate" type="date" /></label>
+        <label>Start time <input id="memberBlackoutStartTime" type="time" /></label>
+        <label>End date <input id="memberBlackoutEndDate" type="date" /></label>
+        <label>End time <input id="memberBlackoutEndTime" type="time" /></label>
+        <label class="member-onboarding-fullwidth">Notes <textarea id="memberBlackoutNotes" class="member-onboarding-input" rows="2" placeholder="Optional"></textarea></label>
+      </div>
+      <label class="checkbox inline-note" style="display:block;margin-top:8px;">
+        <input id="memberBlackoutAllDay" type="checkbox" /> All-day blackout
+      </label>
+      <div class="inline-actions" style="margin-top:10px;">
+        <button type="button" class="btn" id="memberBlackoutSaveBtn">Add blackout</button>
+        <p id="memberMyProfileBlackoutStatus" class="muted"></p>
+      </div>
+      <div id="memberMyBlackoutList" class="event-list" style="margin-top:12px;"></div>
+    </div>
+  `;
+
+  const readInner = document.getElementById("memberProfileReadInner");
+  if (readInner && musician) {
+    appendMusicianProfileLabeledFields(readInner, musician);
+  }
+
+  const editSection = document.getElementById("memberProfileEditSection");
+  const toggleBtn = document.getElementById("memberProfileEditToggleBtn");
+  if (editing && editSection && toggleBtn) {
+    editSection.classList.remove("hidden");
+    toggleBtn.textContent = "Close editor";
+  }
+
+  const blist = document.getElementById("memberMyBlackoutList");
+  if (blist) {
+    const rows = memberBlackoutRowsForCurrentUser().sort(
+      (a, b) => new Date(b.start_time || 0) - new Date(a.start_time || 0)
+    );
+    if (!rows.length) {
+      blist.innerHTML = "<p class=\"muted\">No blackout dates yet.</p>";
+    } else {
+      blist.innerHTML = "";
+      rows.slice(0, 100).forEach((entry) => {
+        const card = document.createElement("div");
+        card.className = "event-card";
+        card.style.cssText = "background:#fdf0e3;border:1px solid #e8a855;";
+        const header = document.createElement("header");
+        header.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:8px;";
+        const span = document.createElement("span");
+        span.style.cssText = "color:#2c1a00;font-weight:700;";
+        span.textContent = "Blackout";
+        header.appendChild(span);
+        const del = document.createElement("button");
+        del.type = "button";
+        del.className = "btn ghost";
+        del.textContent = "Delete";
+        del.style.cssText = "border-color:#e58a4a;color:#9a3f00;";
+        del.addEventListener("click", () => void deleteMemberBlackoutById(entry.id));
+        header.appendChild(del);
+        const meta = document.createElement("div");
+        meta.className = "event-meta";
+        meta.textContent = `${formatShortDateTime(entry.start_time)} → ${formatShortDateTime(entry.end_time)}`;
+        card.appendChild(header);
+        card.appendChild(meta);
+        if (entry.notes && !isInternalSeededNote(entry.notes)) {
+          const n = document.createElement("div");
+          n.className = "event-meta";
+          n.textContent = entry.notes;
+          card.appendChild(n);
+        }
+        blist.appendChild(card);
+      });
+    }
+  }
+
+  const editToggle = document.getElementById("memberProfileEditToggleBtn");
+  if (editToggle) {
+    editToggle.addEventListener("click", () => {
+      mount.dataset.editMode = mount.dataset.editMode === "1" ? "" : "1";
+      void renderMemberMyProfilePanel(mount);
+    });
+  }
+  const saveBtn = document.getElementById("memberProfileSaveBtn");
+  if (saveBtn) saveBtn.addEventListener("click", () => void saveMemberOwnProfileEdits());
+  const cancelBtn = document.getElementById("memberProfileCancelEditBtn");
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+      mount.dataset.editMode = "";
+      void renderMemberMyProfilePanel(mount);
+    });
+  }
+  const bsave = document.getElementById("memberBlackoutSaveBtn");
+  if (bsave) bsave.addEventListener("click", () => void saveMemberBlackoutFromMyProfile());
+}
+
 async function completeMemberOnboarding() {
   const statusEl = document.getElementById("onboardingStatus");
   const client = state.calendar.client;
@@ -6309,33 +6937,7 @@ function applyRoleBasedUI() {
   const teamFormSection = addMusicianBtn?.closest(".form-section");
   if (teamFormSection) teamFormSection.classList.toggle("hidden", member);
 
-  let rosterRead = document.getElementById("memberReadOnlyMusicianRoster");
-  const musiciansPanel = document.querySelector("#musiciansTab .panel.form-panel");
-  if (member && musiciansPanel) {
-    if (!rosterRead) {
-      rosterRead = document.createElement("div");
-      rosterRead.id = "memberReadOnlyMusicianRoster";
-      rosterRead.className = "form-section";
-      rosterRead.innerHTML =
-        "<h3>Team Roster</h3><div class=\"member-roster-readonly-list muted\"></div>";
-      musiciansPanel.appendChild(rosterRead);
-    }
-    rosterRead.classList.remove("hidden");
-    const listEl = rosterRead.querySelector(".member-roster-readonly-list");
-    if (listEl) {
-      const sorted = getSortedMusicians();
-      listEl.innerHTML = sorted.length
-        ? sorted
-            .map(
-              (m) =>
-                `<p style="margin:0.35em 0;">${escapeHtml(m.name || "—")} — ${escapeHtml(m.role || "")}</p>`
-            )
-            .join("")
-        : "<p>No roster entries yet.</p>";
-    }
-  } else if (rosterRead) {
-    rosterRead.classList.add("hidden");
-  }
+  document.getElementById("memberReadOnlyMusicianRoster")?.remove();
 
   const workNew = document.getElementById("workOrderNewSection");
   if (workNew) {
@@ -10786,6 +11388,37 @@ function populateMusicianSelects() {
 
 function renderMusicianList() {
   const container = document.querySelector("#musiciansTab .panel.form-panel");
+  if (!container) return;
+
+  if (state.userRole === "member") {
+    prependGradientSectionHeader(
+      container,
+      "musiciansGreetingHeader",
+      "My profile.",
+      "Your details.",
+      "What the band sees for you and when you are unavailable."
+    );
+    container.querySelectorAll(":scope > .form-section").forEach((section) => {
+      section.classList.add("hidden");
+    });
+    let memberMount = document.getElementById("memberMyProfileMount");
+    if (!memberMount) {
+      memberMount = document.createElement("div");
+      memberMount.id = "memberMyProfileMount";
+      container.appendChild(memberMount);
+    }
+    memberMount.classList.remove("hidden");
+    void renderMemberMyProfilePanel(memberMount);
+    return;
+  }
+
+  const memberMount = document.getElementById("memberMyProfileMount");
+  if (memberMount) memberMount.classList.add("hidden");
+
+  container.querySelectorAll(":scope > .form-section").forEach((section) => {
+    section.classList.remove("hidden");
+  });
+
   prependGradientSectionHeader(
     container,
     "musiciansGreetingHeader",
@@ -11072,14 +11705,18 @@ function renderMusicianShowCabinet() {
   const contactParts = [activeMusician.email, activeMusician.phone].filter(Boolean);
   summary.innerHTML = `
     <div class="cabinet-summary-top">
-      <strong style="font-size:22px;font-weight:700;color:#2c1a00;font-family:Georgia, 'Times New Roman', serif;margin:0 0 4px;">${activeMusician.name || musicianDisplayName(activeMusician)}</strong>
-      <span class="musician-card-status">${statusLabel}</span>
+      <strong style="font-size:22px;font-weight:700;color:#2c1a00;font-family:Georgia, 'Times New Roman', serif;margin:0 0 4px;">${escapeHtml(activeMusician.name || musicianDisplayName(activeMusician))}</strong>
+      <span class="musician-card-status">${escapeHtml(statusLabel)}</span>
     </div>
-    <p style="color:#8a6840;font-size:14px;margin:0 0 8px;">${activeMusician.role || "No role set"}</p>
-    <p>${contactParts.length ? contactParts.join(" · ") : "No contact info"}</p>
-    ${activeMusician.notes ? `<p>${activeMusician.notes}</p>` : ""}
+    <p style="color:#8a6840;font-size:14px;margin:0 0 8px;">${escapeHtml(activeMusician.role || "No role set")}</p>
+    <p>${escapeHtml(contactParts.length ? contactParts.join(" · ") : "No contact info")}</p>
+    <div class="musician-cabinet-profile-fields" style="margin-top:10px;"></div>
   `;
   headerWrap.appendChild(summary);
+  const profileMount = summary.querySelector(".musician-cabinet-profile-fields");
+  if (profileMount) {
+    appendMusicianProfileLabeledFields(profileMount, activeMusician, { skipName: true });
+  }
 
   const toolbar = document.createElement("div");
   toolbar.className = "cabinet-toolbar-actions";
@@ -12037,13 +12674,23 @@ async function renderBookedDatesList() {
     })
     .filter((event) => String(event.type || "").toLowerCase() !== "blackout")
     .sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
-  if (!booked.length) {
-    list.innerHTML = "<p class=\"muted\">No booked dates yet.</p>";
+  const isMemberShows = state.userRole === "member";
+  let bookedToRender = booked;
+  if (isMemberShows) {
+    const memberEventIds = await fetchMemberAssignedEventIdsForCurrentUser();
+    bookedToRender = memberEventIds.size
+      ? booked.filter((event) => event?.id && memberEventIds.has(event.id))
+      : [];
+  }
+  if (!bookedToRender.length) {
+    list.innerHTML = isMemberShows
+      ? "<p class=\"muted\">No shows assigned to you yet.</p>"
+      : "<p class=\"muted\">No booked dates yet.</p>";
     return;
   }
   list.innerHTML = "";
   const monthBuckets = new Map();
-  booked.forEach((event) => {
+  bookedToRender.forEach((event) => {
     const startTime = new Date(event.start_time);
     const monthLabel = formatMonthYearLabel(startTime);
     const existing = monthBuckets.get(monthLabel) || [];
@@ -12059,6 +12706,41 @@ async function renderBookedDatesList() {
     const monthList = document.createElement("div");
     monthList.className = "event-list";
     events.forEach((event) => {
+      if (state.userRole === "member") {
+        const uid = state.calendar.session?.user?.id || "";
+        const assignment = findMemberAssignmentForEvent(event.id, uid);
+        const card = document.createElement("div");
+        card.className = "event-card shows-booked-card";
+        if (event?.id) card.dataset.showId = event.id;
+        const venueTitle = document.createElement("strong");
+        venueTitle.className = "shows-booked-title";
+        venueTitle.style.cssText = "font-size:17px;font-weight:700;color:#2c1a00;";
+        venueTitle.textContent = getVenueDisplayNameForMemberShow(event);
+        const meta = document.createElement("div");
+        meta.className = "event-meta shows-booked-datetime";
+        meta.style.cssText = "color:#f47c20;font-size:13px;opacity:1;";
+        meta.textContent = formatShowDateTimeWithWeekday(event.start_time);
+        const callText = formatMemberCallArrivalLine(assignment);
+        const setText = formatMemberSetTimeLine(event);
+        card.appendChild(venueTitle);
+        card.appendChild(meta);
+        if (callText) {
+          const callEl = document.createElement("div");
+          callEl.className = "event-meta";
+          callEl.style.cssText = "color:#5a3a1a;font-size:13px;margin-top:6px;";
+          callEl.textContent = callText;
+          card.appendChild(callEl);
+        }
+        if (setText) {
+          const setEl = document.createElement("div");
+          setEl.className = "event-meta";
+          setEl.style.cssText = "color:#5a3a1a;font-size:13px;margin-top:4px;";
+          setEl.textContent = setText;
+          card.appendChild(setEl);
+        }
+        monthList.appendChild(card);
+        return;
+      }
       const lineup = isFullBandShowEvent(event) ? "Full Band" : "Duo";
       const flow = getBookingFlowDetails(event, quoteMap);
       const card = document.createElement("div");
@@ -12477,14 +13159,17 @@ async function renderAvailableDatesList() {
 
 function renderAssignmentSummaryLists() {
   const container = document.querySelector("#showsTab .panel.form-panel");
+  const member = state.userRole === "member";
   prependGradientSectionHeader(
     container,
     "showsGreetingHeader",
-    "The gig log.",
-    "Every show, every stage.",
-    "Your full show history pulled from the calendar."
+    member ? "Your shows." : "The gig log.",
+    member ? "What you are on." : "Every show, every stage.",
+    member
+      ? "Gigs you are assigned to from the calendar."
+      : "Your full show history pulled from the calendar."
   );
-  renderAssignmentList();
+  if (!member) renderAssignmentList();
   void renderBookedDatesList();
   void renderAvailableDatesList();
   updateOpsProgress();
