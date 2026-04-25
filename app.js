@@ -788,11 +788,74 @@ function hydrateLegacyPaymentHandles(dna = {}) {
   };
 }
 
+function getPaymentHandlesInputElements() {
+  const venmo =
+    document.getElementById("settingsVenmoHandle") ||
+    document.getElementById("settingsVenmo");
+  const paypal =
+    document.getElementById("settingsPaypalHandle") ||
+    document.getElementById("settingsPaypal");
+  return { venmo, paypal };
+}
+
 function syncPaymentHandlesSettingsForm() {
-  const venmoInput = document.getElementById("settingsVenmoHandle");
-  const paypalInput = document.getElementById("settingsPaypalHandle");
-  if (venmoInput) venmoInput.value = state.bandDNA.venmoHandle || "";
-  if (paypalInput) paypalInput.value = state.bandDNA.paypalHandle || "";
+  const { venmo, paypal } = getPaymentHandlesInputElements();
+  if (venmo) venmo.value = state.bandDNA.venmoHandle || "";
+  if (paypal) paypal.value = state.bandDNA.paypalHandle || "";
+}
+
+function showPaymentHandlesToast(message, isError = false) {
+  const toast = document.getElementById("paymentHandlesToast");
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.remove("hidden", "warning");
+  toast.classList.toggle("warning", isError);
+  window.clearTimeout(showPaymentHandlesToast.timeoutId);
+  showPaymentHandlesToast.timeoutId = window.setTimeout(() => {
+    toast.classList.add("hidden");
+  }, 2200);
+}
+
+async function savePaymentHandlesSettings() {
+  const client = state.calendar.client;
+  const { venmo, paypal } = getPaymentHandlesInputElements();
+  const venmoHandle = normalizeVenmoHandle(venmo?.value || "");
+  const paypalHandle = normalizePaypalHandle(paypal?.value || "");
+  const nextBandDNA = {
+    ...state.bandDNA,
+    venmoHandle,
+    paypalHandle,
+  };
+  nextBandDNA.paymentMethods = buildDynamicPaymentMethodsText(nextBandDNA);
+  const bethRepair = getBethBandDNARepair(nextBandDNA);
+  state.bandDNA = bethRepair.bandDNA;
+  saveDraft();
+  syncPaymentHandlesSettingsForm();
+  if (!client || !state.calendar.session) {
+    showPaymentHandlesToast("Sign in to save payment handles.", true);
+    return;
+  }
+  try {
+    const { error } = await client
+      .from("app_settings")
+      .upsert(
+        {
+          key: "band_dna",
+          value: JSON.stringify(state.bandDNA),
+          user_id: state.calendar.session.user.id,
+        },
+        { onConflict: "key,user_id" }
+      );
+    if (error) {
+      showPaymentHandlesToast(formatSupabaseError(error, "Could not save payment handles."), true);
+      return;
+    }
+    updateInvoicePreview();
+    updateReceiptPreview();
+    showPaymentHandlesToast("Payment handles saved.");
+  } catch (error) {
+    showPaymentHandlesToast(formatSupabaseError(error, "Could not save payment handles."), true);
+  }
 }
 
 function personalizeSocialPost(template = "") {
