@@ -434,6 +434,10 @@ const state = {
   onboardingStep: 1,
   memberOnboardingDraft: createMemberOnboardingDraft(),
   activeTab: "agreement",
+  settings: {
+    venmoHandle: "",
+    paypalHandle: "",
+  },
 };
 
 
@@ -790,18 +794,26 @@ function hydrateLegacyPaymentHandles(dna = {}) {
 
 function getPaymentHandlesInputElements() {
   const venmo =
-    document.getElementById("settingsVenmoHandle") ||
-    document.getElementById("settingsVenmo");
+    document.getElementById("settingsVenmo") ||
+    document.getElementById("settingsVenmoHandle");
   const paypal =
-    document.getElementById("settingsPaypalHandle") ||
-    document.getElementById("settingsPaypal");
+    document.getElementById("settingsPaypal") ||
+    document.getElementById("settingsPaypalHandle");
   return { venmo, paypal };
 }
 
 function syncPaymentHandlesSettingsForm() {
+  if (!(state.settings.venmoHandle || "").trim()) {
+    state.settings.venmoHandle = state.bandDNA.venmoHandle || "";
+  }
+  if (!(state.settings.paypalHandle || "").trim()) {
+    state.settings.paypalHandle = state.bandDNA.paypalHandle || "";
+  }
   const { venmo, paypal } = getPaymentHandlesInputElements();
-  if (venmo) venmo.value = state.bandDNA.venmoHandle || "";
-  if (paypal) paypal.value = state.bandDNA.paypalHandle || "";
+  const v = state.settings?.venmoHandle ?? "";
+  const p = state.settings?.paypalHandle ?? "";
+  if (venmo) venmo.value = v;
+  if (paypal) paypal.value = p;
 }
 
 function showPaymentHandlesToast(message, isError = false) {
@@ -821,6 +833,8 @@ async function savePaymentHandlesSettings() {
   const { venmo, paypal } = getPaymentHandlesInputElements();
   const venmoHandle = normalizeVenmoHandle(venmo?.value || "");
   const paypalHandle = normalizePaypalHandle(paypal?.value || "");
+  state.settings.venmoHandle = venmoHandle;
+  state.settings.paypalHandle = paypalHandle;
   const nextBandDNA = {
     ...state.bandDNA,
     venmoHandle,
@@ -836,13 +850,25 @@ async function savePaymentHandlesSettings() {
     return;
   }
   try {
+    const uid = state.calendar.session.user.id;
+    const handleRows = [
+      { key: "venmoHandle", value: venmoHandle, user_id: uid },
+      { key: "paypalHandle", value: paypalHandle, user_id: uid },
+    ];
+    const { error: handleErr } = await client
+      .from("app_settings")
+      .upsert(handleRows, { onConflict: "key,user_id" });
+    if (handleErr) {
+      showPaymentHandlesToast(formatSupabaseError(handleErr, "Could not save payment handles."), true);
+      return;
+    }
     const { error } = await client
       .from("app_settings")
       .upsert(
         {
           key: "band_dna",
           value: JSON.stringify(state.bandDNA),
-          user_id: state.calendar.session.user.id,
+          user_id: uid,
         },
         { onConflict: "key,user_id" }
       );
@@ -1791,6 +1817,34 @@ function safeStorageGet(key) {
   }
 }
 
+/** Headcount for pricing from lineup label or lineup row (Solo 1, Duo 2, Trio 3, Full Band 4, default 2). */
+function getLineupMusicianCount(lineupOrLabel, lineupObj) {
+  let obj =
+    lineupObj !== undefined && lineupObj !== null && typeof lineupObj === "object"
+      ? lineupObj
+      : null;
+  let labelStr = "";
+  if (typeof lineupOrLabel === "string") {
+    labelStr = lineupOrLabel;
+  } else if (lineupOrLabel && typeof lineupOrLabel === "object") {
+    obj = obj || lineupOrLabel;
+    labelStr = String(lineupOrLabel.name || "");
+  }
+  if (obj != null && obj.count != null && !Number.isNaN(parseFloat(obj.count))) {
+    const c = parseFloat(obj.count);
+    if (c > 0) return Math.max(1, Math.round(c));
+  }
+  const label = labelStr.trim().toLowerCase();
+  if (!label) return 2;
+  if (label.includes("solo")) return 1;
+  if (label.includes("duo")) return 2;
+  if (label.includes("trio")) return 3;
+  if (label.includes("full band") || (label.includes("full") && label.includes("band"))) {
+    return 4;
+  }
+  return 2;
+}
+
 function saveDraft() {
   try {
     if (Array.isArray(state.bandDNA.lineups)) {
@@ -1829,6 +1883,7 @@ function saveDraft() {
       musicianShowBookings: state.musicianShowBookings,
       onboardingStep: state.onboardingStep,
       memberOnboardingDraft: state.memberOnboardingDraft,
+      settings: state.settings,
     };
     safeStorageSet(STORAGE_KEY, JSON.stringify(payload));
   } catch (error) {
@@ -1862,6 +1917,15 @@ function loadDraft() {
       if (Array.isArray(parsed.bandDNA.lineups)) state.bandDNA.lineups = parsed.bandDNA.lineups;
       if (Array.isArray(parsed.bandDNA.addons)) state.bandDNA.addons = parsed.bandDNA.addons;
       if (Array.isArray(parsed.bandDNA.genreTags)) state.bandDNA.genreTags = parsed.bandDNA.genreTags;
+      state.settings.venmoHandle = state.bandDNA.venmoHandle || "";
+      state.settings.paypalHandle = state.bandDNA.paypalHandle || "";
+    }
+    if (parsed.settings && typeof parsed.settings === "object") {
+      state.settings = {
+        ...state.settings,
+        venmoHandle: String(parsed.settings.venmoHandle ?? state.settings.venmoHandle ?? ""),
+        paypalHandle: String(parsed.settings.paypalHandle ?? state.settings.paypalHandle ?? ""),
+      };
     }
     if (parsed.agreement) {
       state.agreement = { ...state.agreement, ...parsed.agreement };
@@ -14389,11 +14453,13 @@ async function init() {
     updateOpsProgress();
   } catch (error) {
     console.error("init() failed:", error);
+    if (error && error.stack) console.error(error.stack);
     if (switchTopView) switchTopView("login");
   }
 }
 
 init().catch((error) => {
   console.error("App initialization failed:", error);
+  if (error && error.stack) console.error(error.stack);
   if (switchTopView) switchTopView("login");
 });
