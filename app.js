@@ -4666,10 +4666,26 @@ function renderBookHubCalendar() {
 
 function getWorkOrdersVisibleForRole() {
   const uid = state.calendar.session?.user?.id;
-  if (state.userRole === "member" && uid) {
-    return state.workOrders.filter((item) => item.user_id === uid);
-  }
-  return state.workOrders;
+  if (state.userRole !== "member" || !uid) return state.workOrders;
+  const meta = state.calendar.session?.user;
+  const email = String(meta?.email || "").trim().toLowerCase();
+  const nameGuess = String(
+    meta?.user_metadata?.full_name
+      || meta?.user_metadata?.name
+      || meta?.user_metadata?.display_name
+      || ""
+  )
+    .trim()
+    .toLowerCase();
+  return state.workOrders.filter((item) => {
+    if (item.user_id && item.user_id === uid) return true;
+    const ato = String(item.assigned_to || "").trim().toLowerCase();
+    if (!ato) return false;
+    if (ato === String(uid).toLowerCase()) return true;
+    if (email && ato === email) return true;
+    if (nameGuess && ato === nameGuess) return true;
+    return false;
+  });
 }
 
 function renderBookHubWorkOrders() {
@@ -6325,6 +6341,51 @@ function applyRoleBasedUI() {
   if (workNew) {
     workNew.classList.toggle("hidden", member || state.workOrderView?.showCreate === false);
   }
+
+  const woTab = document.getElementById("workOrdersTab");
+  if (woTab) {
+    woTab.querySelectorAll('[data-work-section="promo"], [data-work-section="epk"]').forEach((btn) => {
+      btn.classList.toggle("hidden", member);
+    });
+    if (member) {
+      switchWorkOrderSection("tasks");
+    } else {
+      woTab
+        .querySelectorAll('[data-work-section="promo"], [data-work-section="epk"]')
+        .forEach((btn) => btn.classList.remove("hidden"));
+      switchWorkOrderSection(state.workOrderWorkspace?.section || "tasks");
+    }
+  }
+
+  [
+    "bookHubCreateQuote",
+    "createQuoteBtn",
+    "homeNewBooking",
+    "bookHubNewBooking",
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("hidden", member);
+  });
+
+  document.querySelectorAll("[id]").forEach((el) => {
+    if (!(el instanceof HTMLElement)) return;
+    const id = (el.id || "").toLowerCase();
+    const isAdminish =
+      id.includes("createquote")
+      || id.includes("agreementbtn")
+      || id.includes("newbooking");
+    if (!isAdminish) return;
+    if (el.matches("button, .btn, [role='button']")) {
+      el.classList.toggle("hidden", member);
+    }
+  });
+
+  document.querySelectorAll("button").forEach((btn) => {
+    const t = (btn.textContent || "").replace(/\s+/g, " ").trim();
+    if (t.includes("Create a Quote") || t === "+ New Booking") {
+      btn.classList.toggle("hidden", member);
+    }
+  });
 }
 
 async function refreshAuthState() {
@@ -6781,6 +6842,35 @@ async function loadOverridePin() {
   }
 }
 
+/**
+ * If members cannot read band events, run in Supabase SQL editor (adjust if policy exists):
+ *
+ * CREATE POLICY "members_can_read_band_events" ON events
+ * FOR SELECT
+ * USING (
+ *   band_id IN (
+ *     SELECT band_id FROM band_members
+ *     WHERE user_id = auth.uid()
+ *   )
+ * );
+ */
+async function ensureUserBandIdFromBandMembers() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session?.user?.id || state.userBandId) return;
+  const uid = state.calendar.session.user.id;
+  const { data, error } = await client
+    .from("band_members")
+    .select("band_id")
+    .eq("user_id", uid)
+    .limit(1);
+  if (error) {
+    console.error("ensureUserBandIdFromBandMembers:", error);
+    return;
+  }
+  const bid = Array.isArray(data) && data[0]?.band_id ? data[0].band_id : null;
+  if (bid) state.userBandId = bid;
+}
+
 async function fetchEventsForMonth() {
   const client = state.calendar.client;
   if (!client || !state.calendar.session) {
@@ -6794,14 +6884,20 @@ async function fetchEventsForMonth() {
     return;
   }
 
+  await ensureUserBandIdFromBandMembers();
+
   const { rangeStart, rangeEnd } = getCalendarEventsFetchRange();
 
-  const { data, error } = await client
+  let eventsQuery = client
     .from("events")
     .select("*")
     .lt("start_time", rangeEnd.toISOString())
     .gt("end_time", rangeStart.toISOString())
     .order("start_time", { ascending: true });
+  if (state.userBandId) {
+    eventsQuery = eventsQuery.eq("band_id", state.userBandId);
+  }
+  const { data, error } = await eventsQuery;
 
   if (error) {
     updateSupabaseStatus("Could not load calendar events.", true);
@@ -9177,6 +9273,7 @@ function mapWorkOrderRow(row) {
       row.completed === true || String(row.status || "").toLowerCase() === "completed",
     createdAt: row.created_at || row.createdAt || new Date().toISOString(),
     user_id: row.user_id || row.assigned_user_id || null,
+    assigned_to: row.assigned_to != null ? String(row.assigned_to) : "",
   };
 }
 
@@ -10257,12 +10354,15 @@ function renderWorkOrderWorkspace() {
 function renderWorkOrders() {
   const list = document.getElementById("workOrderList");
   const container = document.querySelector("#workOrdersTab .panel.form-panel");
+  const memberWo = state.userRole === "member";
   prependGradientSectionHeader(
     container,
     "workOrdersGreetingHeader",
-    "Get it done.",
-    "Hit the stage.",
-    "Tasks, outreach and everything in between."
+    memberWo ? "Your Assignments" : "Get it done.",
+    memberWo ? "Stay on track." : "Hit the stage.",
+    memberWo
+      ? "Only tasks assigned to you appear here."
+      : "Tasks, outreach and everything in between."
   );
   if (!list) {
     renderBookHubWorkOrders();
