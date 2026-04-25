@@ -201,6 +201,8 @@ body {
 }
 
 #loginTab {
+  position: relative;
+  z-index: 100;
   background: #1e1e24;
 }
 

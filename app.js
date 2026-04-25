@@ -12288,45 +12288,41 @@ function setupListeners() {
   const bottomNav = document.getElementById("bottomNav");
   const homeTab = document.getElementById("homeTab");
   const onboardingTab = document.getElementById("onboardingTab");
-  const WORKSPACE_ROOT_PANEL_IDS = [
-    "loginTab",
-    "bookHubTab",
-    "homeTab",
-    "onboardingTab",
-    "bandProfileTab",
-    "workOrdersTab",
-    "agreementTab",
-    "quoteBuilderTab",
-    "invoiceTab",
-    "receiptTab",
-    "calendarTab",
-    "contractsTab",
-    "contractsCreatedTab",
-    "contractsHubTab",
-    "musiciansTab",
-    "troubleshootingTab",
-    "showsTab",
-    "allaboutTab",
-    "howtoTab",
-    "marketingTab",
-    "moreTab",
-  ];
-  const clearWorkspaceRootPanelDisplay = () => {
-    WORKSPACE_ROOT_PANEL_IDS.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.style.removeProperty("display");
-    });
-  };
-  const hideAllWorkspaceRootsExceptLogin = () => {
-    WORKSPACE_ROOT_PANEL_IDS.forEach((id) => {
+  const TOP_LEVEL_SHELL_IDS = Array.from(
+    new Set([
+      "loginTab",
+      "homeTab",
+      "bookTab",
+      "docsTab",
+      "marketingTab",
+      "moreTab",
+      "onboardingTab",
+      "bookHubTab",
+      "bandProfileTab",
+      "workOrdersTab",
+      "agreementTab",
+      "quoteBuilderTab",
+      "invoiceTab",
+      "receiptTab",
+      "calendarTab",
+      "contractsTab",
+      "contractsCreatedTab",
+      "contractsHubTab",
+      "musiciansTab",
+      "troubleshootingTab",
+      "showsTab",
+      "allaboutTab",
+      "howtoTab",
+    ])
+  );
+  const syncTopLevelShellDisplays = () => {
+    TOP_LEVEL_SHELL_IDS.forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
-      if (id === "loginTab") {
-        el.classList.remove("hidden");
-        el.style.removeProperty("display");
-      } else {
-        el.classList.add("hidden");
+      if (el.classList.contains("hidden")) {
         el.style.display = "none";
+      } else {
+        el.style.removeProperty("display");
       }
     });
   };
@@ -12424,7 +12420,6 @@ function setupListeners() {
 
   const switchPanel = (target) => {
     if (!target) return;
-    clearWorkspaceRootPanelDisplay();
     state.activeTab = target;
     document.getElementById("loginTab").classList.toggle("hidden", target !== "login");
     document.getElementById("bookHubTab").classList.toggle("hidden", target !== "bookhub");
@@ -12504,9 +12499,14 @@ function setupListeners() {
     rememberRoute(activeTop, target);
     updateMessagePreview();
     saveDraft();
+    syncTopLevelShellDisplays();
   };
 
   const switchTop = (topTarget) => {
+    TOP_LEVEL_SHELL_IDS.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = "none";
+    });
     const signedIn = Boolean(state.calendar.session);
     if (!signedIn && topTarget !== "login") {
       updateSupabaseStatus("Sign in first to open the rest of Booking Suite.", true);
@@ -12526,14 +12526,12 @@ function setupListeners() {
     if (aboutTabs) aboutTabs.classList.toggle("hidden", topTarget !== "about");
 
     if (topTarget === "login") {
-      hideAllWorkspaceRootsExceptLogin();
       switchPanel("login");
       return;
     }
 
     if (topTarget === "onboarding") {
       if (!state.calendar.session) {
-        hideAllWorkspaceRootsExceptLogin();
         switchPanel("login");
         return;
       }
