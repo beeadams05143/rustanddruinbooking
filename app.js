@@ -12322,7 +12322,7 @@ function setupListeners() {
       if (el.classList.contains("hidden")) {
         el.style.display = "none";
       } else {
-        el.style.removeProperty("display");
+        el.style.display = el.tagName === "SECTION" ? "block" : "grid";
       }
     });
   };
