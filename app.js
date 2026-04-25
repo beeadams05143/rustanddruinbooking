@@ -788,6 +788,13 @@ function hydrateLegacyPaymentHandles(dna = {}) {
   };
 }
 
+function syncPaymentHandlesSettingsForm() {
+  const venmoInput = document.getElementById("settingsVenmoHandle");
+  const paypalInput = document.getElementById("settingsPaypalHandle");
+  if (venmoInput) venmoInput.value = state.bandDNA.venmoHandle || "";
+  if (paypalInput) paypalInput.value = state.bandDNA.paypalHandle || "";
+}
+
 function personalizeSocialPost(template = "") {
   const dna = getBandDNA() || {};
   const signoffNames = String(dna.signoffName || "")
