@@ -12288,6 +12288,48 @@ function setupListeners() {
   const bottomNav = document.getElementById("bottomNav");
   const homeTab = document.getElementById("homeTab");
   const onboardingTab = document.getElementById("onboardingTab");
+  const WORKSPACE_ROOT_PANEL_IDS = [
+    "loginTab",
+    "bookHubTab",
+    "homeTab",
+    "onboardingTab",
+    "bandProfileTab",
+    "workOrdersTab",
+    "agreementTab",
+    "quoteBuilderTab",
+    "invoiceTab",
+    "receiptTab",
+    "calendarTab",
+    "contractsTab",
+    "contractsCreatedTab",
+    "contractsHubTab",
+    "musiciansTab",
+    "troubleshootingTab",
+    "showsTab",
+    "allaboutTab",
+    "howtoTab",
+    "marketingTab",
+    "moreTab",
+  ];
+  const clearWorkspaceRootPanelDisplay = () => {
+    WORKSPACE_ROOT_PANEL_IDS.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.removeProperty("display");
+    });
+  };
+  const hideAllWorkspaceRootsExceptLogin = () => {
+    WORKSPACE_ROOT_PANEL_IDS.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (id === "loginTab") {
+        el.classList.remove("hidden");
+        el.style.removeProperty("display");
+      } else {
+        el.classList.add("hidden");
+        el.style.display = "none";
+      }
+    });
+  };
   const messagePreviewWrap = document.getElementById("messagePreviewWrap");
   const pdfActionsBar = document.getElementById("pdfActionsBar");
   const topOpenPdfBtn = document.getElementById("openPdf");
@@ -12382,6 +12424,7 @@ function setupListeners() {
 
   const switchPanel = (target) => {
     if (!target) return;
+    clearWorkspaceRootPanelDisplay();
     state.activeTab = target;
     document.getElementById("loginTab").classList.toggle("hidden", target !== "login");
     document.getElementById("bookHubTab").classList.toggle("hidden", target !== "bookhub");
@@ -12483,12 +12526,14 @@ function setupListeners() {
     if (aboutTabs) aboutTabs.classList.toggle("hidden", topTarget !== "about");
 
     if (topTarget === "login") {
+      hideAllWorkspaceRootsExceptLogin();
       switchPanel("login");
       return;
     }
 
     if (topTarget === "onboarding") {
       if (!state.calendar.session) {
+        hideAllWorkspaceRootsExceptLogin();
         switchPanel("login");
         return;
       }
@@ -14167,90 +14212,90 @@ async function copyMessage(statusTargetId = "pdfStatus", triggerButton = null) {
 }
 
 async function init() {
-  loadDraft();
-  repairLineupRates();
-  if (!state.bandDNA.migratedFromLegacy) {
-    migrateLegacyToBandDNA();
-    saveDraft();
-  }
-  if (state.bandDNA.migratedFromLegacy &&
-      Array.isArray(state.bandDNA.lineups)) {
-    const musicianRate = parseFloat(
-      state.bandDNA.musicianHourlyRate || 50);
-    let repaired = false;
-    state.bandDNA.lineups = state.bandDNA.lineups.map((lineup) => {
-      if (!lineup.rate || parseFloat(lineup.rate) === 0) {
-        const count = lineup.count ||
-          getLineupMusicianCount(lineup.name);
-        repaired = true;
-        return { ...lineup, rate: String(musicianRate * count) };
-      }
-      return lineup;
-    });
-    if (repaired) saveDraft();
-  }
-  syncPaymentHandlesSettingsForm();
-  hydrateBandProfileFromLegacyData();
-  hydrateBookingProfilesFromLegacyData();
-  applyAgreementDefaultsFromProfiles(false);
-  applyBandProfileToPromoBuilder(false);
-  loadCalendarSettings();
-  ensureToddSeededShowFiles();
-  ensureDanSeededShowFiles();
-  ensureJennySeededShowFiles();
-  ensureGarySeededShowFiles();
-  ensureSeededMusicianBlackouts();
-  refreshAgreementCreatedDate();
-  if (!state.agreement.chargeNonPerformance) {
-    state.agreement.nonPerformanceHours = "";
-  }
-  syncAgreementForm();
-  syncInvoiceForm();
-  syncReceiptForm();
-  const overridePinInput = document.getElementById("overridePin");
-  if (overridePinInput) {
-    overridePinInput.value = state.calendar.overridePin ? "••••" : "";
-  }
-  state.calendar.selectedDate = "";
-  setCalendarEventFormExpanded(false);
-  setupListeners();
-  if (switchTopView) switchTopView("login");
-  initSupabaseClient();
-  updateCalendarAuthVisibility();
-
   try {
+    loadDraft();
+    repairLineupRates();
+    if (!state.bandDNA.migratedFromLegacy) {
+      migrateLegacyToBandDNA();
+      saveDraft();
+    }
+    if (state.bandDNA.migratedFromLegacy &&
+        Array.isArray(state.bandDNA.lineups)) {
+      const musicianRate = parseFloat(
+        state.bandDNA.musicianHourlyRate || 50);
+      let repaired = false;
+      state.bandDNA.lineups = state.bandDNA.lineups.map((lineup) => {
+        if (!lineup.rate || parseFloat(lineup.rate) === 0) {
+          const count = lineup.count ||
+            getLineupMusicianCount(lineup.name);
+          repaired = true;
+          return { ...lineup, rate: String(musicianRate * count) };
+        }
+        return lineup;
+      });
+      if (repaired) saveDraft();
+    }
+    syncPaymentHandlesSettingsForm();
+    hydrateBandProfileFromLegacyData();
+    hydrateBookingProfilesFromLegacyData();
+    applyAgreementDefaultsFromProfiles(false);
+    applyBandProfileToPromoBuilder(false);
+    loadCalendarSettings();
+    ensureToddSeededShowFiles();
+    ensureDanSeededShowFiles();
+    ensureJennySeededShowFiles();
+    ensureGarySeededShowFiles();
+    ensureSeededMusicianBlackouts();
+    refreshAgreementCreatedDate();
+    if (!state.agreement.chargeNonPerformance) {
+      state.agreement.nonPerformanceHours = "";
+    }
+    syncAgreementForm();
+    syncInvoiceForm();
+    syncReceiptForm();
+    const overridePinInput = document.getElementById("overridePin");
+    if (overridePinInput) {
+      overridePinInput.value = state.calendar.overridePin ? "••••" : "";
+    }
+    state.calendar.selectedDate = "";
+    setCalendarEventFormExpanded(false);
+    setupListeners();
+    if (switchTopView) switchTopView("login");
+    initSupabaseClient();
+    updateCalendarAuthVisibility();
+
     await restoreSupabaseSessionFromUrl();
     await refreshAuthState();
-  } catch (error) {
-    console.error("Supabase auth initialization failed:", error);
-    updateSupabaseStatus("Sign-in is available, but the saved session could not be restored.", true);
-  }
 
-  updateHolidayFromDate();
-  updatePerformanceHoursFromTimes();
-  updateAgreementPreview();
-  renderAgreementStepUI();
-  updateInvoicePreview();
-  updateReceiptPreview();
-  updateMessagePreview();
-  renderCalendar();
-  renderWorkOrderWorkspace();
-  fetchEventsForMonth();
-  fetchContracts();
-  fetchMusicianAssignments();
-  fetchMusicianBlackouts();
-  fetchMusicians();
-  fetchWorkOrders();
-  fetchInvoices();
-  fetchReceipts();
-  renderMusicianList();
-  renderMusicianAssignments();
-  renderAssignmentSummaryLists();
-  renderBlackoutList();
-  updateOpsProgress();
+    updateHolidayFromDate();
+    updatePerformanceHoursFromTimes();
+    updateAgreementPreview();
+    renderAgreementStepUI();
+    updateInvoicePreview();
+    updateReceiptPreview();
+    updateMessagePreview();
+    renderCalendar();
+    renderWorkOrderWorkspace();
+    fetchEventsForMonth();
+    fetchContracts();
+    fetchMusicianAssignments();
+    fetchMusicianBlackouts();
+    fetchMusicians();
+    fetchWorkOrders();
+    fetchInvoices();
+    fetchReceipts();
+    renderMusicianList();
+    renderMusicianAssignments();
+    renderAssignmentSummaryLists();
+    renderBlackoutList();
+    updateOpsProgress();
+  } catch (error) {
+    console.error("init() failed:", error);
+    if (switchTopView) switchTopView("login");
+  }
 }
 
 init().catch((error) => {
   console.error("App initialization failed:", error);
-  updateSupabaseStatus("The app could not finish loading.", true);
+  if (switchTopView) switchTopView("login");
 });
