@@ -1099,13 +1099,27 @@ function getOnboardingStepTitle(stepNumber = 1) {
 async function getCurrentUserBandId() {
   const client = state.calendar.client;
   if (!client || !state.calendar.session?.user?.id) return "";
-  const { data: members, error } = await client
+  console.log(
+    "Looking up band membership for user: " + state.calendar.session.user.id
+  );
+  const { data, error } = await client
     .from("band_members")
-    .select("band_id")
+    .select("band_id, role")
     .eq("user_id", state.calendar.session.user.id)
-    .limit(1);
-  if (error || !members?.length || !members[0].band_id) return "";
-  return members[0].band_id;
+    .maybeSingle();
+  if (error) {
+    console.error("band_members lookup error:", error);
+    if (error.stack) console.error(error.stack);
+    return "";
+  }
+  if (!data?.band_id) {
+    console.error(
+      "band_members lookup: no row or missing band_id. data:",
+      data
+    );
+    return "";
+  }
+  return data.band_id;
 }
 
 function collectMemberOnboardingFromStep(step) {
