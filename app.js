@@ -1900,6 +1900,27 @@ async function completeMemberOnboarding() {
     return;
   }
   state.musicians.push(data);
+  if (bandId) {
+    state.userBandId = state.userBandId || bandId;
+  }
+  state.bandDNA.onboardingComplete = true;
+  try {
+    const { error: onboardingSettingsError } = await client.from("app_settings").upsert(
+      {
+        key: "memberOnboardingComplete",
+        value: "true",
+        user_id: state.calendar.session.user.id,
+        band_id: state.userBandId ?? bandId ?? null,
+      },
+      { onConflict: "key,user_id" }
+    );
+    if (onboardingSettingsError) {
+      console.warn("memberOnboardingComplete app_settings upsert:", onboardingSettingsError);
+    }
+  } catch (settingsErr) {
+    console.warn("memberOnboardingComplete app_settings upsert failed:", settingsErr);
+  }
+  if (switchTopView) switchTopView("home");
   updateBandDNA({ onboardingComplete: true });
   state.memberOnboardingDraft = createMemberOnboardingDraft();
   state.memberOnboardingDraft.email = state.calendar.session.user.email || "";
@@ -1907,9 +1928,6 @@ async function completeMemberOnboarding() {
   saveDraft();
   if (statusEl) statusEl.textContent = "You're in! Opening your dashboard…";
   await fetchMusicians();
-  window.setTimeout(() => {
-    if (switchTopView) switchTopView("home");
-  }, 900);
 }
 
 function renderOnboardingWizard() {
@@ -6818,6 +6836,10 @@ async function openContractForEvent(eventId) {
 /** Where to send the user after a session exists (login, magic link, session restore). */
 function getPostAuthTopView() {
   if (!state.calendar.session) return "login";
+  if (state.userRole === "member") {
+    if (state.bandDNA.onboardingComplete) return "home";
+    return "onboarding";
+  }
   if (!state.bandDNA.onboardingComplete) return "onboarding";
   const top = state.workspace.top;
   if (top && top !== "login" && top !== "onboarding") return top;
@@ -6988,6 +7010,10 @@ function applyRoleBasedUI() {
       btn.classList.toggle("hidden", member);
     }
   });
+
+  document.querySelectorAll('#moreTab [data-more-panel="musicians"]').forEach((btn) => {
+    btn.textContent = member ? "My Profile" : "Musicians + Tech Crew";
+  });
 }
 
 async function refreshAuthState() {
@@ -7057,6 +7083,17 @@ async function refreshAuthState() {
     await processBandInviteCode(pendingInviteCode);
   }
   await fetchBandMemberRoleForSession();
+  if (state.calendar.session && state.userRole === "member") {
+    const { data: onboardingFlag } = await client
+      .from("app_settings")
+      .select("value")
+      .eq("key", "memberOnboardingComplete")
+      .eq("user_id", state.calendar.session.user.id)
+      .maybeSingle();
+    if (onboardingFlag?.value === "true") {
+      state.bandDNA.onboardingComplete = true;
+    }
+  }
   repairLineupRates();
   void renderMoreTab();
   if (switchTopView) switchTopView(getPostAuthTopView());
@@ -13557,7 +13594,7 @@ function setupListeners() {
       calendar: "Event Calendar",
       contracts: "Signed Contracts",
       contractscreated: "Contracts Created",
-      musicians: "Musicians + Tech Crew",
+      musicians: state.userRole === "member" ? "My Profile" : "Musicians + Tech Crew",
       troubleshooting: "Troubleshooting",
       allabout: "App Overview",
       howto: "How-To Playbook",
