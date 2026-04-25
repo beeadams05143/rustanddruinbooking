@@ -438,6 +438,8 @@ const state = {
     venmoHandle: "",
     paypalHandle: "",
   },
+  userRole: "owner",
+  userBandId: null,
 };
 
 
@@ -1099,25 +1101,53 @@ function getOnboardingStepTitle(stepNumber = 1) {
 async function getCurrentUserBandId() {
   const client = state.calendar.client;
   if (!client || !state.calendar.session?.user?.id) return "";
-  console.log(
-    "Looking up band membership for user: " + state.calendar.session.user.id
-  );
-  const { data, error } = await client
+  const uid = state.calendar.session.user.id;
+  console.log("Looking up band membership for user: " + uid);
+  let { data, error } = await client
     .from("band_members")
     .select("band_id, role")
-    .eq("user_id", state.calendar.session.user.id)
+    .eq("user_id", uid)
     .maybeSingle();
   if (error) {
-    console.error("band_members lookup error:", error);
-    if (error.stack) console.error(error.stack);
-    return "";
+    console.error("band_members lookup (maybeSingle) full error:", error);
+    try {
+      console.error(
+        "band_members lookup JSON:",
+        JSON.stringify(error, Object.getOwnPropertyNames(error))
+      );
+    } catch (_) {
+      /* ignore */
+    }
   }
   if (!data?.band_id) {
-    console.error(
-      "band_members lookup: no row or missing band_id. data:",
-      data
-    );
-    return "";
+    const r2 = await client
+      .from("band_members")
+      .select("band_id, role")
+      .eq("user_id", uid)
+      .limit(1);
+    if (r2.error) {
+      console.error("band_members lookup (retry limit 1) full error:", r2.error);
+      try {
+        console.error(
+          "band_members retry JSON:",
+          JSON.stringify(r2.error, Object.getOwnPropertyNames(r2.error))
+        );
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    data = Array.isArray(r2.data) && r2.data[0] ? r2.data[0] : null;
+    if (!data?.band_id) {
+      console.error(
+        "band_members lookup: null after maybeSingle and limit(1) retry. user:",
+        uid,
+        "first:",
+        { data, error },
+        "retry:",
+        r2
+      );
+      return "";
+    }
   }
   return data.band_id;
 }
@@ -4634,12 +4664,21 @@ function renderBookHubCalendar() {
   }
 }
 
+function getWorkOrdersVisibleForRole() {
+  const uid = state.calendar.session?.user?.id;
+  if (state.userRole === "member" && uid) {
+    return state.workOrders.filter((item) => item.user_id === uid);
+  }
+  return state.workOrders;
+}
+
 function renderBookHubWorkOrders() {
   const list = document.getElementById("bookHubWorkOrdersList");
   const summary = document.getElementById("bookHubWorkOrdersSummary");
   if (!list || !summary) return;
 
-  const openOrders = state.workOrders.filter((item) => {
+  const visibleOrders = getWorkOrdersVisibleForRole();
+  const openOrders = visibleOrders.filter((item) => {
     const status = String(item?.status || "").toLowerCase();
     return !(status === "completed" || item?.completed === true);
   });
@@ -6141,6 +6180,153 @@ function getPostAuthTopView() {
   return "home";
 }
 
+/**
+ * If band_members SELECT is blocked for members, run in Supabase SQL (adjust names):
+ *   alter table band_members enable row level security;
+ *   create policy "band_members_select_own" on band_members
+ *     for select to authenticated using (user_id = auth.uid());
+ */
+async function fetchBandMemberRoleForSession() {
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session?.user?.id) {
+    state.userRole = "owner";
+    state.userBandId = null;
+    applyRoleBasedUI();
+    return;
+  }
+  const uid = state.calendar.session.user.id;
+  const res1 = await client
+    .from("band_members")
+    .select("role, band_id")
+    .eq("user_id", uid)
+    .maybeSingle();
+  let memberData = res1.data;
+  const err1 = res1.error;
+  if (err1) {
+    console.error("band_members role fetch (maybeSingle) full error:", err1);
+    try {
+      console.error(
+        "band_members role JSON:",
+        JSON.stringify(err1, Object.getOwnPropertyNames(err1))
+      );
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  if (!memberData) {
+    const r2 = await client
+      .from("band_members")
+      .select("role, band_id")
+      .eq("user_id", uid)
+      .limit(1);
+    if (r2.error) {
+      console.error("band_members role fetch (retry limit 1) full error:", r2.error);
+      try {
+        console.error(
+          "band_members role retry JSON:",
+          JSON.stringify(r2.error, Object.getOwnPropertyNames(r2.error))
+        );
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    memberData = Array.isArray(r2.data) && r2.data[0] ? r2.data[0] : null;
+    if (!memberData) {
+      console.error(
+        "band_members role fetch: null after maybeSingle and limit(1) for user:",
+        uid,
+        "responses:",
+        { first: res1, retry: r2 }
+      );
+    }
+  }
+  state.userRole = memberData?.role || "owner";
+  state.userBandId = memberData?.band_id ?? null;
+  applyRoleBasedUI();
+}
+
+function applyRoleBasedUI() {
+  const member = state.userRole === "member";
+  const inviteMount = document.getElementById("moreTabInviteSectionMount");
+  if (inviteMount) inviteMount.classList.toggle("hidden", member);
+
+  document.querySelectorAll("#moreTab .payment-handles-panel").forEach((el) => {
+    el.classList.toggle("hidden", member);
+  });
+
+  document
+    .querySelectorAll('#moreTab [data-more-panel="invoice"], #moreTab [data-more-panel="receipt"]')
+    .forEach((btn) => {
+      btn.classList.toggle("hidden", member);
+    });
+
+  const homeNew = document.getElementById("homeNewBooking");
+  const bookNew = document.getElementById("bookHubNewBooking");
+  if (homeNew) homeNew.classList.toggle("hidden", member);
+  if (bookNew) bookNew.classList.toggle("hidden", member);
+
+  const contractsHub = document.getElementById("contractsHubTab");
+  let cov = document.getElementById("contractsHubMemberOverlay");
+  if (contractsHub && member) {
+    if (!cov) {
+      cov = document.createElement("div");
+      cov.id = "contractsHubMemberOverlay";
+      cov.style.cssText =
+        "position:absolute;inset:0;z-index:20;background:#1e1e24;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;";
+      contractsHub.style.position = "relative";
+      contractsHub.appendChild(cov);
+    }
+    cov.innerHTML =
+      "<p style=\"margin:0;text-align:center;color:#8a6840;font-size:16px;\">This section is for band management only.</p>";
+    cov.classList.remove("hidden");
+  } else if (cov) {
+    cov.classList.add("hidden");
+    cov.innerHTML = "";
+  }
+
+  const promoSection = document.querySelector(
+    "#marketingTab .marketing-panel > .form-section:not(.marketing-social-section)"
+  );
+  if (promoSection) promoSection.classList.toggle("hidden", member);
+
+  const addMusicianBtn = document.getElementById("addMusician");
+  const teamFormSection = addMusicianBtn?.closest(".form-section");
+  if (teamFormSection) teamFormSection.classList.toggle("hidden", member);
+
+  let rosterRead = document.getElementById("memberReadOnlyMusicianRoster");
+  const musiciansPanel = document.querySelector("#musiciansTab .panel.form-panel");
+  if (member && musiciansPanel) {
+    if (!rosterRead) {
+      rosterRead = document.createElement("div");
+      rosterRead.id = "memberReadOnlyMusicianRoster";
+      rosterRead.className = "form-section";
+      rosterRead.innerHTML =
+        "<h3>Team Roster</h3><div class=\"member-roster-readonly-list muted\"></div>";
+      musiciansPanel.appendChild(rosterRead);
+    }
+    rosterRead.classList.remove("hidden");
+    const listEl = rosterRead.querySelector(".member-roster-readonly-list");
+    if (listEl) {
+      const sorted = getSortedMusicians();
+      listEl.innerHTML = sorted.length
+        ? sorted
+            .map(
+              (m) =>
+                `<p style="margin:0.35em 0;">${escapeHtml(m.name || "—")} — ${escapeHtml(m.role || "")}</p>`
+            )
+            .join("")
+        : "<p>No roster entries yet.</p>";
+    }
+  } else if (rosterRead) {
+    rosterRead.classList.add("hidden");
+  }
+
+  const workNew = document.getElementById("workOrderNewSection");
+  if (workNew) {
+    workNew.classList.toggle("hidden", member || state.workOrderView?.showCreate === false);
+  }
+}
+
 async function refreshAuthState() {
   const client = state.calendar.client;
   if (!client) return;
@@ -6156,6 +6342,9 @@ async function refreshAuthState() {
   }
 
   if (!state.calendar.session) {
+    state.userRole = "owner";
+    state.userBandId = null;
+    applyRoleBasedUI();
     stopSupabaseSync();
     state.calendar.events = [];
     state.calendar.contracts = [];
@@ -6204,6 +6393,7 @@ async function refreshAuthState() {
   if (pendingInviteCode) {
     await processBandInviteCode(pendingInviteCode);
   }
+  await fetchBandMemberRoleForSession();
   repairLineupRates();
   void renderMoreTab();
   if (switchTopView) switchTopView(getPostAuthTopView());
@@ -8986,6 +9176,7 @@ function mapWorkOrderRow(row) {
     completed:
       row.completed === true || String(row.status || "").toLowerCase() === "completed",
     createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+    user_id: row.user_id || row.assigned_user_id || null,
   };
 }
 
@@ -10081,13 +10272,18 @@ function renderWorkOrders() {
   const showAllBtn = document.getElementById("workOrderShowAll");
   const hasFocus = Boolean(state.workOrderView?.focusId);
   if (createSection) {
-    createSection.classList.toggle("hidden", state.workOrderView?.showCreate === false);
+    const memberHide = state.userRole === "member";
+    createSection.classList.toggle(
+      "hidden",
+      memberHide || state.workOrderView?.showCreate === false
+    );
   }
   if (showAllBtn) {
     showAllBtn.classList.toggle("hidden", !hasFocus && state.workOrderView?.showCreate !== false);
   }
   list.innerHTML = "";
-  if (!state.workOrders.length) {
+  const visibleOrders = getWorkOrdersVisibleForRole();
+  if (!visibleOrders.length) {
     list.innerHTML = "<p class=\"muted\">No work orders yet.</p>";
     updateOpsProgress();
     renderBookHubWorkOrders();
@@ -10095,8 +10291,8 @@ function renderWorkOrders() {
   }
 
   const rows = hasFocus
-    ? state.workOrders.filter((item) => item.id === state.workOrderView.focusId)
-    : state.workOrders;
+    ? visibleOrders.filter((item) => item.id === state.workOrderView.focusId)
+    : visibleOrders;
 
   if (hasFocus && !rows.length) {
     list.innerHTML = "<p class=\"muted\">That task is no longer available.</p>";
@@ -12678,6 +12874,11 @@ function setupListeners() {
     updateMessagePreview();
     saveDraft();
     syncTopLevelShellDisplays();
+    applyRoleBasedUI();
+    if (target === "workorders") {
+      renderWorkOrders();
+      renderWorkOrderWorkspace();
+    }
   };
 
   const switchTop = (topTarget) => {
