@@ -12727,7 +12727,6 @@ async function renderBookedDatesList() {
       if (detailStatus) detailStatus.textContent = "Sign in to generate contract links.";
       return;
     }
-    const shareId = crypto.randomUUID();
     const start = new Date(event.start_time || Date.now());
     const end = new Date(event.end_time || event.start_time || Date.now());
     const lineup = getShowLineupLabel(event);
@@ -12740,8 +12739,7 @@ async function renderBookedDatesList() {
     const depositAmount = toNumber(state.bandDNA.defaultDeposit || 50);
     const bandDetails = getBandContractDetails();
     const paymentConfig = getBandPaymentConfig();
-    const { error } = await client.from("contracts").insert({
-      
+    const { data: insertedContract, error } = await client.from("contracts").insert({
       name: `${event.title || event.type || "Event"} Agreement`,
       file_path: null,
       event_id: event.id,
@@ -12769,23 +12767,23 @@ async function renderBookedDatesList() {
       payment_methods: buildDynamicPaymentMethodsText(),
       venmo_handle: paymentConfig.venmoHandle || "",
       paypal_handle: paymentConfig.paypalHandle || "",
-    });
-    if (error) {
+    }).select("id").single();
+    if (error || !insertedContract) {
       console.error("contracts insert failed:", JSON.stringify(error));
       if (detailStatus) {
-        detailStatus.textContent = `Could not generate contract link: ${error.message || error.code || JSON.stringify(error)}`;
+        detailStatus.textContent = `Could not generate contract link: ${error?.message || JSON.stringify(error)}`;
         detailStatus.style.color = "#b53b2b";
       }
       return;
     }
-    const contractLink = "https://gigos.netlify.app/contract.html?id=" + shareId;
+    const contractLink = "https://gigos.netlify.app/contract.html?id=" + insertedContract.id;
     await copyTextToClipboard(contractLink);
     if (detailStatus) {
       detailStatus.textContent = "Contract link ready — send to your client to sign.";
       detailStatus.style.color = "";
       detailStatus.classList.remove("warning");
     }
-    await client.from("events").update({ contract_sent_at: new Date().toISOString() }).eq("id", event.id); const start2 = new Date(event.start_time||Date.now()); await client.from("contracts").update({ client_name: event.title||"", event_date: start2.toISOString().slice(0,10), event_type: event.type||"", performance_time: start2.toTimeString().slice(0,5), performance_end_time: new Date(event.end_time||event.start_time).toTimeString().slice(0,5), lineup: getShowLineupLabel(event), band_name: state.bandDNA.bandName||"Rust and Ruin", band_email: state.bandDNA.contactEmail||"", band_phone: state.bandDNA.contactPhone||"", payment_methods: buildDynamicPaymentMethodsText(), venmo_handle: state.bandDNA.venmoHandle||"", paypal_handle: state.bandDNA.paypalHandle||"" }).eq("id", cId);
+    await client.from("events").update({ contract_sent_at: new Date().toISOString() }).eq("id", event.id);
     const detail = detailStatus?.closest(".show-flow-detail");
     const card = detailStatus?.closest(".shows-booked-card");
     const pipeline = card?.querySelector(".show-flow-pipeline");
