@@ -5648,195 +5648,54 @@ function isConflictTrackedShowType(typeValue) {
   return normalized === "contract needed" || normalized === "hold" || normalized === "confirmed";
 }
 
-function renderManagerChecklist(events) {
+function renderManagerChecklist(_events) {
   const wrap = document.getElementById("managerChecklistList");
   if (!wrap) return;
   wrap.innerHTML = "";
 
   const myAssignmentsTitle = document.querySelector("#homeTab .ops-checklist-card .dashboard-card-head h3");
   if (myAssignmentsTitle) {
-    myAssignmentsTitle.textContent = state.userRole === "member" ? "My Assignments" : "This week";
+    myAssignmentsTitle.textContent = state.userRole === "member" ? "My Assignments" : "Work Orders";
   }
 
-  if (state.userRole === "member") {
-    const openWorkOrders = getWorkOrdersVisibleForRole().filter((item) => {
-      const status = String(item?.status || "").toLowerCase();
-      return !(status === "completed" || item?.completed === true);
-    });
-    if (!openWorkOrders.length) {
-      const row = document.createElement("div");
-      row.className = "checklist-row done";
-      row.innerHTML = `<span class="dashboard-row-dot" aria-hidden="true"></span><span class="checklist-text">No tasks assigned to you right now.</span><span class="dashboard-badge badge-done">Done</span>`;
-      wrap.appendChild(row);
-      return;
-    }
-    openWorkOrders.slice(0, 12).forEach((item) => {
-      const el = document.createElement("div");
-      el.className = "checklist-row";
-      const dot = document.createElement("span");
-      dot.className = "dashboard-row-dot";
-      dot.setAttribute("aria-hidden", "true");
-      const left = document.createElement("span");
-      left.className = "checklist-text";
-      left.textContent = item.description || item.title || "Untitled task";
-      const right = document.createElement("button");
-      right.type = "button";
-      right.className = "checklist-link dashboard-badge badge-now";
-      right.textContent = "Open";
-      right.addEventListener("click", () => {
-        if (!switchTopView) return;
-        state.workOrderView.focusId = item.id || "";
-        state.workOrderView.showCreate = false;
-        switchTopView("workorders");
-        renderWorkOrders();
-      });
-      el.appendChild(dot);
-      el.appendChild(left);
-      el.appendChild(right);
-      wrap.appendChild(el);
-    });
-    return;
-  }
-
-  const openWorkOrders = state.workOrders.filter((item) => {
+  const openWorkOrders = getWorkOrdersVisibleForRole().filter((item) => {
     const status = String(item?.status || "").toLowerCase();
     return !(status === "completed" || item?.completed === true);
   });
-  const missingContracts = events.filter((event) => {
-    if (event?.seeded) return false;
-    const contract = state.calendar.contracts.find((item) => item.event_id === event.id);
-    if (!contract) return true;
-    const contractStatus = String(contract.status || "").toLowerCase();
-    return !(contract.file_path || contractStatus.includes("signed"));
-  });
-
-  const invoiceSendNeeded = [];
-  const receiptSendNeeded = [];
-  const pendingMusicianConfirmations = [];
-
-  events.forEach((event) => {
-    const eventAssignments = state.calendar.assignments.filter(
-      (item) =>
-        item.event_id === event.id &&
-        String(item.status || "").toLowerCase() !== "unavailable"
-    );
-    if (
-      eventAssignments.length > 0 &&
-      eventAssignments.some((item) => String(item.status || "").toLowerCase() !== "confirmed")
-    ) {
-      pendingMusicianConfirmations.push(event);
-    }
-
-    const matchedInvoice = findMatchingInvoiceForEvent(event);
-    if (matchedInvoice && !matchedInvoice.file_path) {
-      invoiceSendNeeded.push(event);
-    }
-    if (matchedInvoice) {
-      const matchedReceipt = findMatchingReceiptForEvent(event, matchedInvoice);
-      if (matchedReceipt && !matchedReceipt.file_path) {
-        receiptSendNeeded.push(event);
-      }
-    }
-  });
-
-  const openChecklistTarget = (target) => {
-    if (!switchTopView) return;
-    if (target?.type === "workorder") {
-      state.workOrderView.focusId = target.id || "";
-      state.workOrderView.showCreate = false;
-      switchTopView("workorders");
-      renderWorkOrders();
-      return;
-    }
-    if (target === "workorders") {
-      state.workOrderView.focusId = "";
-      state.workOrderView.showCreate = true;
-      switchTopView("workorders");
-      renderWorkOrders();
-      return;
-    }
-    if (target === "contracts") {
-      state.activeTab = "contracts";
-      switchTopView("contracts");
-      return;
-    }
-    if (target === "invoice") {
-      state.activeTab = "invoice";
-      switchTopView("bookkeeping");
-      return;
-    }
-    if (target === "receipt") {
-      state.activeTab = "receipt";
-      switchTopView("bookkeeping");
-      return;
-    }
-    if (target === "calendar") {
-      state.activeTab = "calendar";
-      switchTopView("calendar");
-    }
-  };
-
-  const rows = [];
-  if (openWorkOrders.length) {
-    openWorkOrders.slice(0, 5).forEach((item) => {
-      rows.push({
-        text: item.description || item.title || "Untitled task",
-        tag: "Now",
-        done: false,
-        target: { type: "workorder", id: item.id },
-      });
-    });
-  } else {
-    rows.push({
-      text: "Open work orders",
-      tag: "Done",
-      done: true,
-      target: "workorders",
-    });
+  if (!openWorkOrders.length) {
+    const row = document.createElement("div");
+    row.className = "checklist-row done";
+    const empty = state.userRole === "member"
+      ? "No tasks assigned to you right now."
+      : "No open work orders right now.";
+    row.innerHTML = `<span class="dashboard-row-dot" aria-hidden="true"></span><span class="checklist-text">${empty}</span><span class="dashboard-badge badge-done">Done</span>`;
+    wrap.appendChild(row);
+    return;
   }
-  rows.push(
-    {
-      text: `Contracts to come back signed (this week): ${missingContracts.length}`,
-      tag: missingContracts.length ? "This week" : "Done",
-      done: missingContracts.length === 0,
-      target: "contracts",
-    },
-    {
-      text: `Band member confirmations needed (this week): ${pendingMusicianConfirmations.length}`,
-      tag: pendingMusicianConfirmations.length ? "This week" : "Done",
-      done: pendingMusicianConfirmations.length === 0,
-      target: "calendar",
-    },
-    {
-      text: `Invoices pending send (created this week): ${invoiceSendNeeded.length}`,
-      tag: invoiceSendNeeded.length ? "This week" : "Done",
-      done: invoiceSendNeeded.length === 0,
-      target: "invoice",
-    },
-    {
-      text: `Receipts pending send (created this week): ${receiptSendNeeded.length}`,
-      tag: receiptSendNeeded.length ? "This week" : "Done",
-      done: receiptSendNeeded.length === 0,
-      target: "receipt",
-    },
-  );
 
-  rows.forEach((row) => {
+  const openOrderRow = (item) => {
+    if (!switchTopView) return;
+    state.workOrderView.focusId = item.id || "";
+    state.workOrderView.showCreate = false;
+    switchTopView("workorders");
+    renderWorkOrders();
+  };
+  openWorkOrders.slice(0, 12).forEach((item) => {
     const el = document.createElement("div");
-    el.className = `checklist-row${row.done ? " done" : ""}`;
+    el.className = "checklist-row";
     const dot = document.createElement("span");
     dot.className = "dashboard-row-dot";
     dot.setAttribute("aria-hidden", "true");
     const left = document.createElement("span");
     left.className = "checklist-text";
-    left.textContent = row.text;
+    left.textContent = item.description || item.title || "Untitled task";
     const right = document.createElement("button");
     right.type = "button";
-    right.className = `checklist-link dashboard-badge ${
-      row.tag === "Now" ? "badge-now" : row.tag === "This week" ? "badge-this-week" : "badge-done"
-    }`;
-    right.textContent = row.tag;
-    right.addEventListener("click", () => openChecklistTarget(row.target));
+    right.className = "checklist-link dashboard-badge badge-now";
+    right.textContent = "Open";
+    right.addEventListener("click", () => {
+      openOrderRow(item);
+    });
     el.appendChild(dot);
     el.appendChild(left);
     el.appendChild(right);
@@ -6065,7 +5924,15 @@ async function updateOpsProgress() {
     })
     .filter(Boolean)
     .sort((a, b) => new Date(a.event?.start_time || 0) - new Date(b.event?.start_time || 0));
-  renderNeedsYourAttention(notifications);
+  const seenNotificationKeys = new Set();
+  const dedupedNotifications = notifications.filter((item) => {
+    const eventDate = item.event?.start_time ? new Date(item.event.start_time).toDateString() : "";
+    const key = (item.event?.title || "") + "|" + eventDate;
+    if (seenNotificationKeys.has(key)) return false;
+    seenNotificationKeys.add(key);
+    return true;
+  });
+  renderNeedsYourAttention(dedupedNotifications);
   await updateManagerDesk();
 }
 
