@@ -4788,6 +4788,23 @@ function normalizeText(value) {
     .trim();
 }
 
+/** Title part of eventIdentityKey: case-insensitive, strip punctuation, apostrophes, common trailing words. */
+function eventTitleKeyForIdentity(value) {
+  const raw = String(value ?? "")
+    .replace(/['\u2018\u2019\u00B4\u0060]/g, "")
+    .replace(/[\u2013\u2014\u002d]+/g, " ")
+    .replace(/[.…!?,;:]+/g, " ");
+  let t = normalizeText(raw);
+  t = t
+    .replace(
+      /\b(event|show|gig|party|wedding|reception|ceremony|private|band|dj|live|music)\b/g,
+      " "
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+  return t || "event";
+}
+
 function eventDayKeyFromValue(value) {
   const date = value instanceof Date ? value : new Date(value);
   if (!Number.isFinite(date.getTime())) return "";
@@ -4796,7 +4813,7 @@ function eventDayKeyFromValue(value) {
 
 function eventIdentityKey(event) {
   const dayKey = eventDayKeyFromValue(event?.start_time || event?.end_time || "");
-  const titleKey = normalizeText(event?.title || event?.type || "event");
+  const titleKey = eventTitleKeyForIdentity(event?.title || event?.type || "event");
   return `${dayKey}|${titleKey}`;
 }
 
@@ -4837,6 +4854,14 @@ function mergeSeededCalendarEvents(events = [], rangeStart = null, rangeEnd = nu
     const key = eventIdentityKey(event);
     if (hiddenSeededEventKeys.has(key)) return;
     if (seen.has(key)) return;
+    const dayKey = eventDayKeyFromValue(event.start_time);
+    const titleKey = eventTitleKeyForIdentity(event?.title || event?.type || "event");
+    const hasSameDayReal = merged.some((e) => {
+      if (e.seeded) return false;
+      if (eventDayKeyFromValue(e.start_time) !== dayKey) return false;
+      return eventTitleKeyForIdentity(e?.title || e?.type || "event") === titleKey;
+    });
+    if (hasSameDayReal) return;
     seen.add(key);
     merged.push(event);
   });
@@ -4884,7 +4909,7 @@ function getConflictTrackedEventsForDate(dateStr, events = []) {
 function dedupeShowEvents(events = []) {
   const seen = new Set();
   return events.filter((event) => {
-    const titleKey = normalizeText(event?.title || event?.type || "event");
+    const titleKey = eventTitleKeyForIdentity(event?.title || event?.type || "event");
     const typeKey = normalizeText(event?.type || "");
     const startDate = new Date(event?.start_time || "");
     const endDate = new Date(event?.end_time || "");
@@ -5626,9 +5651,9 @@ function renderManagerChecklist(events) {
   if (!wrap) return;
   wrap.innerHTML = "";
 
-  const myAssignmentsTitle = document.querySelector("#homeTab .needs-attention-card .dashboard-card-head h3");
+  const myAssignmentsTitle = document.querySelector("#homeTab .ops-checklist-card .dashboard-card-head h3");
   if (myAssignmentsTitle) {
-    myAssignmentsTitle.textContent = state.userRole === "member" ? "My Assignments" : "Needs attention";
+    myAssignmentsTitle.textContent = state.userRole === "member" ? "My Assignments" : "This week";
   }
 
   if (state.userRole === "member") {
@@ -5918,23 +5943,11 @@ async function updateManagerDesk() {
 }
 
 async function updateOpsProgress() {
-  const summary = document.getElementById("opsProgressSummary");
-  const detail = document.getElementById("opsProgressDetail");
   const upcomingEl = document.getElementById("snapshotUpcomingShows");
   const contractsEl = document.getElementById("snapshotContractsPending");
   const confirmationsEl = document.getElementById("snapshotConfirmationsNeeded");
 
   if (state.userRole === "member") {
-    if (summary) summary.textContent = "Tasks assigned to you.";
-    const myOpen = getWorkOrdersVisibleForRole().filter((item) => {
-      const status = String(item?.status || "").toLowerCase();
-      return !(status === "completed" || item?.completed === true);
-    });
-    if (detail) {
-      detail.textContent = myOpen.length
-        ? `${myOpen.length} open task${myOpen.length === 1 ? "" : "s"}.`
-        : "You're all caught up.";
-    }
     const idSet = await fetchMemberAssignedEventIdsForCurrentUser();
     const upcomingMemberCount = getUpcomingEvents(80).filter((e) => e?.id && idSet.has(e.id)).length;
     if (upcomingEl) upcomingEl.textContent = String(upcomingMemberCount);
@@ -5945,26 +5958,11 @@ async function updateOpsProgress() {
     return;
   }
 
-  const workOrdersTotal = state.workOrders.length;
-  const workOrdersDone = state.workOrders.filter((item) => {
-    const status = String(item.status || "").toLowerCase();
-    return status === "completed" || item.completed === true;
-  }).length;
-  const workOrdersOpen = Math.max(0, workOrdersTotal - workOrdersDone);
-
   const pendingSignatureContracts = state.calendar.contracts.filter((item) => {
     if (item?.file_path) return false;
     const status = String(item.status || "").toLowerCase();
     return !status.includes("created") && !status.includes("no contract needed");
   });
-  const signedContracts = state.calendar.contracts.filter((item) => {
-    if (!item?.file_path) return false;
-    const status = String(item.status || "").toLowerCase();
-    const path = String(item.file_path || "");
-    return !(status.includes("created") || path.startsWith("created-contracts/"));
-  });
-  const contractsTotal = pendingSignatureContracts.length + signedContracts.length;
-  const contractsDone = signedContracts.length;
   const contractsPendingSignature = pendingSignatureContracts.length;
 
   const today = new Date();
@@ -6015,13 +6013,6 @@ async function updateOpsProgress() {
   if (contractsEl) contractsEl.textContent = String(contractsPendingSignature);
   if (confirmationsEl) confirmationsEl.textContent = String(confirmationsNeeded);
 
-  if (summary) summary.textContent = "What needs attention this week.";
-  if (detail) {
-    detail.textContent =
-      workOrdersOpen || contractsPendingSignature || confirmationsNeeded
-        ? `Work orders open ${workOrdersOpen} • Contracts pending ${contractsPendingSignature} • Confirmations needed ${confirmationsNeeded}`
-        : "No urgent items right now.";
-  }
   const quoteMap = buildQuoteMapByEventId(await fetchQuoteRowsForBookingFlow());
   const now = new Date();
   const upcomingWindowEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
