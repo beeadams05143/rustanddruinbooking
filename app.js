@@ -12579,7 +12579,7 @@ function renderAssignmentList() {
 }
 
 async function renderBookedDatesList() {
-  const previouslyExpandedId = state.calendar.selectedEventId;
+  const _savedExpandedId = state.calendar.selectedEventId;
   const list = document.getElementById("bookedDatesList");
   if (!list) return;
   const client = state.calendar.client;
@@ -13035,7 +13035,7 @@ async function renderBookedDatesList() {
       card.className = "event-card shows-booked-card";
       if (event?.id) card.dataset.showId = event.id;
       card.style.position = "relative";
-      const isExpanded = state.calendar.selectedEventId === event.id;
+      const isExpanded = _savedExpandedId === event.id;
       const title = document.createElement("strong");
       title.className = "shows-booked-title";
       title.style.cssText = "font-size:17px;font-weight:700;color:#2c1a00;";
@@ -13179,6 +13179,18 @@ async function renderBookedDatesList() {
         });
         detail.appendChild(detailStatus);
         detail.appendChild(pipeline);
+        const copyLinkRow = document.createElement("div");
+        copyLinkRow.style.cssText = "margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;";
+        const copyLinkBtn = document.createElement("button");
+        copyLinkBtn.type = "button";
+        copyLinkBtn.className = "btn ghost show-flow-action";
+        copyLinkBtn.textContent = "Copy Contract Link";
+        copyLinkBtn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          await copyContractLinkForShow(event, detailStatus);
+        });
+        copyLinkRow.appendChild(copyLinkBtn);
+        detail.appendChild(copyLinkRow);
         card.appendChild(detail);
       }
       card.appendChild(actions);
@@ -13228,6 +13240,7 @@ async function renderBookedDatesList() {
     window.setTimeout(tryHighlightJumpCard, 60);
   }
   showHubFocusStep = "";
+  if (_savedExpandedId) state.calendar.selectedEventId = _savedExpandedId;
 }
 
 function renderAboutTab() {
