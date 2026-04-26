@@ -7664,6 +7664,7 @@ function queueSupabaseSyncRefresh() {
   state.calendar.syncRefreshTimer = setTimeout(async () => {
     state.calendar.syncRefreshTimer = null;
     if (!state.calendar.session) return;
+    const savedSelectedEventId = state.calendar.selectedEventId;
     await Promise.all([
       fetchEventsForMonth(),
       fetchContracts(),
@@ -7674,6 +7675,9 @@ function queueSupabaseSyncRefresh() {
       fetchInvoices(),
       fetchReceipts(),
     ]);
+    if (savedSelectedEventId) {
+      state.calendar.selectedEventId = savedSelectedEventId;
+    }
   }, 400);
 }
 
@@ -7761,11 +7765,13 @@ async function ensureUserBandIdFromBandMembers() {
 }
 
 async function fetchEventsForMonth() {
+  const savedSelectedEventId = state.calendar.selectedEventId;
   const client = state.calendar.client;
   if (!client || !state.calendar.session) {
     state.calendar.events = [];
     renderCalendar();
     updateEventList();
+    if (savedSelectedEventId) state.calendar.selectedEventId = savedSelectedEventId;
     void renderBookedDatesList();
     void renderAvailableDatesList();
     renderBookHubCalendar();
@@ -7796,6 +7802,7 @@ async function fetchEventsForMonth() {
   state.calendar.events = mergeSeededCalendarEvents(data || [], rangeStart, rangeEnd);
   renderCalendar();
   updateEventList();
+  if (savedSelectedEventId) state.calendar.selectedEventId = savedSelectedEventId;
   updateContractEventOptions();
   renderAssignmentSummaryLists();
   updateOpsProgress();
@@ -12572,6 +12579,7 @@ function renderAssignmentList() {
 }
 
 async function renderBookedDatesList() {
+  const previouslyExpandedId = state.calendar.selectedEventId;
   const list = document.getElementById("bookedDatesList");
   if (!list) return;
   const client = state.calendar.client;
