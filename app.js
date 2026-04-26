@@ -442,6 +442,7 @@ const state = {
   userBandId: null,
 };
 
+let _persistentExpandedShowId = "";
 
 const agreementFields = [
   "clientName",
@@ -5187,6 +5188,7 @@ async function openBookingFlowNotificationTarget(event, target) {
   state.calendar.notificationJumpNeedsPastInclude = needsPastInclude;
   selectEventForEdit(event, formatDateInput(new Date(event.start_time || Date.now())));
   showHubFocusStep = target || "";
+  _persistentExpandedShowId = showId;
   state.calendar.selectedEventId = showId;
   if (switchTopView) switchTopView("shows");
   await renderBookedDatesList();
@@ -11794,6 +11796,9 @@ function removeEventFromEverywhere(event) {
     if (state.calendar.selectedEventId === eventId || priorEventCount !== state.calendar.events.length) {
       state.calendar.selectedEventId = "";
     }
+    if (_persistentExpandedShowId === eventId) {
+      _persistentExpandedShowId = "";
+    }
     removeAgreementSnapshotForEventId(eventId);
   }
 
@@ -12570,7 +12575,6 @@ function renderAssignmentList() {
 }
 
 async function renderBookedDatesList() {
-  const _savedExpandedId = state.calendar.selectedEventId;
   const list = document.getElementById("bookedDatesList");
   if (!list) return;
   const client = state.calendar.client;
@@ -13026,7 +13030,7 @@ async function renderBookedDatesList() {
       card.className = "event-card shows-booked-card";
       if (event?.id) card.dataset.showId = event.id;
       card.style.position = "relative";
-      const isExpanded = _savedExpandedId === event.id;
+      const isExpanded = _persistentExpandedShowId === event.id;
       const title = document.createElement("strong");
       title.className = "shows-booked-title";
       title.style.cssText = "font-size:17px;font-weight:700;color:#2c1a00;";
@@ -13053,7 +13057,8 @@ async function renderBookedDatesList() {
       });
       deleteButton.style.cssText = "border-color:#e58a4a;color:#9a3f00;";
       card.addEventListener("click", (clickEvt) => { if (clickEvt.target.closest("button") || clickEvt.target.closest("input") || clickEvt.target.closest("a") || document.getElementById("clw-"+event.id)) return;
-        state.calendar.selectedEventId = isExpanded ? "" : event.id;
+        _persistentExpandedShowId = isExpanded ? "" : event.id;
+        state.calendar.selectedEventId = _persistentExpandedShowId;
         void renderBookedDatesList();
       });
       deleteButton.addEventListener("click", (clickEvent) => {
@@ -13182,6 +13187,20 @@ async function renderBookedDatesList() {
         });
         copyLinkRow.appendChild(copyLinkBtn);
         detail.appendChild(copyLinkRow);
+        const closeRow = document.createElement("div");
+        closeRow.style.cssText = "display:flex;justify-content:flex-end;margin-top:16px;padding-top:12px;border-top:1px solid #e8a855;";
+        const closeBtn = document.createElement("button");
+        closeBtn.type = "button";
+        closeBtn.className = "btn ghost";
+        closeBtn.textContent = "Close";
+        closeBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          _persistentExpandedShowId = "";
+          state.calendar.selectedEventId = "";
+          void renderBookedDatesList();
+        });
+        closeRow.appendChild(closeBtn);
+        detail.appendChild(closeRow);
         card.appendChild(detail);
       }
       card.appendChild(actions);
@@ -13231,7 +13250,6 @@ async function renderBookedDatesList() {
     window.setTimeout(tryHighlightJumpCard, 60);
   }
   showHubFocusStep = "";
-  if (_savedExpandedId) state.calendar.selectedEventId = _savedExpandedId;
 }
 
 function renderAboutTab() {
