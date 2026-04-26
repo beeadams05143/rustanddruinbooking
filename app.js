@@ -5442,6 +5442,11 @@ function getWorkOrdersVisibleForRole() {
   )
     .trim()
     .toLowerCase();
+  const rosterName = String(
+    state.musicians.find((m) => m.user_id === uid)?.name || ""
+  )
+    .trim()
+    .toLowerCase();
   return state.workOrders.filter((item) => {
     if (item.user_id && item.user_id === uid) return true;
     const ato = String(item.assigned_to || "").trim().toLowerCase();
@@ -5449,6 +5454,8 @@ function getWorkOrdersVisibleForRole() {
     if (ato === String(uid).toLowerCase()) return true;
     if (email && ato === email) return true;
     if (nameGuess && ato === nameGuess) return true;
+    if (rosterName && ato === rosterName) return true;
+    if (nameGuess && nameGuess.split(/\s+/).some((part) => part.length >= 2 && ato === part)) return true;
     return false;
   });
 }
@@ -5534,6 +5541,8 @@ function renderUpcomingShowsCard(events) {
   const summary = document.getElementById("upcomingShowsSummary");
   const list = document.getElementById("upcomingShowsList");
   if (!summary || !list) return;
+  summary.style.color = "";
+  summary.style.fontSize = "";
   const dedupedEvents = dedupeShowEvents(
     events.map((event) => {
       const start = eventStartDate(event);
@@ -5554,14 +5563,29 @@ function renderUpcomingShowsCard(events) {
     return match || event;
   });
 
-  summary.textContent = dedupedEvents.length
-    ? `Your next ${dedupedEvents.length} upcoming booking${dedupedEvents.length === 1 ? "" : "s"}.`
-    : "No upcoming bookings yet.";
+  if (state.userRole === "member") {
+    if (dedupedEvents.length) {
+      summary.textContent = `Your next ${dedupedEvents.length} assigned show${dedupedEvents.length === 1 ? "" : "s"}.`;
+    } else {
+      summary.textContent = "";
+    }
+  } else {
+    summary.textContent = dedupedEvents.length
+      ? `Your next ${dedupedEvents.length} upcoming booking${dedupedEvents.length === 1 ? "" : "s"}.`
+      : "No upcoming bookings yet.";
+  }
 
   list.classList.add("compact");
   list.innerHTML = "";
   if (!dedupedEvents.length) {
-    list.innerHTML = "<li class=\"dashboard-empty\">No upcoming bookings yet.</li>";
+    if (state.userRole === "member") {
+      summary.style.color = "#8a6840";
+      summary.style.fontSize = "14px";
+      summary.textContent = "No upcoming shows assigned to you yet.";
+      list.innerHTML = "";
+    } else {
+      list.innerHTML = "<li class=\"dashboard-empty\">No upcoming bookings yet.</li>";
+    }
     return;
   }
 
@@ -5601,6 +5625,51 @@ function renderManagerChecklist(events) {
   const wrap = document.getElementById("managerChecklistList");
   if (!wrap) return;
   wrap.innerHTML = "";
+
+  const myAssignmentsTitle = document.querySelector("#homeTab .needs-attention-card .dashboard-card-head h3");
+  if (myAssignmentsTitle) {
+    myAssignmentsTitle.textContent = state.userRole === "member" ? "My Assignments" : "Needs attention";
+  }
+
+  if (state.userRole === "member") {
+    const openWorkOrders = getWorkOrdersVisibleForRole().filter((item) => {
+      const status = String(item?.status || "").toLowerCase();
+      return !(status === "completed" || item?.completed === true);
+    });
+    if (!openWorkOrders.length) {
+      const row = document.createElement("div");
+      row.className = "checklist-row done";
+      row.innerHTML = `<span class="dashboard-row-dot" aria-hidden="true"></span><span class="checklist-text">No tasks assigned to you right now.</span><span class="dashboard-badge badge-done">Done</span>`;
+      wrap.appendChild(row);
+      return;
+    }
+    openWorkOrders.slice(0, 12).forEach((item) => {
+      const el = document.createElement("div");
+      el.className = "checklist-row";
+      const dot = document.createElement("span");
+      dot.className = "dashboard-row-dot";
+      dot.setAttribute("aria-hidden", "true");
+      const left = document.createElement("span");
+      left.className = "checklist-text";
+      left.textContent = item.description || item.title || "Untitled task";
+      const right = document.createElement("button");
+      right.type = "button";
+      right.className = "checklist-link dashboard-badge badge-now";
+      right.textContent = "Open";
+      right.addEventListener("click", () => {
+        if (!switchTopView) return;
+        state.workOrderView.focusId = item.id || "";
+        state.workOrderView.showCreate = false;
+        switchTopView("workorders");
+        renderWorkOrders();
+      });
+      el.appendChild(dot);
+      el.appendChild(left);
+      el.appendChild(right);
+      wrap.appendChild(el);
+    });
+    return;
+  }
 
   const openWorkOrders = state.workOrders.filter((item) => {
     const status = String(item?.status || "").toLowerCase();
@@ -5754,6 +5823,26 @@ async function updateShowRecordCounts() {
   const totalEl = document.getElementById("showCountTotal");
   const totalSubtextEl = document.getElementById("showCountTotalSubtext");
   const duoSubtextEl = document.getElementById("showCountDuoSubtext");
+  const memberYearNum = document.getElementById("showCountMemberYear");
+  const memberYearSub = document.getElementById("showCountMemberYearSubtext");
+
+  if (state.userRole === "member") {
+    const currentYear = new Date().getFullYear();
+    const idSet = await fetchMemberAssignedEventIdsForCurrentUser();
+    const visibleLocalIds = new Set(state.calendar.events.map((event) => event.id).filter(Boolean));
+    let count = 0;
+    (state.calendar.events || []).forEach((e) => {
+      if (!e?.id || !idSet.has(e.id) || !visibleLocalIds.has(e.id)) return;
+      const st = new Date(e.start_time || 0);
+      if (!Number.isFinite(st.getTime()) || st.getFullYear() !== currentYear) return;
+      if (String(e.type || "").toLowerCase() === "blackout") return;
+      count += 1;
+    });
+    if (memberYearNum) memberYearNum.textContent = String(count);
+    if (memberYearSub) memberYearSub.textContent = "Shows you are booked for this year";
+    return;
+  }
+
   if (!duoEl || !totalEl || !totalSubtextEl || !duoSubtextEl) return;
 
   const currentYear = new Date().getFullYear();
@@ -5816,12 +5905,16 @@ async function updateShowRecordCounts() {
   duoSubtextEl.textContent = `Full Band ${counts.full} · ${bookedShows.length} total`;
 }
 
-function updateManagerDesk() {
+async function updateManagerDesk() {
   renderDashboardGreeting();
-  const upcoming = getUpcomingEvents(3);
+  let upcoming = getUpcomingEvents(3);
+  if (state.userRole === "member") {
+    const idSet = await fetchMemberAssignedEventIdsForCurrentUser();
+    upcoming = getUpcomingEvents(80).filter((e) => e?.id && idSet.has(e.id)).slice(0, 3);
+  }
   renderUpcomingShowsCard(upcoming);
   renderManagerChecklist(upcoming);
-  updateShowRecordCounts();
+  await updateShowRecordCounts();
 }
 
 async function updateOpsProgress() {
@@ -5830,6 +5923,27 @@ async function updateOpsProgress() {
   const upcomingEl = document.getElementById("snapshotUpcomingShows");
   const contractsEl = document.getElementById("snapshotContractsPending");
   const confirmationsEl = document.getElementById("snapshotConfirmationsNeeded");
+
+  if (state.userRole === "member") {
+    if (summary) summary.textContent = "Tasks assigned to you.";
+    const myOpen = getWorkOrdersVisibleForRole().filter((item) => {
+      const status = String(item?.status || "").toLowerCase();
+      return !(status === "completed" || item?.completed === true);
+    });
+    if (detail) {
+      detail.textContent = myOpen.length
+        ? `${myOpen.length} open task${myOpen.length === 1 ? "" : "s"}.`
+        : "You're all caught up.";
+    }
+    const idSet = await fetchMemberAssignedEventIdsForCurrentUser();
+    const upcomingMemberCount = getUpcomingEvents(80).filter((e) => e?.id && idSet.has(e.id)).length;
+    if (upcomingEl) upcomingEl.textContent = String(upcomingMemberCount);
+    if (contractsEl) contractsEl.textContent = "0";
+    if (confirmationsEl) confirmationsEl.textContent = "0";
+    renderNeedsYourAttention([]);
+    await updateManagerDesk();
+    return;
+  }
 
   const workOrdersTotal = state.workOrders.length;
   const workOrdersDone = state.workOrders.filter((item) => {
@@ -5959,7 +6073,7 @@ async function updateOpsProgress() {
     .filter(Boolean)
     .sort((a, b) => new Date(a.event?.start_time || 0) - new Date(b.event?.start_time || 0));
   renderNeedsYourAttention(notifications);
-  updateManagerDesk();
+  await updateManagerDesk();
 }
 
 async function fetchInvoices() {
@@ -7133,6 +7247,23 @@ function applyRoleBasedUI() {
   document.querySelectorAll('#moreTab [data-more-panel="musicians"]').forEach((btn) => {
     btn.textContent = member ? "My Profile" : "Musicians + Tech Crew";
   });
+
+  const homeBookingAttention = document.querySelector("#homeTab .attention-feed-card");
+  if (homeBookingAttention) {
+    homeBookingAttention.style.display = member ? "none" : "";
+  }
+  document.querySelectorAll("#homeTab .dashboard-stats [data-dashboard-stat-role='admin']").forEach((el) => {
+    el.style.display = member ? "none" : "";
+  });
+  const memberYearStat = document.getElementById("homeMemberYearStatCard");
+  if (memberYearStat) {
+    memberYearStat.style.display = member ? "" : "none";
+    memberYearStat.classList.toggle("hidden", !member);
+  }
+  const homeWorkOrdersBtn = document.getElementById("homeWorkOrders");
+  if (homeWorkOrdersBtn) {
+    homeWorkOrdersBtn.style.display = member ? "none" : "";
+  }
 }
 
 async function refreshAuthState() {
@@ -8371,7 +8502,7 @@ async function deleteEventById(id, eventHint = null) {
     await renderAvailableDatesList();
     renderBookHubCalendar();
     updateEventList();
-    updateManagerDesk();
+    await updateManagerDesk();
   };
   const rerenderDeletedEventViews = () => {
     void refreshAfterEventDelete();
@@ -8466,15 +8597,10 @@ async function deleteEventById(id, eventHint = null) {
       : "";
     updateSupabaseStatus(`Event deleted everywhere.${showFileNote}`);
   }
-  updateManagerDesk();
-  renderUpcomingShowsCard(getUpcomingEvents(3));
-  void updateOpsProgress();
   await fetchMusicianAssignments();
   await fetchEventsForMonth();
   await fetchContracts();
   await refreshAfterEventDelete();
-  updateManagerDesk();
-  renderUpcomingShowsCard(getUpcomingEvents(3));
   void updateOpsProgress();
 }
 
@@ -13815,7 +13941,14 @@ function setupListeners() {
     updateMessagePreview();
     saveDraft();
     syncTopLevelShellDisplays();
-    applyRoleBasedUI();
+    if (target === "home") {
+      void (async () => {
+        await updateOpsProgress();
+        applyRoleBasedUI();
+      })();
+    } else {
+      applyRoleBasedUI();
+    }
     if (target === "workorders") {
       renderWorkOrders();
       renderWorkOrderWorkspace();

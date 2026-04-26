@@ -177,17 +177,23 @@
             </div>
           </article>
 
-          <div class="dashboard-stats" aria-label="Shows booked record">
-            <article class="dashboard-stat-card">
+          <div class="dashboard-stats" aria-label="Shows booked record" id="homeDashboardStats">
+            <article class="dashboard-stat-card" data-dashboard-stat-role="admin">
               <span class="dashboard-stat-label" id="showRecordTitle">2026 Year Total Shows</span>
               <strong class="dashboard-stat-number" id="showCountTotal">0</strong>
               <span class="dashboard-stat-subtext" id="showCountTotalSubtext">Full Band 0 this year</span>
             </article>
 
-            <article class="dashboard-stat-card">
+            <article class="dashboard-stat-card" data-dashboard-stat-role="admin">
               <span class="dashboard-stat-label">Duo Shows</span>
               <strong class="dashboard-stat-number" id="showCountDuo">0</strong>
               <span class="dashboard-stat-subtext" id="showCountDuoSubtext">Full Band 0 this year</span>
+            </article>
+
+            <article class="dashboard-stat-card hidden" id="homeMemberYearStatCard" data-dashboard-stat-role="member" style="display: none;">
+              <span class="dashboard-stat-label">YOUR SHOWS THIS YEAR</span>
+              <strong class="dashboard-stat-number" id="showCountMemberYear">0</strong>
+              <span class="dashboard-stat-subtext" id="showCountMemberYearSubtext">Shows you are booked for this year</span>
             </article>
           </div>
 
