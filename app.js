@@ -9816,6 +9816,7 @@ function resetAgreementForm() {
 }
 
 async function saveBookingOnly() {
+  syncAgreementStateFromForm();
   prepareAgreementForOutput();
   setAgreementCalendarStatus("Saving booking...");
   const result = await ensureBookingEventForAgreement({ createPendingContract: false });
@@ -14318,6 +14319,8 @@ function setupListeners() {
   const agreementStepNextBtn = document.getElementById("agreementStepNext");
   if (agreementStepNextBtn) {
     agreementStepNextBtn.addEventListener("click", () => {
+      syncAgreementStateFromForm();
+      updatePerformanceHoursFromTimes();
       state.workspace.agreementStep = Math.min(
         AGREEMENT_STEP_COUNT,
         Number(state.workspace.agreementStep || 1) + 1
