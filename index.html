@@ -198,12 +198,14 @@
           </div>
 
           <div class="board-grid dashboard-grid">
-            <article class="board-card ops-checklist-card">
+            <article class="board-card needs-attention-card">
               <div class="dashboard-card-head">
-                <h3>Work Orders</h3>
+                <h3>Needs attention</h3>
                 <button class="dashboard-card-action" id="homeWorkOrders" type="button">+ Task</button>
               </div>
-              <div class="hidden" aria-hidden="true">
+              <p class="dashboard-card-subtext" id="opsProgressSummary">What needs attention this week.</p>
+              <p class="dashboard-card-detail" id="opsProgressDetail">No urgent items right now.</p>
+              <div class="hidden">
                 <strong id="snapshotUpcomingShows">0</strong>
                 <strong id="snapshotContractsPending">0</strong>
                 <strong id="snapshotConfirmationsNeeded">0</strong>
