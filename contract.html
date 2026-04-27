@@ -220,7 +220,7 @@
       const params = new URLSearchParams(window.location.search);
       const contractId = params.get("id");
       const app = document.getElementById("app");
-      let activeContractTable = "shared_contracts";
+      let activeContractTable = "contracts";
 
       function escapeHtml(value) {
         return String(value || "")
@@ -518,19 +518,11 @@
           let contract = null;
           let error = null;
           ({ data: contract, error } = await supabaseClient
-            .from("shared_contracts")
+            .from("contracts")
             .select("*")
             .eq("id", contractId)
             .maybeSingle());
-          activeContractTable = "shared_contracts";
-          if (error || !contract) {
-            ({ data: contract, error } = await supabaseClient
-              .from("contracts")
-              .select("*")
-              .eq("id", contractId)
-              .maybeSingle());
-            activeContractTable = "contracts";
-          }
+          activeContractTable = "contracts";
           if (error || !contract) {
             setUnavailable();
             return;
