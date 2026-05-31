@@ -1,4 +1,4 @@
-# Rust and Ruin Booking Suite
+# Gigos Booking Suite
 
 Static HTML/CSS/JS app for agreements, invoices, receipts, and calendar tools.
 

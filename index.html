@@ -125,6 +125,16 @@
             <button class="book-hub-secondary" id="bookHubCreateQuote" type="button">Create a Quote</button>
           </div>
 
+          <article class="book-hub-card booking-drafts-card" id="bookHubDraftsCard">
+            <div class="book-hub-card-head">
+              <div>
+                <h2>Draft Bookings</h2>
+                <p class="muted" id="bookHubDraftsSummary">No draft bookings saved.</p>
+              </div>
+            </div>
+            <div class="booking-drafts-list" id="bookHubDraftsList"></div>
+          </article>
+
           <article
             class="book-hub-card"
             id="bookHubCalendarCard"
@@ -161,19 +171,44 @@
         <section class="panel form-panel dashboard-board">
           <div class="board-head">
             <div class="dashboard-greeting">
-              <h2 id="dashboardGreeting">Good evening, Beth</h2>
-              <p class="dashboard-date" id="dashboardDateLine">Sunday, April 19 · Rust and Ruin</p>
+              <h2 id="dashboardGreeting">Good evening</h2>
+              <p class="dashboard-date" id="dashboardDateLine"></p>
             </div>
+            <button class="dashboard-profile-btn" id="homeEditBandDNA" type="button">Edit Band DNA</button>
           </div>
+
+          <article class="board-card dashboard-drafts-card" id="homeDraftsCard">
+            <div class="dashboard-card-head">
+              <h3>Draft Bookings</h3>
+              <button class="dashboard-card-action" id="homeOpenBookDrafts" type="button">Open drafts</button>
+            </div>
+            <p class="dashboard-card-subtext" id="homeDraftsSummary">No draft bookings saved.</p>
+            <div class="booking-drafts-list" id="homeDraftsList"></div>
+          </article>
 
           <article class="board-card attention-feed-card">
             <div class="dashboard-card-head">
               <h3>Needs Your Attention</h3>
+              <button class="dashboard-card-action" id="homeWorkOrders" type="button">+ Task</button>
               <span class="dashboard-badge badge-now hidden" id="homeAttentionCount">0</span>
             </div>
             <p class="dashboard-card-subtext" id="homeAttentionSummary">No booking follow-ups are waiting right now.</p>
             <div class="attention-list" id="homeAttentionList">
               <div class="attention-empty">Nothing needs your attention right now.</div>
+            </div>
+            <p class="dashboard-card-subtext" id="opsProgressSummary">What needs attention this week.</p>
+            <p class="dashboard-card-detail" id="opsProgressDetail">No urgent items right now.</p>
+            <div class="hidden">
+              <strong id="snapshotUpcomingShows">0</strong>
+              <strong id="snapshotContractsPending">0</strong>
+              <strong id="snapshotConfirmationsNeeded">0</strong>
+            </div>
+            <div id="managerChecklistList">
+              <div class="checklist-row">
+                <span class="dashboard-row-dot" aria-hidden="true"></span>
+                <span class="checklist-text">No checklist items yet.</span>
+                <span class="dashboard-badge badge-done">Done</span>
+              </div>
             </div>
           </article>
 
@@ -198,27 +233,6 @@
           </div>
 
           <div class="board-grid dashboard-grid">
-            <article class="board-card needs-attention-card">
-              <div class="dashboard-card-head">
-                <h3>Needs attention</h3>
-                <button class="dashboard-card-action" id="homeWorkOrders" type="button">+ Task</button>
-              </div>
-              <p class="dashboard-card-subtext" id="opsProgressSummary">What needs attention this week.</p>
-              <p class="dashboard-card-detail" id="opsProgressDetail">No urgent items right now.</p>
-              <div class="hidden">
-                <strong id="snapshotUpcomingShows">0</strong>
-                <strong id="snapshotContractsPending">0</strong>
-                <strong id="snapshotConfirmationsNeeded">0</strong>
-              </div>
-              <div id="managerChecklistList">
-                <div class="checklist-row">
-                  <span class="dashboard-row-dot" aria-hidden="true"></span>
-                  <span class="checklist-text">No checklist items yet.</span>
-                  <span class="dashboard-badge badge-done">Done</span>
-                </div>
-              </div>
-            </article>
-
             <article class="board-card upcoming-card">
               <div class="dashboard-card-head">
                 <h3>Upcoming Shows</h3>
@@ -255,8 +269,8 @@
 
       <main class="layout single hidden" id="bandProfileTab">
         <section class="panel form-panel band-profile-panel" id="bandProfilePanel">
-          <h2>Band Profile</h2>
-          <p class="muted">Save the booking defaults you use most often so each new booking starts pre-filled and lighter on mobile.</p>
+          <h2>Band DNA / Profile</h2>
+          <p class="muted">Edit the source-of-truth details used by booking math, contracts, quotes, invoices, and promo copy.</p>
 
           <div class="form-section band-profile-section">
             <h3>Basic Info</h3>
@@ -264,7 +278,7 @@
             <div class="form-grid">
               <label>
                 Band name
-                <input id="bandProfileBusinessName" placeholder="Rust & Ruin" />
+                <input id="bandProfileBusinessName" placeholder="Your Band" />
               </label>
               <label>
                 Contact email
@@ -297,13 +311,175 @@
           </div>
 
           <div class="form-section band-profile-section">
+            <h3>Brand Voice + Story</h3>
+            <p class="inline-help band-profile-section-help">Used by EPK, outreach, promo messages, quotes, and reusable booking copy.</p>
+            <div class="form-grid">
+              <label>
+                Hometown / region
+                <input id="bandDnaHometown" placeholder="Your region" />
+              </label>
+              <label>
+                Intro line
+                <textarea id="bandDnaIntroLine" class="compact-textarea" placeholder="Example: acoustic duo with a full band option"></textarea>
+              </label>
+              <label>
+                Genre tags / styles
+                <textarea id="bandDnaGenreTags" class="compact-textarea" placeholder="Americana, classic rock, originals, danceable covers"></textarea>
+              </label>
+              <label>
+                Genre / sound line
+                <textarea id="bandDnaGenreLine" class="compact-textarea" placeholder="Describe what you sound like in a sentence."></textarea>
+              </label>
+              <label>
+                Artists you sound like / cover
+                <textarea id="bandDnaArtistReferences" class="compact-textarea" placeholder="Fleetwood Mac, Brandi Carlile, Chris Stapleton"></textarea>
+              </label>
+              <label>
+                Vibe line
+                <textarea id="bandDnaVibeLine" class="compact-textarea" placeholder="The feeling people get when you play."></textarea>
+              </label>
+              <label>
+                Best-fit setting line
+                <textarea id="bandDnaEventFitLine" class="compact-textarea" placeholder="Where this band works best."></textarea>
+              </label>
+              <label>
+                Originals + covers line
+                <textarea id="bandDnaOriginalsCoversLine" class="compact-textarea" placeholder="How you balance originals, covers, requests, and crowd favorites."></textarea>
+              </label>
+              <label>
+                Lineup summary
+                <textarea id="bandDnaLineupSummary" class="compact-textarea" placeholder="Solo, duo, trio, full band, expandable lineup, etc."></textarea>
+              </label>
+              <label>
+                Proof point 1
+                <textarea id="bandDnaProofPrimary" class="compact-textarea" placeholder="Examples: yearly show count, notable rooms, repeat bookings, wedding experience."></textarea>
+              </label>
+              <label>
+                Proof point 2
+                <textarea id="bandDnaProofSecondary" class="compact-textarea" placeholder="A second credibility point or promise."></textarea>
+              </label>
+              <label>
+                Offer line 1
+                <textarea id="bandDnaOfferOne" class="compact-textarea" placeholder="What you offer venues or clients."></textarea>
+              </label>
+              <label>
+                Offer line 2
+                <textarea id="bandDnaOfferTwo" class="compact-textarea" placeholder="Another offer or package."></textarea>
+              </label>
+              <label>
+                Offer line 3
+                <textarea id="bandDnaOfferThree" class="compact-textarea" placeholder="Another offer or package."></textarea>
+              </label>
+              <label>
+                Residency value line
+                <textarea id="bandDnaResidencyValue" placeholder="Why a recurring night with you helps a venue."></textarea>
+              </label>
+              <label>
+                Returning venue line
+                <textarea id="bandDnaRegularsLine" placeholder="How you talk to venues that already know you."></textarea>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-section band-profile-section">
+            <h3>Bio + Media</h3>
+            <p class="inline-help band-profile-section-help">Feeds the EPK preview and outreach proof block.</p>
+            <div class="form-grid">
+              <label>
+                Band story / background
+                <textarea id="bandDnaBioStoryLine" placeholder="Tell the bigger story of the band."></textarea>
+              </label>
+              <label>
+                Performance summary
+                <textarea id="bandDnaBioPerformanceSummary" placeholder="Where you play, what kinds of events, and what you bring live."></textarea>
+              </label>
+              <label>
+                Short bio
+                <textarea id="bandDnaShortBio" placeholder="One paragraph for emails, socials, and quick EPK use."></textarea>
+              </label>
+              <label>
+                Full bio
+                <textarea id="bandDnaFullBio" placeholder="Longer version for EPK, website, and press."></textarea>
+              </label>
+              <label>
+                Member 1 name
+                <input id="bandDnaBioMemberOneName" placeholder="Example: Alex" />
+              </label>
+              <label>
+                Member 1 role
+                <input id="bandDnaBioMemberOneRole" placeholder="Example: lead vocals and percussion" />
+              </label>
+              <label>
+                Member 1 detail
+                <textarea id="bandDnaBioMemberOneDetail" class="compact-textarea" placeholder="What this person brings to the band."></textarea>
+              </label>
+              <label>
+                Member 2 name
+                <input id="bandDnaBioMemberTwoName" placeholder="Example: Sam" />
+              </label>
+              <label>
+                Member 2 role
+                <input id="bandDnaBioMemberTwoRole" placeholder="Example: guitar and vocals" />
+              </label>
+              <label>
+                Member 2 detail
+                <textarea id="bandDnaBioMemberTwoDetail" class="compact-textarea" placeholder="What this person brings to the band."></textarea>
+              </label>
+              <label>
+                Additional members / guest players
+                <textarea id="bandDnaBioAdditionalMembers" placeholder="How the band expands for larger shows or different lineups."></textarea>
+              </label>
+              <label>
+                Website
+                <input id="bandDnaWebsite" placeholder="https://..." />
+              </label>
+              <label>
+                Instagram
+                <input id="bandDnaInstagram" placeholder="@yourband" />
+              </label>
+              <label>
+                Facebook
+                <input id="bandDnaFacebook" placeholder="@yourband" />
+              </label>
+              <label>
+                Music link
+                <input id="bandDnaMusicLink" placeholder="Spotify, Apple Music, SoundCloud..." />
+              </label>
+              <label>
+                Video link
+                <input id="bandDnaVideoLink" placeholder="YouTube, Vimeo, live clip..." />
+              </label>
+              <label>
+                Photo / asset links
+                <textarea id="bandDnaPhotoLinks" placeholder="Dropbox, iCloud, website press page, Canva folder, etc."></textarea>
+              </label>
+              <label>
+                Booking notes
+                <textarea id="bandDnaBookingNotes" placeholder="Any notes that should carry into booking/EPK context."></textarea>
+              </label>
+              <label>
+                Signoff name
+                <input id="bandDnaSignoffName" placeholder="Your name" />
+              </label>
+              <label>
+                Signoff band
+                <input id="bandDnaSignoffBand" placeholder="Your Band" />
+              </label>
+              <label>
+                Signoff email
+                <input id="bandDnaSignoffEmail" type="email" placeholder="booking@example.com" />
+              </label>
+            </div>
+          </div>
+
+          <div class="form-section band-profile-section">
             <h3>Pricing Defaults</h3>
             <p class="inline-help band-profile-section-help">Pre-fills pricing and deposit settings.</p>
             <div class="form-grid">
               <label>
-                Base hourly rate
-                <input id="bandProfileBaseRate" placeholder="$150/hr" />
-                <span class="inline-help">Used as default hourly rate.</span>
+                Musician hourly rate
+                <input id="bandProfileBaseRate" placeholder="$50/hr" />
+                <span class="inline-help">Per musician, per hour. Lineup rates below override this when set.</span>
               </label>
               <label>
                 Default deposit amount
@@ -327,6 +503,21 @@
                 <button class="btn ghost" id="addLineupRate" type="button">Add Lineup Rate</button>
               </div>
               <div id="bandProfileLineupRates" class="lineup-rate-list"></div>
+            </div>
+          </div>
+
+          <div class="form-section band-profile-section">
+            <h3>Add-ons</h3>
+            <p class="inline-help band-profile-section-help">These prices feed the booking add-ons and contract totals.</p>
+            <div class="band-profile-rates-section">
+              <div class="band-profile-rates-head">
+                <div>
+                  <h4>Add-on Prices</h4>
+                  <p class="inline-help">Disable an add-on if you do not offer it, or change the price here.</p>
+                </div>
+                <button class="btn ghost" id="addBandDNAAddon" type="button">Add Add-on</button>
+              </div>
+              <div id="bandProfileAddonRates" class="lineup-rate-list"></div>
             </div>
           </div>
 
@@ -625,11 +816,11 @@
                 <div class="form-grid">
                   <label>
                     Band name
-                    <input id="profileBandName" placeholder="Rust & Ruin" />
+                    <input id="profileBandName" placeholder="Your Band" />
                   </label>
                   <label>
                     Hometown / region
-                    <input id="profileHometown" placeholder="Vermont" />
+                    <input id="profileHometown" placeholder="Your region" />
                   </label>
                   <label>
                     Intro line
@@ -665,15 +856,15 @@
                   </label>
                   <label>
                     Signoff name
-                    <input id="profileSignoffName" placeholder="Beth (and Josh)" />
+                    <input id="profileSignoffName" placeholder="Your name" />
                   </label>
                   <label>
                     Signoff band
-                    <input id="profileSignoffBand" placeholder="Rust & Ruin" />
+                    <input id="profileSignoffBand" placeholder="Your Band" />
                   </label>
                   <label>
                     Signoff email
-                    <input id="profileSignoffEmail" type="email" placeholder="rustandruinvt@gmail.com" />
+                    <input id="profileSignoffEmail" type="email" placeholder="booking@example.com" />
                   </label>
                 </div>
               </div>
@@ -715,7 +906,7 @@
                 <div class="form-grid">
                   <label>
                     Band story / background
-                    <textarea id="profileBioStoryLine" placeholder="Example: Rust & Ruin brings a retro-inspired, Vermont-grown sound built around warm harmonies, familiar songs, and a relaxed feel."></textarea>
+                    <textarea id="profileBioStoryLine" placeholder="Example: Your band brings a warm, polished live sound built around strong songs and an easygoing feel."></textarea>
                   </label>
                   <label>
                     Performance summary
@@ -723,7 +914,7 @@
                   </label>
                   <label>
                     Member 1 name
-                    <input id="profileBioMemberOneName" placeholder="Example: Beth" />
+                    <input id="profileBioMemberOneName" placeholder="Example: Alex" />
                   </label>
                   <label>
                     Member 1 role
@@ -735,7 +926,7 @@
                   </label>
                   <label>
                     Member 2 name
-                    <input id="profileBioMemberTwoName" placeholder="Example: Josh" />
+                    <input id="profileBioMemberTwoName" placeholder="Example: Sam" />
                   </label>
                   <label>
                     Member 2 role
@@ -771,7 +962,7 @@
                 <div class="form-grid">
                   <label>
                     Band name
-                    <input id="epkBandName" placeholder="Rust and Ruin" />
+                    <input id="epkBandName" placeholder="Your Band" />
                   </label>
                   <label>
                     Genres / tags
@@ -787,11 +978,11 @@
                   </label>
                   <label>
                     Instagram
-                    <input id="epkInstagram" placeholder="@rustandruinvt" />
+                    <input id="epkInstagram" placeholder="@yourband" />
                   </label>
                   <label>
                     Facebook
-                    <input id="epkFacebook" placeholder="@rustandruinvt" />
+                    <input id="epkFacebook" placeholder="@yourband" />
                   </label>
                   <label>
                     Music link
@@ -803,7 +994,7 @@
                   </label>
                   <label>
                     Contact email
-                    <input id="epkContactEmail" type="email" placeholder="rustandruinvt@gmail.com" />
+                    <input id="epkContactEmail" type="email" placeholder="booking@example.com" />
                   </label>
                   <label>
                     Contact phone
@@ -1024,7 +1215,7 @@
                 </label>
                 <label class="checkbox">
                   <input id="backlineSound" type="checkbox" />
-                  Backline / sound tech (+$50 per show)
+                  Backline / sound tech - <span data-fill="backlineAddonPrice">$0.00</span>
                 </label>
               </div>
               <div class="sub-step-grid">
@@ -1109,31 +1300,31 @@
                   <div class="addon-list booking-collapse-body">
                     <label class="checkbox">
                       <input id="addonTent" type="checkbox" />
-                      Tent (+$25)
+                      Tent - <span data-fill="tentAddonPrice">$0.00</span>
                     </label>
                     <label class="checkbox">
                       <input id="addonLights" type="checkbox" />
-                      Lights (+$10)
+                      Lights - <span data-fill="lightsAddonPrice">$0.00</span>
                     </label>
                     <label class="checkbox">
                       <input id="addonGenerator" type="checkbox" />
-                      Generator (+$75)
+                      Generator - <span data-fill="generatorAddonPrice">$0.00</span>
                     </label>
                     <label class="checkbox">
                       <input id="addonAdditionalSong" type="checkbox" />
-                      Special request song performance (outside our catalog, +$50)
+                      Special request song performance outside our catalog - <span data-fill="specialSongAddonPrice">$0.00</span>
                     </label>
                     <label class="checkbox">
                       <input id="addonRecordedSong" type="checkbox" />
-                      Recorded song beyond first (+$5)
+                      Recorded song beyond first - <span data-fill="recordedSongAddonPrice">$0.00</span>
                     </label>
                     <label class="checkbox">
                       <input id="addonMCing" type="checkbox" />
-                      MC&apos;ing (event announcements, introductions, or timeline cues, +$50)
+                      MC&apos;ing for event announcements, introductions, or timeline cues - <span data-fill="mcingAddonPrice">$0.00</span>
                     </label>
                     <label class="checkbox">
                       <input id="addonDJing" type="checkbox" />
-                      DJ&apos;ing (recorded music sets, dances, or background playlists, +$50)
+                      DJ&apos;ing for recorded music sets, dances, or background playlists - <span data-fill="djingAddonPrice">$0.00</span>
                     </label>
                   </div>
                   <label class="addon-notes">
@@ -1156,7 +1347,7 @@
                     <span class="inline-help" id="feeRateBreakdown">0.00 hours × $0.00/hr = $0.00</span>
                   </label>
                   <label>
-                    Backline / sound tech included above
+                    Backline / sound tech included in performance fee
                     <input id="feeBackline" readonly />
                   </label>
                   <label>
@@ -1169,7 +1360,7 @@
                   </label>
                   <label>
                     Deposit amount
-                    <input id="depositAmount" placeholder="50" />
+                    <input id="depositAmount" placeholder="0" />
                   </label>
                   <label>
                     Deposit due (after credits)
@@ -1177,7 +1368,7 @@
                   </label>
                   <label class="checkbox inline-note">
                     <input id="depositEnabled" type="checkbox" />
-                    Apply deposit (default $50)
+                    Apply deposit from Band DNA
                   </label>
                   <label class="checkbox">
                     <input id="depositWaived" type="checkbox" />
@@ -1232,8 +1423,8 @@
               <p class="inline-help booking-review-help">Need to make changes? Use the steps above or Back to edit any section.</p>
               <div class="booking-action-grid">
                 <button class="btn" id="saveBookingOnly" type="button">Save Booking</button>
-                <button class="btn ghost hidden" id="submitAgreement" type="button">Generate Contract</button>
-                <button class="btn ghost" id="createQuoteBtn" type="button">Create Quote</button>
+                <button class="btn ghost hidden" id="submitAgreement" type="button">Generate Contract Link</button>
+                <button class="btn ghost" id="createQuoteBtn" type="button">Create Quote Link</button>
               </div>
               <div class="booking-action-notes">
                 <p class="inline-help" id="contractWizardNote">Save the booking first. After that, you can open the contract wizard whenever you're ready.</p>
@@ -1246,6 +1437,8 @@
           <div class="agreement-step-footer">
             <button class="btn ghost" id="agreementStepBack" type="button">Back</button>
             <button class="btn" id="agreementStepNext" type="button">Next</button>
+            <button class="btn ghost" id="quickSaveBooking" type="button">Save Booking</button>
+            <button class="btn ghost" id="saveBookingDraft" type="button">Save as Draft</button>
             <button class="btn ghost" id="resetAgreement" type="button">Reset Form</button>
           </div>
         </section>
@@ -1255,7 +1448,7 @@
             <div class="contract-header">
               <div>
                 <p class="contract-tag">Performance Contract</p>
-                  <h2 data-fill="bandName">Rust and Ruin</h2>
+                  <h2 data-fill="bandName">Band Name</h2>
               <p class="contract-note">
                 Help us grow. Tag Instagram <span data-fill="contractInstagramDisplay"></span>,
                 Facebook <span data-fill="contractFacebookDisplay"></span>.
@@ -1346,8 +1539,8 @@
             <div class="contract-section">
               <h3>5. Additional Song Requests / MC&apos;ing / DJ&apos;ing · Add-ons</h3>
               <p>
-                Additional songs beyond the list are $50 each. Recorded song requests include one
-                complimentary request, with additional at $5 each. MC&apos;ing covers event
+                Additional songs beyond the list are <span data-fill="specialSongAddonPrice">$0.00</span> each. Recorded song requests include one
+                complimentary request, with additional at <span data-fill="recordedSongAddonPrice">$0.00</span> each. MC&apos;ing covers event
                 announcements, introductions, and timeline cues. DJ&apos;ing covers curated recorded
                 music sets (for example, dinner background music, first/last dance songs, and
                 transitions between sets). Selected add-ons:
@@ -1406,7 +1599,7 @@
 
             <footer class="contract-footer">
               <p><span data-fill="contractFooterAddress"></span></p>
-              <p data-fill="bandContactLine">rustandruinvt@gmail.com · 802-952-6609 (Josh) · 802-952-8225 (Beth)</p>
+              <p data-fill="bandContactLine"></p>
               <p><span data-fill="contractWebsite"></span></p>
             </footer>
           </div>
@@ -1420,6 +1613,7 @@
               <h2 id="quoteBuilderHeading">Create a quote</h2>
               <p class="muted">Build a client-facing quote page with up to three options and one shareable link.</p>
             </div>
+            <button class="btn ghost" id="quoteBackToBooking" type="button">Back to Booking</button>
           </div>
 
           <div class="booking-summary-card" id="quoteEventSummary"></div>
@@ -1443,6 +1637,7 @@
             </div>
             <div class="inline-actions">
               <button class="btn" id="generateQuoteBtn" type="button">Generate quote link</button>
+              <button class="btn ghost" id="quoteBackToBookingBottom" type="button">Back to Booking</button>
             </div>
           </div>
 
@@ -1458,7 +1653,7 @@
                 Copy link
               </button>
               <button class="btn ghost" id="openQuoteLinkBtn" type="button">
-                Preview link
+                Copy + preview link
               </button>
             </div>
             <input id="quoteLinkDisplay" readonly style="margin-top: 8px;" />
@@ -1559,7 +1754,7 @@
             <div class="invoice-header">
               <div>
                 <p class="contract-tag">Invoice</p>
-                <h2 data-fill="bandName">Rust and Ruin</h2>
+                <h2 data-fill="bandName">Band Name</h2>
                 <p data-fill="invoiceNumber"></p>
               </div>
               <div>
@@ -1594,7 +1789,7 @@
             </div>
             <footer class="contract-footer">
               <p data-fill="paymentSummary">Payment method not configured — contact the band directly to pay.</p>
-              <p data-fill="bandContactLine">rustandruinvt@gmail.com · 802-952-6609</p>
+              <p data-fill="bandContactLine"></p>
             </footer>
           </div>
         </section>
@@ -1660,7 +1855,7 @@
             <div class="invoice-header">
               <div>
                 <p class="contract-tag">Receipt</p>
-                <h2 data-fill="bandName">Rust and Ruin</h2>
+                <h2 data-fill="bandName">Band Name</h2>
                 <p data-fill="receiptNumber"></p>
               </div>
               <div>
@@ -1679,7 +1874,7 @@
             </div>
             <footer class="contract-footer">
               <p data-fill="paymentSummary">Thank you for supporting live music.</p>
-              <p data-fill="bandContactLine">rustandruinvt@gmail.com · 802-952-6609</p>
+              <p data-fill="bandContactLine"></p>
             </footer>
           </div>
         </section>
@@ -2079,7 +2274,7 @@
           </div>
           <h2>About This App</h2>
           <p class="muted">
-            Rust and Ruin Booking Suite is designed to make booking management faster,
+            Gigos Booking Suite is designed to make booking management faster,
             cleaner, and more accurate from first inquiry to signed contract and payment.
           </p>
           <div class="howto-grid">
@@ -2199,8 +2394,7 @@
             <article class="form-section howto-card">
               <h3>7. Sign-In / PIN Troubleshooting</h3>
               <ul class="howto-list">
-                <li>Supabase sign-in email: <code>rustandruinvt@gmail.com</code></li>
-                <li>Password hint: <code>Joshnbeth established???</code></li>
+                <li>Use the Supabase account configured for this workspace.</li>
                 <li>If login fails, use <strong>Reset password</strong> in Calendar sign-in.</li>
                 <li>Override PIN loads only after successful login.</li>
                 <li>Override PIN is stored in Supabase table <code>app_settings</code>, key <code>override_pin</code>.</li>
@@ -2246,12 +2440,12 @@
             <div class="form-grid payment-handles-grid">
               <label>
                 Venmo username (without @)
-                <input id="settingsVenmoHandle" type="text" placeholder="rustandruinvt" />
-                <span class="inline-help">Enter `rustandruinvt` not `@rustandruinvt`.</span>
+                <input id="settingsVenmoHandle" type="text" placeholder="yourhandle" />
+                <span class="inline-help">Enter your Venmo username without `@`.</span>
               </label>
               <label>
                 PayPal.me username
-                <input id="settingsPaypalHandle" type="text" placeholder="rustandruin" />
+                <input id="settingsPaypalHandle" type="text" placeholder="yourhandle" />
                 <span class="inline-help">Enter only the username part from your `paypal.me/...` link.</span>
               </label>
             </div>
@@ -2265,6 +2459,7 @@
           <div class="form-section more-links">
             <button class="btn ghost more-link" data-more-panel="musicians" type="button" style="background: #fdf0e3; border: 1px solid #e8a855; border-radius: 12px; color: #8a5010; font-size: 16px; padding: 14px; width: 100%; margin-bottom: 8px; cursor: pointer; text-align: center; font-weight: 500;">Musicians + Tech Crew</button>
             <button class="btn ghost more-link" data-more-panel="workorders" type="button" style="background: #fdf0e3; border: 1px solid #e8a855; border-radius: 12px; color: #8a5010; font-size: 16px; padding: 14px; width: 100%; margin-bottom: 8px; cursor: pointer; text-align: center; font-weight: 500;">Work Orders</button>
+            <button class="btn ghost more-link" data-more-panel="bandprofile" type="button" style="background: #fdf0e3; border: 1px solid #e8a855; border-radius: 12px; color: #8a5010; font-size: 16px; padding: 14px; width: 100%; margin-bottom: 8px; cursor: pointer; text-align: center; font-weight: 500;">Edit Band DNA</button>
             <button class="btn ghost more-link" data-more-panel="shows" type="button" style="background: #fdf0e3; border: 1px solid #e8a855; border-radius: 12px; color: #8a5010; font-size: 16px; padding: 14px; width: 100%; margin-bottom: 8px; cursor: pointer; text-align: center; font-weight: 500;">Shows</button>
             <p class="more-link-section-title" style="color: #8a5010; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin: 12px 0 8px;">Bookkeeping</p>
             <button class="btn ghost more-link more-link-bookkeeping" data-more-panel="invoice" type="button" style="background: #fdf0e3; border: 1px solid #e8a855; border-radius: 12px; color: #8a5010; font-size: 16px; padding: 14px; width: 100%; margin-bottom: 8px; cursor: pointer; text-align: center; font-weight: 500;">Create Invoice</button>

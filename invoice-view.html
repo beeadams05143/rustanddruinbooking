@@ -64,7 +64,7 @@
         <div class="invoice-header">
           <div>
             <p class="contract-tag">Invoice</p>
-            <h2 data-fill="bandName">Rust and Ruin</h2>
+            <h2 data-fill="bandName">Band Name</h2>
             <p data-fill="invoiceNumber"></p>
           </div>
           <div>
@@ -99,7 +99,7 @@
         </div>
         <footer class="contract-footer">
           <p id="invoicePaymentSummary">Payment method not configured — contact the band directly to pay.</p>
-          <p id="invoiceBandContact">rustandruinvt@gmail.com · 802-952-6609</p>
+          <p id="invoiceBandContact"></p>
         </footer>
       </div>
     </div>
@@ -248,7 +248,7 @@
         const totalDue = Number(data.total || 0) > 0
           ? Number(data.total || 0)
           : Number(data.performanceFee || 0) + Number(data.depositDue || 0) + Number(data.addOns || 0);
-        setText("[data-fill='bandName']", bandDNA?.bandName || "Rust and Ruin");
+        setText("[data-fill='bandName']", bandDNA?.bandName || "the band");
         setText("[data-fill='invoiceNumber']", data.invoiceNumber || "__");
         setText("[data-fill='invoiceClientName']", data.clientName || "__");
         setText("[data-fill='invoiceClientEmail']", data.clientEmail || "__");

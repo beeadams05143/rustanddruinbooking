@@ -160,6 +160,7 @@
       .detail {
         margin-top: 10px;
         color: var(--muted);
+        white-space: pre-line;
       }
 
       .deposit {
@@ -259,10 +260,44 @@
         color: var(--muted);
         margin-top: 12px;
       }
+
+      .preview-tools {
+        position: sticky;
+        top: 10px;
+        z-index: 5;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin: 0 auto 14px;
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: rgba(255, 252, 245, 0.96);
+        box-shadow: 0 10px 26px rgba(91, 56, 31, 0.12);
+      }
+
+      .preview-tools button {
+        padding: 10px 12px;
+        border-radius: 999px;
+        font-size: 0.9rem;
+        font-weight: 800;
+      }
+
+      #copyPreviewStatus {
+        align-self: center;
+        color: var(--accent-dark);
+        font-size: 0.84rem;
+        font-weight: 700;
+      }
     </style>
   </head>
   <body>
     <div class="page">
+      <div class="preview-tools">
+        <button class="secondary-btn" id="copyPreviewLinkBtn" type="button">Copy quote link</button>
+        <button class="ghost-btn" id="closePreviewBtn" type="button">Close preview</button>
+        <span id="copyPreviewStatus" aria-live="polite"></span>
+      </div>
       <main class="shell stack" id="app">
         <div class="status-card">
           <p>Loading your quote...</p>
@@ -304,6 +339,9 @@
       const cancelChoiceBtn = document.getElementById('cancelChoiceBtn');
       const modalOptionSummary = document.getElementById('modalOptionSummary');
       const modalStatus = document.getElementById('modalStatus');
+      const copyPreviewLinkBtn = document.getElementById('copyPreviewLinkBtn');
+      const closePreviewBtn = document.getElementById('closePreviewBtn');
+      const copyPreviewStatus = document.getElementById('copyPreviewStatus');
       let currentQuote = null;
       let selectedIndex = null;
 
@@ -614,6 +652,29 @@
           const option = options[index];
           if (option) openConfirmModal(option, index);
         }
+      });
+
+      copyPreviewLinkBtn.addEventListener('click', async () => {
+        const link = window.location.href;
+        copyPreviewStatus.textContent = '';
+        try {
+          await navigator.clipboard.writeText(link);
+          copyPreviewStatus.textContent = 'Copied';
+        } catch (error) {
+          copyPreviewStatus.textContent = 'Select the address bar to copy';
+        }
+      });
+
+      closePreviewBtn.addEventListener('click', () => {
+        if (window.opener && !window.opener.closed) {
+          window.close();
+          return;
+        }
+        if (window.history.length > 1) {
+          window.history.back();
+          return;
+        }
+        copyPreviewStatus.textContent = 'You can close this tab';
       });
 
       confirmChoiceBtn.addEventListener('click', confirmChoice);

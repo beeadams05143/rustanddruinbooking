@@ -1,6 +1,5 @@
 console.log("APP LOADED");
-const depositDefault = 50;
-const additionalSongFee = 50;
+const depositDefault = 0;
 const AGREEMENT_STEP_COUNT = 5;
 let showHubFocusStep = "";
 
@@ -207,18 +206,18 @@ function createInitialPromoBuilderState() {
 
 function createInitialEpkState() {
   return {
-    bandName: "Rust and Ruin",
+    bandName: "",
     shortBio: "",
     longBio: "",
     genres: "",
     lineupOptions: "",
     website: "",
-    instagram: "@Rust and Ruin",
-    facebook: "@rustandruinvt",
+    instagram: "",
+    facebook: "",
     musicLink: "",
     videoLink: "",
     photoLinks: "",
-    contactEmail: "rustandruinvt@gmail.com",
+    contactEmail: "",
     contactPhone: "",
     bookingNotes: "",
   };
@@ -226,44 +225,44 @@ function createInitialEpkState() {
 
 function createInitialBandProfileState() {
   return {
-    bandName: "Rust & Ruin",
-    hometown: "Vermont",
-    introLine: "retro-inspired acoustic duo (with a full band option)",
-    genreTags: "Americana, retro, classic favorites, original music",
-    genreLine: "classic favorites and originals inspired by the Laurel Canyon / 70s sound",
-    artistReferences: "Brandi Carlile, Fleetwood Mac, The Eagles",
-    vibeLine: "an easygoing, feel-good vibe",
-    eventFitLine: "works really well in relaxed, social settings",
-    originalsCoversLine: "a mix of classic favorites and originals",
-    lineupSummary: "acoustic duo with a full band option",
+    bandName: "",
+    hometown: "",
+    introLine: "",
+    genreTags: "",
+    genreLine: "",
+    artistReferences: "",
+    vibeLine: "",
+    eventFitLine: "",
+    originalsCoversLine: "",
+    lineupSummary: "",
     bioStoryLine: "",
     bioPerformanceSummary: "",
-    bioMemberOneName: "Beth",
-    bioMemberOneRole: "lead vocals",
+    bioMemberOneName: "",
+    bioMemberOneRole: "",
     bioMemberOneDetail: "",
-    bioMemberTwoName: "Josh",
-    bioMemberTwoRole: "guitar and vocals",
+    bioMemberTwoName: "",
+    bioMemberTwoRole: "",
     bioMemberTwoDetail: "",
     bioAdditionalMembers: "",
     bioShortDraft: "",
     bioFullDraft: "",
-    proofPointPrimary: "We play over 100 shows a year.",
-    proofPointSecondary: "Our goal is always the same: create a fun, welcoming atmosphere that keeps people engaged and sticking around.",
-    offerLineOne: "Acoustic duo for intimate settings",
-    offerLineTwo: "Full band for higher-energy receptions or larger events",
-    offerLineThree: "Customizable setlists and a professional sound setup",
-    residencyValueLine: "A recurring music night gives guests something to look forward to and helps create a recognizable vibe for the space.",
-    regularsLine: "We love becoming part of the places we play regularly and helping build something people come back for.",
-    signoffName: "Beth (and Josh)",
-    signoffBand: "Rust & Ruin",
-    signoffEmail: "rustandruinvt@gmail.com",
+    proofPointPrimary: "",
+    proofPointSecondary: "",
+    offerLineOne: "",
+    offerLineTwo: "",
+    offerLineThree: "",
+    residencyValueLine: "",
+    regularsLine: "",
+    signoffName: "",
+    signoffBand: "",
+    signoffEmail: "",
   };
 }
 
 function createInitialBusinessProfileState() {
   return {
-    businessName: "Rust & Ruin",
-    contactEmail: "rustandruinvt@gmail.com",
+    businessName: "",
+    contactEmail: "",
     contactPhone: "",
     defaultLineup: "Duo",
   };
@@ -279,6 +278,32 @@ function createInitialPricingProfileState() {
     depositModel: "addition",
     defaultEventType: "",
     defaultBandConfig: "Duo",
+  };
+}
+
+function createDefaultBandDNAAddons() {
+  return [
+    { id: "tent", name: "Tent / outdoor cover", price: "25", enabled: true },
+    { id: "lights", name: "Stage lights", price: "10", enabled: true },
+    { id: "generator", name: "Generator", price: "75", enabled: true },
+    { id: "backline", name: "Backline / sound tech", price: "50", enabled: true },
+    { id: "mcing", name: "MC'ing", price: "50", enabled: true },
+    { id: "djing", name: "DJ'ing between sets", price: "50", enabled: true },
+    { id: "specialsong", name: "Special song request", price: "50", enabled: true },
+    { id: "recordedsong", name: "Recorded song (beyond first)", price: "5", enabled: true },
+  ];
+}
+
+function ensureBandDNAAddonDefaults(dna = state.bandDNA) {
+  const defaults = createDefaultBandDNAAddons();
+  const existing = Array.isArray(dna.addons) ? dna.addons : [];
+  const existingIds = new Set(existing.map((addon) => String(addon?.id || "").trim().toLowerCase()));
+  return {
+    ...dna,
+    addons: [
+      ...existing,
+      ...defaults.filter((addon) => !existingIds.has(addon.id)),
+    ],
   };
 }
 
@@ -324,24 +349,16 @@ function createInitialBandDNAState() {
       { name: "Full Band", rate: "", count: 4, rateType: "hourly" },
     ],
     minimumHours: "2",
-    musicianHourlyRate: "50",
+    musicianHourlyRate: "",
     defaultSetLength: "",
-    defaultDeposit: "50",
+    defaultDeposit: "",
     depositEnabled: true,
     depositModel: "addition",
     travelFreeWithinHours: "2",
     travelChargeType: "hourly_per_performer",
     travelHourlyRate: "25",
     travelFlatFee: "",
-    addons: [
-      { id: "tent", name: "Tent / outdoor cover", price: "25", enabled: true },
-      { id: "lights", name: "Stage lights", price: "10", enabled: true },
-      { id: "generator", name: "Generator", price: "75", enabled: true },
-      { id: "mcing", name: "MC'ing", price: "50", enabled: true },
-      { id: "djing", name: "DJ'ing between sets", price: "50", enabled: true },
-      { id: "specialsong", name: "Special song request", price: "50", enabled: true },
-      { id: "recordedsong", name: "Recorded song (beyond first)", price: "5", enabled: true },
-    ],
+    addons: createDefaultBandDNAAddons(),
     website: "",
     musicLink: "",
     videoLink: "",
@@ -387,10 +404,12 @@ const state = {
     bookingEventId: "",
     contractWizardOpen: false,
     contractShareId: "",
+    activeBookingDraftId: "",
   },
   calendar: {
     overridePin: "",
     hiddenSeededEventKeys: [],
+    closedBookkeepingKeys: [],
     notificationJumpShowId: "",
     notificationJumpStep: "",
     notificationJumpNeedsPastInclude: false,
@@ -412,6 +431,7 @@ const state = {
     invoices: [],
     receipts: [],
   },
+  bookingDrafts: [],
   workOrders: [],
   workOrderView: {
     focusId: "",
@@ -594,7 +614,7 @@ function buildDynamicPaymentMethodsText(dna = state.bandDNA) {
 
 function getBandContractDetails(dna = state.bandDNA) {
   return {
-    bandName: String(dna?.bandName || "").trim() || "Rust and Ruin",
+    bandName: String(dna?.bandName || "").trim() || "the band",
     bandAddress: String(dna?.homeAddress || "").trim(),
     bandEmail: String(dna?.contactEmail || "").trim(),
     bandPhone: String(dna?.contactPhone || "").trim(),
@@ -701,12 +721,9 @@ async function hydrateAgreementFromBookingRecord(eventId = state.workspace.booki
   const option = getAcceptedQuoteOption(quote || {});
   const start = event?.start_time ? new Date(event.start_time) : null;
   const end = event?.end_time ? new Date(event.end_time) : start;
-  const feeSource = toNumber(
-    state.agreement.feeTotal
-    || contract?.performance_fee
-    || option?.price
-    || 0
-  );
+  const feeSource = state.agreement.feeManualOverride
+    ? toNumber(state.agreement.feeTotal)
+    : 0;
   const depositSource = toNumber(
     state.agreement.depositAmount
     || contract?.deposit_amount
@@ -740,7 +757,7 @@ async function hydrateAgreementFromBookingRecord(eventId = state.workspace.booki
     venueAddress,
     hours: String(state.agreement.hours || contract?.hours || "").trim(),
     feeTotal: feeSource > 0 ? String(feeSource) : state.agreement.feeTotal,
-    feeManualOverride: feeSource > 0 ? true : state.agreement.feeManualOverride,
+    feeManualOverride: feeSource > 0,
     depositAmount: depositSource > 0 ? String(depositSource) : state.agreement.depositAmount,
     depositEnabled: depositSource > 0 ? true : state.agreement.depositEnabled,
     signatureName: String(state.agreement.signatureName || getBandContractDetails().bandSignatureName).trim(),
@@ -754,44 +771,8 @@ async function hydrateAgreementFromBookingRecord(eventId = state.workspace.booki
   return { event, quote, contract };
 }
 
-function isBethBandDNA(dna = {}) {
-  const sessionEmail = state?.calendar?.session?.user?.email || "";
-  const allowedEmails = ["rustandruinvt@gmail.com", "jcadams05143@gmail.com"];
-  if (!allowedEmails.includes(sessionEmail.toLowerCase())) return false;
-  return /rustandruin/i.test(String(dna.bandName || ""))
-    || /rustandruinvt@gmail\.com/i.test(String(dna.contactEmail || ""));
-}
-
-function getBethBandDNARepair(dna = {}) {
-  if (!isBethBandDNA(dna)) return { needsUpdate: false, bandDNA: dna };
-  const currentVenmo = normalizeVenmoHandle(dna.venmoHandle || "");
-  const currentPaypal = normalizePaypalHandle(dna.paypalHandle || "");
-  const repaired = {
-    ...dna,
-    bandName: "Rust and Ruin",
-    venmoHandle: currentVenmo || "rustandruinvt",
-    paypalHandle: currentPaypal || "rustandruin",
-  };
-  repaired.paymentMethods = buildDynamicPaymentMethodsText(repaired);
-  const needsUpdate =
-    String(dna.bandName || "") !== repaired.bandName
-    || normalizeVenmoHandle(dna.venmoHandle || "") !== repaired.venmoHandle
-    || normalizePaypalHandle(dna.paypalHandle || "") !== repaired.paypalHandle
-    || String(dna.paymentMethods || "") !== repaired.paymentMethods;
-  return { needsUpdate, bandDNA: repaired };
-}
-
 function hydrateLegacyPaymentHandles(dna = {}) {
-  const paymentMethods = String(dna.paymentMethods || "");
-  const isBethBand =
-    /rustandruin/i.test(String(dna.bandName || ""))
-    || /rustandruinvt@gmail\.com/i.test(String(dna.contactEmail || ""));
-  if (!isBethBand) return dna;
-  return {
-    ...dna,
-    venmoHandle: normalizeVenmoHandle(dna.venmoHandle || (paymentMethods.includes("rustandruinvt") ? "rustandruinvt" : "")),
-    paypalHandle: normalizePaypalHandle(dna.paypalHandle || (paymentMethods.includes("rustandruin") ? "rustandruin" : "")),
-  };
+  return dna;
 }
 
 function getPaymentHandlesInputElements() {
@@ -843,8 +824,7 @@ async function savePaymentHandlesSettings() {
     paypalHandle,
   };
   nextBandDNA.paymentMethods = buildDynamicPaymentMethodsText(nextBandDNA);
-  const bethRepair = getBethBandDNARepair(nextBandDNA);
-  state.bandDNA = bethRepair.bandDNA;
+  state.bandDNA = nextBandDNA;
   saveDraft();
   syncPaymentHandlesSettingsForm();
   if (!client || !state.calendar.session) {
@@ -941,6 +921,7 @@ function updateBandDNA(updates = {}) {
     hydratedBandDNA.paymentMethods = buildDynamicPaymentMethodsText(hydratedBandDNA);
   }
   state.bandDNA = hydratedBandDNA;
+  state.bandDNA = ensureBandDNAAddonDefaults(state.bandDNA);
   if (typeof updates.depositModel === "string") {
     state.workOrderWorkspace.pricingProfile.depositModel = updates.depositModel;
   }
@@ -981,25 +962,11 @@ async function loadBandDNAFromSupabase() {
     if (error || !data?.value) return false;
     const parsed = JSON.parse(data.value);
     if (parsed && typeof parsed === "object") {
-      state.bandDNA = hydrateLegacyPaymentHandles({ ...state.bandDNA, ...parsed });
+      state.bandDNA = ensureBandDNAAddonDefaults(hydrateLegacyPaymentHandles({ ...state.bandDNA, ...parsed }));
       state.bandDNA.venmoHandle = normalizeVenmoHandle(state.bandDNA.venmoHandle || "");
       state.bandDNA.paypalHandle = normalizePaypalHandle(state.bandDNA.paypalHandle || "");
       if (!String(state.bandDNA.paymentMethods || "").trim()) {
         state.bandDNA.paymentMethods = buildDynamicPaymentMethodsText(state.bandDNA);
-      }
-      const bethRepair = getBethBandDNARepair(state.bandDNA);
-      if (bethRepair.needsUpdate && !state.bandDNA.legacyMigrationComplete) {
-        state.bandDNA = bethRepair.bandDNA;
-        state.bandDNA.legacyMigrationComplete = true;
-        await client
-          .from("app_settings")
-          .upsert(
-            {
-              key: "band_dna",
-              value: JSON.stringify(state.bandDNA),
-            },
-            { onConflict: "key" }
-          );
       }
       if (Array.isArray(parsed.lineups)) {
         state.bandDNA.lineups = parsed.lineups;
@@ -1009,6 +976,7 @@ async function loadBandDNAFromSupabase() {
       }
       if (Array.isArray(parsed.addons)) {
         state.bandDNA.addons = parsed.addons;
+        state.bandDNA = ensureBandDNAAddonDefaults(state.bandDNA);
       }
       syncPaymentHandlesSettingsForm();
       return true;
@@ -1051,8 +1019,8 @@ function migrateLegacyToBandDNA() {
     proofPoint: bandProfile.proofPointPrimary || "",
     tone: promoBuilder.tone || "Warm",
     minimumHours: pricingProfile.minimumHours || "2",
-    musicianHourlyRate: pricingProfile.musicianHourlyRate || "50",
-    defaultDeposit: pricingProfile.defaultDepositAmount || "50",
+    musicianHourlyRate: pricingProfile.musicianHourlyRate || state.bandDNA.musicianHourlyRate || "",
+    defaultDeposit: pricingProfile.defaultDepositAmount || state.bandDNA.defaultDeposit || "",
     depositEnabled: pricingProfile.defaultDepositEnabled !== false,
     depositModel: pricingProfile.depositModel || "addition",
     defaultSetLength: pricingProfile.defaultPerformanceHours || "",
@@ -1061,16 +1029,8 @@ function migrateLegacyToBandDNA() {
     videoLink: epk.videoLink || "",
     instagram: epk.instagram || "",
     facebook: epk.facebook || "",
-    venmoHandle:
-      /rustandruin/i.test(businessProfile.businessName || bandProfile.bandName || epk.bandName || "")
-      || /rustandruinvt@gmail\.com/i.test(businessProfile.contactEmail || epk.contactEmail || "")
-        ? "rustandruinvt"
-        : "",
-    paypalHandle:
-      /rustandruin/i.test(businessProfile.businessName || bandProfile.bandName || epk.bandName || "")
-      || /rustandruinvt@gmail\.com/i.test(businessProfile.contactEmail || epk.contactEmail || "")
-        ? "rustandruin"
-        : "",
+    venmoHandle: state.bandDNA.venmoHandle || "",
+    paypalHandle: state.bandDNA.paypalHandle || "",
     lineups: lineupRates.length
       ? lineupRates.map((entry) => ({
           name: entry?.lineup || "",
@@ -2433,181 +2393,33 @@ function hoursBetweenTimes(startTime, endTime) {
   return Math.max(0, (endMinutes - startMinutes) / 60);
 }
 
-const STORAGE_KEY = "rustandruin-booking-draft";
-const CONTRACT_DRAFT_SNAPSHOTS_KEY = "rustandruin-contract-draft-snapshots";
-const CALENDAR_SETTINGS_KEY = "rustandruin-calendar-settings";
+const STORAGE_KEY = "gigos-booking-draft";
+const CONTRACT_DRAFT_SNAPSHOTS_KEY = "gigos-contract-draft-snapshots";
+const CALENDAR_SETTINGS_KEY = "gigos-calendar-settings";
 const SUPABASE_URL =
   window.RR_SUPABASE_CONFIG?.url || "https://ipxjalcgiaqcyubrxqxu.supabase.co";
 const SUPABASE_ANON_KEY =
   window.RR_SUPABASE_CONFIG?.anonKey || "sb_publishable_-XW9I_e7OR4TUMq0B4SG-Q_el-7vKPJ";
 const OVERRIDE_PIN_SETTING = "override_pin";
-const CALENDAR_AUTH_SEEN_KEY = "rustandruin-calendar-auth-seen";
+const CALENDAR_AUTH_SEEN_KEY = "gigos-calendar-auth-seen";
 const AUTO_HOLD_NOTE = "Pending contract signature (auto-created from agreement)";
 let switchTopView = null;
 const SYNC_POLL_INTERVAL_MS = 15000;
 const DEFAULT_MUSICIAN_ROSTER = [
-  { name: "Josh Adams", role: "Guitar / Vocals" },
-  { name: "Beth Adams", role: "Vocals / Percussion" },
+  { name: "Lead performer", role: "Lead vocals / instrument" },
+  { name: "Second performer", role: "Vocals / instrument" },
   { name: "Bassist", role: "Bass" },
   { name: "Drummer", role: "Drums" },
 ];
-const SEEDED_TODD_SHOW_FILES = [
-  { show_date: "2026-02-14", show_title: "Lebanon Legion" },
-  { show_date: "2026-03-14", show_title: "Windsor Legion" },
-  { show_date: "2026-05-16", show_title: "Dell Rice" },
-  { show_date: "2026-06-27", show_title: "Horseshoe Acres" },
-  { show_date: "2026-07-04", show_title: "Vanguilder BBQ" },
-  { show_date: "2026-07-30", show_title: "Cheshire Fair" },
-  { show_date: "2026-08-29", show_title: "Hartford 1978 Class Reunion" },
-  { show_date: "2026-09-19", show_title: "NSRA Essex Fair" },
-  { show_date: "2026-10-10", show_title: "St. John's Club" },
-  { show_date: "2026-12-31", show_title: "New Year's Eve Lebanon American Legion" },
-];
-const SEEDED_DAN_SHOW_FILES = [
-  { show_date: "2026-05-09", show_title: "Springfield Elks SHA Fundraiser" },
-  { show_date: "2026-06-13", show_title: "Kingdom Campground" },
-  { show_date: "2026-07-11", show_title: "Bombazine KOA" },
-  { show_date: "2026-07-18", show_title: "Mike's Tiki Bar" },
-  { show_date: "2026-07-25", show_title: "Kingdom Campground" },
-  { show_date: "2026-08-15", show_title: "Wells Woodstock Show" },
-  { show_date: "2026-09-05", show_title: "Sugar Ridge Campground" },
-  { show_date: "2026-09-20", show_title: "Chester Craft Fair" },
-];
-const SEEDED_JENNY_GARY_SHOW_DATES = [
-  "2026-02-14",
-  "2026-03-14",
-  "2026-05-09",
-  "2026-05-16",
-  "2026-06-13",
-  "2026-06-27",
-  "2026-07-04",
-  "2026-07-11",
-  "2026-07-18",
-  "2026-07-25",
-  "2026-07-30",
-  "2026-08-15",
-  "2026-08-29",
-  "2026-09-05",
-  "2026-09-19",
-  "2026-09-20",
-  "2026-10-10",
-  "2026-12-31",
-];
-const SEEDED_MUSICIAN_BLACKOUTS = [
-  { musician_name: "Jenny", start_date: "2026-08-21", end_date: "2026-08-22" },
-  { musician_name: "Gary", start_date: "2026-08-21", end_date: "2026-08-22" },
-  { musician_name: "Todd", start_date: "2026-10-03", end_date: "2026-10-03" },
-];
+const SEEDED_MUSICIAN_BLACKOUTS = [];
 const WORK_ORDER_SOCIAL_POST_TEMPLATES = [
-  { category: "SHOW", title: "Show Announcement", warm: "We are playing at [VENUE] on [DATE] and we would love to see you there 🎸 Doors at [TIME]. Come early grab a drink and let us play you something good 🎶 #livemusicvt #rustandruin #[VENUE]", funny: "Guess who is playing at [VENUE] on [DATE]? Us. Obviously. Doors at [TIME] 🎤 Come watch us pretend we are rock stars 🎸😄 #livemusicvt #rustandruin", hype: "🔥🎸 IT IS SHOW DAY. We are taking over [VENUE] on [DATE] 🎤 Doors at [TIME]. Be there or regret it forever 🙌🔥 #livemusic #rustandruin #showday" },
-  { category: "SHOW", title: "Show Reminder", warm: "Just a friendly reminder that we are playing tonight at [VENUE] 🎶 Doors at [TIME]. Come as you are and stay as long as you want 🎵 #livemusicvt #rustandruin", funny: "Hey. HEY. We are playing TONIGHT at [VENUE] 🎤 Doors at [TIME]. Put on pants and come see us 🎸😄🙌 #livemusic #rustandruin #tonight", hype: "🔥🙌 TONIGHT. [VENUE]. [TIME]. Do not make us play to an empty room 🎶 GET THERE 🔥🎸 #shownight #livemusic #rustandruin" },
-  { category: "SHOW", title: "Show Recap", warm: "Last night at [VENUE] was something special 🙌 Thank you to everyone who came out and made it such a great night 🎶 You all are the reason we keep doing this 🎸 #livemusicvt #rustandruin #thankyou", funny: "We played last night at [VENUE] and honestly we killed it 🎤 You were also great. Good job everyone 🎸😄🙌 #livemusic #rustandruin", hype: "🔥🎸 WHAT A NIGHT at [VENUE]. The energy was unreal 🎶 Thank you for showing up and going all in with us 🙌🔥 Already counting down to the next one. #livemusic #rustandruin #bestcrowd" },
-  { category: "SHOW", title: "New Booking", warm: "So excited to share that we just booked [VENUE] on [DATE] 🎸 Cannot wait to bring the music to this one 🎵 More dates coming soon 📅 #livemusicvt #rustandruin #newshow", funny: "We did a thing 😄 Just booked [VENUE] on [DATE] 📅 Mark your calendars. Tell your friends. Tell strangers 🎸😂 #newshow #rustandruin #livemusic", hype: "🔥📅 JUST BOOKED [VENUE] on [DATE] and we are PUMPED 🎸 This one is going to be a banger 🙌🔥 Stay tuned for more. #newshow #livemusic #rustandruin" },
-  { category: "SHOW", title: "Available Dates", warm: "We still have some open dates in [MONTH] and would love to find the right fit 📅 If you are looking for live music for your venue or event send us a message 🎶 #livemusicvt #bookrustandruin", funny: "Our calendar has some suspicious empty spots in [MONTH] 📅 Know anyone who needs live music? We are asking for ourselves 😄🎸 #bookus #livemusic #rustandruin", hype: "🔥📅 [MONTH] is filling up fast but we still have a few dates left 🎤 If you want live music that actually gets people moving slide into our DMs 🙌🔥 #bookrustandruin #livemusic" },
-  { category: "SHOW", title: "General Promo", warm: "Rust and Ruin is available for pubs breweries private events weddings and more 🎸 We bring the music and the good vibes wherever we go 🎶 Reach out to chat about your event 🙌 #livemusicvt #rustandruin #bookus", funny: "We play music. People enjoy it. You could enjoy it too 🎤 Hire us for your venue or event and we promise not to be weird about it 😄🎸😂 #bookus #rustandruin #livemusic", hype: "🔥🎸 Want live music that actually moves the room? Rust and Ruin plays pubs breweries private events and weddings 🎤 We bring serious energy every single time 🙌🔥 DM us to book. #bookrustandruin #livemusic #vermont" },
-  { category: "BEHIND THE SCENES", title: "Practice Day", warm: "Today [DUO NAMES] are locked in and working through some new material 🎚️ Cannot wait to bring it to the stage soon 💪 #practicemakesperfect #rustandruin #livemusic", funny: "[MEMBER 1] is judging [MEMBER 2] and [MEMBER 2] is judging [MEMBER 1] and we both pretend everything is fine 😂 Progress 🎛️😄 #bandlife #rustandruin #practice", hype: "🔥🎛️ [DUO NAMES] are LOCKED IN today 🔊 New stuff in the works and it is sounding fire 💪🔥 Stay tuned. #newmusic #rustandruin #bandlife" },
-  { category: "BEHIND THE SCENES", title: "Loading In", warm: "Load in day at [VENUE] 🚐 Getting everything set up and ready for tonight 🎛️ Come see the finished product later. Doors at [TIME] 🔊 #livemusicvt #rustandruin", funny: "Nothing says glamorous rock star life like hauling heavy gear up questionable staircases 😂 See you tonight at [VENUE] 🚐🎚️😄 #bandlife #rustandruin #glamorous", hype: "🔥🚐 LOAD IN MODE ACTIVATED. [VENUE] you are not ready for tonight 🔊 Doors at [TIME]. Be there 💪🔥 #showday #rustandruin #livemusic" },
-  { category: "BEHIND THE SCENES", title: "Soundcheck", warm: "[DUO NAMES] just finished soundcheck and everything is sounding great 🎛️ Doors open at [TIME]. Come early and settle in 🔊 #livemusicvt #rustandruin", funny: "[MEMBER 1] said check one two approximately forty seven times 😂🎚️ See you tonight at [VENUE] 😄 #soundcheck #rustandruin #bandlife", hype: "🔥🔊 Soundcheck DONE and this room is going to sound incredible tonight 🎛️ [VENUE] at [TIME]. Get there early 💪🔥 #shownight #rustandruin #livemusic" },
-  { category: "BEHIND THE SCENES", title: "After the Show", warm: "That is a wrap at [VENUE] 🎚️ What an incredible night. Thank you to everyone who came out and made it so special 🔊 We will see you again soon 💫 #livemusicvt #rustandruin #thankyou", funny: "We survived another show and honestly so did you 😂 Thanks for coming to [VENUE] and pretending our originals were your favorites 🎛️😄💪 #bandlife #rustandruin #livemusic", hype: "🔥🔊 THAT WAS ELECTRIC. [VENUE] you absolutely delivered tonight 🎚️ Thank you for the energy the singing and the dancing 💪🔥 Already ready for the next one. #bestcrowd #rustandruin #livemusic" },
-  { category: "BEHIND THE SCENES", title: "Candid Moment", warm: "Just [MEMBER 1] and [MEMBER 2] doing what we love 🎛️ [ADD YOUR CAPTION] 💫 #rustandruin #bandlife #livemusic", funny: "This is what peak professionalism looks like 😂 [ADD YOUR CAPTION] 🎚️😄 #bandlife #rustandruin #behindthescenes", hype: "🔥🎛️ No filters no script just us doing what we love 🔊 [ADD YOUR CAPTION] 💪🔥 #rustandruin #reallife #livemusic" },
-  { category: "BEHIND THE SCENES", title: "Road Trip", warm: "On our way to [VENUE] and the anticipation is real 🚐 Good music on the road good music on the stage tonight 🎛️ #rustandruin #roadtrip #livemusic", funny: "Current status driving to [VENUE] and hoping we remembered everything 😂 We definitely forgot something 🚐😄🎚️ #bandlife #rustandruin #roadtrip", hype: "🔥🚐 ROAD TRIP TO [VENUE] and we are bringing everything we have got tonight 🔊 See you there 💪🔥 #showday #rustandruin #livemusic" },
-  { category: "BEHIND THE SCENES", title: "Gear Setup", warm: "Getting everything set up for tonight at [VENUE] 🎛️ The details matter and we take pride in every single one 🔊 Doors at [TIME] 💪 #livemusicvt #rustandruin", funny: "Forty five minutes of setup for ninety minutes of music 😂 The math is not mathing but we love it anyway 🎚️😄 See you tonight at [VENUE]. #bandlife #rustandruin #gearnerds", hype: "🔥🎛️ Setup mode. Every cable every mic every amp dialed in perfectly for tonight at [VENUE] 🔊 We take this seriously 💪🔥 #showday #rustandruin #livemusic" },
-  { category: "GET TO KNOW US", title: "Meet the Band", warm: "In case you are new here we are [BAND NAME] 🤘 [MEMBER 1] sings and [MEMBER 2] plays guitar 🎼 We play Americana classic favorites and originals and we love what we do 💫 Come find us live sometime. #rustandruin #livemusic #vermont", funny: "[MEMBER 1] sings, [MEMBER 2] plays guitar, and together we have convinced hundreds of people to stay at bars longer than they planned 🤘📸😂 #rustandruin #livemusic #meettheband", hype: "🔥🤘 [DUO NAMES] have been playing 100 plus shows a year because we cannot stop 🎼💫🔥 Come experience it live. #rustandruin #livemusic #vermont" },
-  { category: "GET TO KNOW US", title: "Throwback", warm: "Throwing it back to when [DUO NAMES] played [EVENT OR VENUE] 📸 What a memory. Grateful for every show and every crowd that has come along for the ride 💫 #throwback #rustandruin #livemusic", funny: "Throwback to [EVENT OR VENUE] when we were younger and possibly better looking 😄📸🥂 Some things never change. #throwback #rustandruin #bandlife", hype: "🔥📸 THROWBACK to [EVENT OR VENUE] and one of our favorite shows ever 🤘💫🔥 Every gig adds to the story. #throwback #rustandruin #livemusic" },
-  { category: "GET TO KNOW US", title: "Song Request", warm: "We want to know what song you always want to hear us play 🎼 Drop it in the comments and we will do our best to make it happen 🤘 #rustandruin #songrequest #livemusic", funny: "Okay be honest. What song do you desperately wish we would play 😄🤘📸 No judgment. Mostly. Drop it below. #songrequest #rustandruin #livemusic", hype: "🔥🎼 SONG REQUEST TIME. What do you want to hear at our next show 🤘💫🔥 Tell us in the comments and we will see what we can do. #songrequest #rustandruin #livemusic" },
-  { category: "GET TO KNOW US", title: "Milestone", warm: "[DUO NAMES] just hit [MILESTONE] and we are so grateful 🥂 Thank you from the bottom of our hearts 💫 #rustandruin #grateful #livemusic", funny: "We just hit [MILESTONE] which means we have officially done this too many times to quit now 😄🤘🥂 Thank you for enabling us. #rustandruin #bandlife #milestone", hype: "🔥🤘 [DUO NAMES] just hit [MILESTONE] AND WE ARE JUST GETTING STARTED 🎼💫🔥 Thank you to every venue every fan and everyone who has believed in us. The best is yet to come. #rustandruin #milestone #livemusic" },
+  { category: "SHOW", title: "Show Announcement", warm: "[BAND NAME] is playing at [VENUE] on [DATE]. Doors at [TIME]. We would love to see you there. #livemusic #[VENUE]", funny: "Guess who is playing at [VENUE] on [DATE]? [BAND NAME]. Doors at [TIME]. Come hang with us. #livemusic", hype: "[BAND NAME] is live at [VENUE] on [DATE]. Doors at [TIME]. See you there. #livemusic #showday" },
+  { category: "SHOW", title: "Available Dates", warm: "[BAND NAME] has open dates in [MONTH]. If you are looking for live music for your venue or event, send us a message. #livemusic #booking", funny: "Our calendar has a few suspiciously open spots in [MONTH]. Know anyone who needs live music? #bookus #livemusic", hype: "[MONTH] is filling up, but [BAND NAME] still has a few dates open. Reach out to book live music. #booking #livemusic" },
+  { category: "GET TO KNOW US", title: "Meet the Band", warm: "In case you are new here, we are [BAND NAME]. Come find us live sometime. #livemusic #meettheband", funny: "Hi, we are [BAND NAME]. We play music and occasionally remember to post about it. #bandlife #livemusic", hype: "[BAND NAME] is ready for the next show. Follow along and come experience it live. #livemusic #meettheband" },
 ];
-const SEEDED_BOOKED_EVENTS = [
-  { date: "2026-01-03", start: "19:00", end: "22:00", title: "Killarney's", type: "Confirmed" },
-  { date: "2026-01-06", start: "13:00", end: "14:00", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-01-07", start: "13:00", end: "15:00", title: "Spfd Senior Ctr", type: "Confirmed" },
-  { date: "2026-01-13", start: "13:00", end: "14:00", title: "Whitcolm Bld", type: "Confirmed" },
-  { date: "2026-01-20", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
-  { date: "2026-01-27", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-  { date: "2026-02-10", start: "13:00", end: "14:00", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-02-13", start: "18:00", end: "21:00", title: "Burke Publick", type: "Confirmed" },
-  { date: "2026-02-14", start: "19:00", end: "22:00", title: "Lebanon Legion", type: "Confirmed", notes: "Full Band" },
-  { date: "2026-02-17", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
-  { date: "2026-02-24", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-  { date: "2026-03-07", start: "19:00", end: "22:00", title: "Killarney", type: "Confirmed" },
-  { date: "2026-03-10", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-03-13", start: "18:00", end: "21:00", title: "Burke Publick", type: "Confirmed" },
-  { date: "2026-03-14", start: "19:00", end: "22:00", title: "Windsor Legion", type: "Confirmed", notes: "Full Band" },
-  { date: "2026-03-17", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
-  { date: "2026-03-24", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-  { date: "2026-03-28", start: "17:00", end: "20:00", title: "Harry's Bar", type: "Confirmed" },
-  { date: "2026-04-07", start: "13:00", end: "14:30", title: "Whitcomb Bdg", type: "Confirmed" },
-  { date: "2026-04-14", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-04-21", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
-  { date: "2026-04-28", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-  { date: "2026-05-09", start: "19:30", end: "21:00", title: "SHA Elks", type: "Confirmed", notes: "Full Band" },
-  { date: "2026-05-12", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-05-16", start: "14:00", end: "17:00", title: "Dell Rice", type: "Confirmed", notes: "Full Band" },
-  { date: "2026-05-19", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
-  { date: "2026-05-23", start: "17:30", end: "20:30", title: "Bear Naked", type: "Confirmed" },
-  { date: "2026-05-26", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-  { date: "2026-06-09", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-06-13", start: "18:30", end: "21:30", title: "Kingdom Cpg", type: "Confirmed", notes: "Full Band" },
-  { date: "2026-06-16", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
-  { date: "2026-06-23", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-  { date: "2026-06-27", start: "18:30", end: "21:30", title: "Horseshoe Acres", type: "Confirmed", notes: "Full Band" },
-  { date: "2026-07-04", start: "18:00", end: "21:00", title: "Van Guilder BBQ", type: "Confirmed", notes: "Full Band" },
-  { date: "2026-07-11", start: "19:00", end: "22:00", title: "Bomoseen KOA", type: "Confirmed", notes: "Full Band" },
-  { date: "2026-07-14", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-07-18", start: "18:00", end: "21:00", title: "Mikes Tiki Bar", type: "Confirmed", notes: "Dan, Full Band" },
-  { date: "2026-07-21", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
-  { date: "2026-07-25", start: "18:30", end: "21:30", title: "Kingdom Cmpg", type: "Confirmed", notes: "Full Band" },
-  { date: "2026-07-28", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-  { date: "2026-07-30", start: "18:00", end: "21:00", title: "Cheshire Fair", type: "Confirmed", notes: "Full Band" },
-  { date: "2026-08-04", start: "17:00", end: "19:00", title: "Chester PD Night Out", type: "Confirmed" },
-  { date: "2026-08-08", start: "17:30", end: "20:30", title: "Bear Naked", type: "Confirmed" },
-  { date: "2026-08-11", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-08-15", start: "14:00", end: "17:00", title: "Wells \"Woodstock\"", type: "Confirmed", notes: "Full Band" },
-  { date: "2026-08-18", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
-  { date: "2026-08-25", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-  { date: "2026-08-29", start: "15:00", end: "17:00", title: "Hartford 1978", type: "Confirmed", notes: "Full Band" },
-  { date: "2026-09-05", start: "18:30", end: "21:30", title: "Sugar Ridge Cmp", type: "Confirmed", notes: "Full Band" },
-  { date: "2026-09-08", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-09-15", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
-  { date: "2026-09-19", start: "14:30", end: "16:30", title: "NSRA Essex Fair", type: "Confirmed", notes: "Full Band" },
-  { date: "2026-09-22", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-  { date: "2026-10-10", start: "12:30", end: "14:30", title: "St John's Club", type: "Confirmed", notes: "Full Band" },
-  { date: "2026-10-13", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-10-20", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
-  { date: "2026-10-27", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-  { date: "2026-11-10", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-11-17", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
-  { date: "2026-11-24", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-  { date: "2026-12-08", start: "13:30", end: "14:30", title: "Mertens House", type: "Confirmed" },
-  { date: "2026-12-12", start: "17:30", end: "20:30", title: "Bear Naked", type: "Confirmed" },
-  { date: "2026-12-15", start: "13:00", end: "14:00", title: "Stoughton House", type: "Confirmed" },
-  { date: "2026-12-22", start: "14:00", end: "15:00", title: "Gill Home", type: "Confirmed" },
-];
-const FULL_BAND_SHOW_DATE_KEYS = new Set([
-  "2026-02-14",
-  "2026-03-14",
-  "2026-05-09",
-  "2026-05-16",
-  "2026-06-13",
-  "2026-06-27",
-  "2026-07-04",
-  "2026-07-11",
-  "2026-07-18",
-  "2026-07-25",
-  "2026-07-30",
-  "2026-08-15",
-  "2026-08-29",
-  "2026-09-05",
-  "2026-09-19",
-  "2026-09-20",
-  "2026-10-10",
-  "2026-12-31",
-]);
-const SEEDED_CONFIRMED_SHOW_DATE_KEYS = new Set([
-  ...SEEDED_BOOKED_EVENTS.map((event) => event.date),
-  "2026-09-20",
-  "2026-12-31",
-]);
+const SEEDED_BOOKED_EVENTS = [];
+const FULL_BAND_SHOW_DATE_KEYS = new Set();
+const SEEDED_CONFIRMED_SHOW_DATE_KEYS = new Set();
 
 function safeStorageSet(key, value) {
   try {
@@ -2656,10 +2468,11 @@ function getLineupMusicianCount(lineupOrLabel, lineupObj) {
 
 function saveDraft() {
   try {
+    state.bandDNA = ensureBandDNAAddonDefaults(state.bandDNA);
     if (Array.isArray(state.bandDNA.lineups)) {
-      const musicianRate = parseFloat(state.bandDNA.musicianHourlyRate || 50);
+      const musicianRate = toNumber(state.bandDNA.musicianHourlyRate);
       state.bandDNA.lineups = state.bandDNA.lineups.map((lineup) => {
-        if (!lineup.rate || lineup.rate === "" || parseFloat(lineup.rate) === 0) {
+        if (musicianRate > 0 && (!lineup.rate || lineup.rate === "" || parseFloat(lineup.rate) === 0)) {
           const count = lineup.count || getLineupMusicianCount(lineup.name);
           return { ...lineup, rate: String(musicianRate * count) };
         }
@@ -2683,12 +2496,14 @@ function saveDraft() {
       workspace: state.workspace,
       invoice: state.invoice,
       receipt: state.receipt,
+      bookingDrafts: state.bookingDrafts,
       workOrders: state.workOrders,
       workOrderWorkspace: state.workOrderWorkspace,
       musicians: state.musicians,
       assignments: state.calendar.assignments,
       blackouts: state.calendar.blackouts,
       hiddenSeededEventKeys: state.calendar.hiddenSeededEventKeys,
+      closedBookkeepingKeys: state.calendar.closedBookkeepingKeys,
       musicianShowBookings: state.musicianShowBookings,
       onboardingStep: state.onboardingStep,
       memberOnboardingDraft: state.memberOnboardingDraft,
@@ -2721,10 +2536,9 @@ function loadDraft() {
     const parsed = JSON.parse(stored);
     if (parsed.bandDNA && typeof parsed.bandDNA === "object") {
       state.bandDNA = hydrateLegacyPaymentHandles({ ...state.bandDNA, ...parsed.bandDNA });
-      const bethRepair = getBethBandDNARepair(state.bandDNA);
-      state.bandDNA = bethRepair.bandDNA;
       if (Array.isArray(parsed.bandDNA.lineups)) state.bandDNA.lineups = parsed.bandDNA.lineups;
       if (Array.isArray(parsed.bandDNA.addons)) state.bandDNA.addons = parsed.bandDNA.addons;
+      state.bandDNA = ensureBandDNAAddonDefaults(state.bandDNA);
       if (Array.isArray(parsed.bandDNA.genreTags)) state.bandDNA.genreTags = parsed.bandDNA.genreTags;
       state.settings.venmoHandle = state.bandDNA.venmoHandle || "";
       state.settings.paypalHandle = state.bandDNA.paypalHandle || "";
@@ -2765,6 +2579,9 @@ function loadDraft() {
     }
     if (parsed.receipt) {
       state.receipt = { ...state.receipt, ...parsed.receipt };
+    }
+    if (Array.isArray(parsed.bookingDrafts)) {
+      state.bookingDrafts = parsed.bookingDrafts;
     }
     if (Array.isArray(parsed.workOrders)) {
       state.workOrders = parsed.workOrders;
@@ -2812,6 +2629,9 @@ function loadDraft() {
     }
     if (Array.isArray(parsed.hiddenSeededEventKeys)) {
       state.calendar.hiddenSeededEventKeys = parsed.hiddenSeededEventKeys;
+    }
+    if (Array.isArray(parsed.closedBookkeepingKeys)) {
+      state.calendar.closedBookkeepingKeys = parsed.closedBookkeepingKeys;
     }
     if (Array.isArray(parsed.musicianShowBookings)) {
       state.musicianShowBookings = parsed.musicianShowBookings;
@@ -2909,6 +2729,7 @@ function hydrateBookingProfilesFromLegacyData() {
 function applyAgreementDefaultsFromProfiles(force = false) {
   const business = state.workOrderWorkspace.businessProfile;
   const pricing = state.workOrderWorkspace.pricingProfile;
+  const bandDNADeposit = toNumber(state.bandDNA.defaultDeposit);
   if (force) {
     state.agreement.bandConfig = state.agreement.bandConfig || "";
   } else if (state.agreement.bandConfig) {
@@ -2928,12 +2749,29 @@ function applyAgreementDefaultsFromProfiles(force = false) {
     state.agreement.feeTotal = "";
     state.agreement.feeManualOverride = false;
   }
-  if (force || !state.agreement.depositAmount) {
-    state.agreement.depositAmount = pricing.defaultDepositAmount || String(depositDefault);
+  if (
+    force ||
+    !state.agreement.depositAmount ||
+    (state.agreement.depositEnabled && bandDNADeposit > 0 && toNumber(state.agreement.depositAmount) <= 0)
+  ) {
+    state.agreement.depositAmount =
+      bandDNADeposit > 0
+        ? String(bandDNADeposit)
+        : pricing.defaultDepositAmount || String(depositDefault);
   }
   if (force || (!state.agreement.depositEnabled && !state.agreement.depositWaived)) {
-    state.agreement.depositEnabled = pricing.defaultDepositEnabled !== false;
+    state.agreement.depositEnabled =
+      state.bandDNA.depositEnabled !== false && pricing.defaultDepositEnabled !== false;
   }
+}
+
+function applyBandDNADepositDefaultToAgreement() {
+  if (!state.agreement.depositEnabled || state.agreement.depositWaived) return;
+  const bandDNADeposit = toNumber(state.bandDNA.defaultDeposit);
+  if (bandDNADeposit <= 0) return;
+  state.agreement.depositAmount = String(bandDNADeposit);
+  const depositInput = document.getElementById("depositAmount");
+  if (depositInput) depositInput.value = state.agreement.depositAmount;
 }
 
 function createLineupRateEntry(lineup = "", rate = "") {
@@ -2948,9 +2786,16 @@ function normalizeLineupName(value = "") {
   return String(value).trim().toLowerCase();
 }
 
+function getBandDNALineup(lineup = "") {
+  const normalized = normalizeLineupName(lineup);
+  if (!normalized || !Array.isArray(state.bandDNA.lineups)) return null;
+  return state.bandDNA.lineups.find(
+    (entry) => normalizeLineupName(entry?.name || "") === normalized
+  ) || null;
+}
+
 function repairLineupRates() {
-  const musicianRate = parseFloat(
-    state.bandDNA.musicianHourlyRate || 50);
+  const musicianRate = toNumber(state.bandDNA.musicianHourlyRate);
   if (!Array.isArray(state.bandDNA.lineups)) return;
   let changed = false;
   state.bandDNA.lineups = state.bandDNA.lineups.map((lineup) => {
@@ -2968,22 +2813,26 @@ function repairLineupRates() {
 }
 
 function getDefaultRateForLineup(lineup = "") {
-  const musicianRate = parseFloat(
-    state.bandDNA.musicianHourlyRate || 50
-  );
-  const count = getLineupMusicianCount(lineup);
+  const matchingLineup = getBandDNALineup(lineup);
+  const lineupRate = toNumber(matchingLineup?.rate);
+  if (lineupRate > 0) return String(lineupRate);
+
+  const musicianRate = toNumber(state.bandDNA.musicianHourlyRate);
+  const count = getLineupMusicianCount(lineup, matchingLineup || {});
   if (musicianRate > 0 && count > 0) {
     return String(musicianRate * count);
   }
-  const normalized = normalizeLineupName(lineup);
-  const pricing = state.workOrderWorkspace.pricingProfile;
-  if (normalized) {
-    const match = (pricing.lineupRates || []).find(
-      (e) => normalizeLineupName(e.lineup) === normalized
-    );
-    if (match?.rate) return match.rate;
-  }
-  return pricing.baseRate || "";
+  return "";
+}
+
+function getBandDNAAddonPrice(addonId = "") {
+  const normalized = String(addonId || "").trim().toLowerCase();
+  if (!normalized || !Array.isArray(state.bandDNA.addons)) return 0;
+  const match = state.bandDNA.addons.find(
+    (addon) => String(addon?.id || "").trim().toLowerCase() === normalized
+  );
+  if (!match || match.enabled === false) return 0;
+  return toNumber(match.price);
 }
 
 function applyLineupRateToAgreement() {
@@ -3001,14 +2850,78 @@ function setBandProfileStatus(message = "", isError = false) {
   status.classList.toggle("success", Boolean(message && !isError));
 }
 
+const bandDnaProfileFieldMap = [
+  ["bandDnaHometown", "hometown"],
+  ["bandDnaIntroLine", "introLine"],
+  ["bandDnaGenreTags", "genreTags"],
+  ["bandDnaGenreLine", "genreLine"],
+  ["bandDnaArtistReferences", "artistReferences"],
+  ["bandDnaVibeLine", "vibeLine"],
+  ["bandDnaEventFitLine", "eventFitLine"],
+  ["bandDnaOriginalsCoversLine", "originalsCoversLine"],
+  ["bandDnaLineupSummary", "lineupSummary"],
+  ["bandDnaProofPrimary", "proofPointPrimary"],
+  ["bandDnaProofSecondary", "proofPointSecondary"],
+  ["bandDnaOfferOne", "offerLineOne"],
+  ["bandDnaOfferTwo", "offerLineTwo"],
+  ["bandDnaOfferThree", "offerLineThree"],
+  ["bandDnaResidencyValue", "residencyValueLine"],
+  ["bandDnaRegularsLine", "regularsLine"],
+  ["bandDnaBioStoryLine", "bioStoryLine"],
+  ["bandDnaBioPerformanceSummary", "bioPerformanceSummary"],
+  ["bandDnaShortBio", "bioShortDraft"],
+  ["bandDnaFullBio", "bioFullDraft"],
+  ["bandDnaBioMemberOneName", "bioMemberOneName"],
+  ["bandDnaBioMemberOneRole", "bioMemberOneRole"],
+  ["bandDnaBioMemberOneDetail", "bioMemberOneDetail"],
+  ["bandDnaBioMemberTwoName", "bioMemberTwoName"],
+  ["bandDnaBioMemberTwoRole", "bioMemberTwoRole"],
+  ["bandDnaBioMemberTwoDetail", "bioMemberTwoDetail"],
+  ["bandDnaBioAdditionalMembers", "bioAdditionalMembers"],
+  ["bandDnaSignoffName", "signoffName"],
+  ["bandDnaSignoffBand", "signoffBand"],
+  ["bandDnaSignoffEmail", "signoffEmail"],
+];
+
+const bandDnaEpkFieldMap = [
+  ["bandDnaShortBio", "shortBio"],
+  ["bandDnaFullBio", "longBio"],
+  ["bandDnaWebsite", "website"],
+  ["bandDnaInstagram", "instagram"],
+  ["bandDnaFacebook", "facebook"],
+  ["bandDnaMusicLink", "musicLink"],
+  ["bandDnaVideoLink", "videoLink"],
+  ["bandDnaPhotoLinks", "photoLinks"],
+  ["bandDnaBookingNotes", "bookingNotes"],
+];
+
+function getValueFromElement(id) {
+  return document.getElementById(id)?.value.trim() || "";
+}
+
 function syncReusableBandProfileFromForm() {
   const business = state.workOrderWorkspace.businessProfile;
   const pricing = state.workOrderWorkspace.pricingProfile;
+  const profile = state.workOrderWorkspace.bandProfile;
+  const epk = state.workOrderWorkspace.epk;
 
   business.businessName = document.getElementById("bandProfileBusinessName")?.value.trim() || business.businessName;
   business.contactEmail = document.getElementById("bandProfileContactEmail")?.value.trim() || "";
   business.contactPhone = document.getElementById("bandProfileContactPhone")?.value.trim() || "";
   business.defaultLineup = document.getElementById("bandProfileDefaultLineup")?.value || business.defaultLineup || "Duo";
+  profile.bandName = business.businessName || profile.bandName;
+  epk.bandName = business.businessName || epk.bandName;
+  epk.contactEmail = business.contactEmail || epk.contactEmail;
+  epk.contactPhone = business.contactPhone || epk.contactPhone;
+
+  bandDnaProfileFieldMap.forEach(([id, key]) => {
+    profile[key] = getValueFromElement(id);
+  });
+  bandDnaEpkFieldMap.forEach(([id, key]) => {
+    epk[key] = getValueFromElement(id);
+  });
+  epk.genres = profile.genreTags || epk.genres || "";
+  epk.lineupOptions = profile.lineupSummary || epk.lineupOptions || "";
 
   pricing.defaultBandConfig = business.defaultLineup || pricing.defaultBandConfig || "Duo";
   pricing.defaultPerformanceHours = document.getElementById("bandProfileDefaultHours")?.value.trim() || "";
@@ -3023,6 +2936,7 @@ function syncReusableBandProfileFromForm() {
   pricing.defaultDepositAmount =
     document.getElementById("bandProfileDefaultDepositAmount")?.value.trim() || String(depositDefault);
   pricing.defaultDepositEnabled = Boolean(document.getElementById("bandProfileDefaultDepositEnabled")?.checked);
+  state.bandDNA.addons = collectBandProfileAddonRows();
 }
 
 function renderLineupRateEntries() {
@@ -3068,9 +2982,85 @@ function renderLineupRateEntries() {
   });
 }
 
+function createBandDNAAddonEntry() {
+  return {
+    id: `custom-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
+    name: "",
+    price: "",
+    enabled: true,
+  };
+}
+
+function collectBandProfileAddonRows() {
+  return Array.from(document.querySelectorAll("[data-band-addon-row]"))
+    .map((row) => {
+      const existingId = row.getAttribute("data-band-addon-row") || "";
+      const name = row.querySelector("[data-band-addon-name]")?.value.trim() || "";
+      const price = row.querySelector("[data-band-addon-price]")?.value.trim() || "";
+      return {
+        id: existingId || name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || createBandDNAAddonEntry().id,
+        name,
+        price,
+        enabled: Boolean(row.querySelector("[data-band-addon-enabled]")?.checked),
+      };
+    })
+    .filter((entry) => entry.name || entry.price);
+}
+
+function renderBandDNAAddonEntries() {
+  const wrap = document.getElementById("bandProfileAddonRates");
+  if (!wrap) return;
+  state.bandDNA = ensureBandDNAAddonDefaults(state.bandDNA);
+  const addons = Array.isArray(state.bandDNA.addons) ? state.bandDNA.addons : [];
+  wrap.innerHTML = "";
+
+  if (!addons.length) {
+    wrap.innerHTML = "<p class=\"inline-help\">No add-ons configured yet.</p>";
+    return;
+  }
+
+  addons.forEach((addon) => {
+    const row = document.createElement("div");
+    row.className = "lineup-rate-row band-addon-rate-row";
+    row.setAttribute("data-band-addon-row", addon.id || createBandDNAAddonEntry().id);
+    row.innerHTML = `
+      <label>
+        Add-on name
+        <input data-band-addon-name placeholder="Backline / sound tech" value="${escapeHtml(addon.name || "")}" />
+      </label>
+      <label>
+        Price
+        <input data-band-addon-price placeholder="$50" value="${escapeHtml(addon.price || "")}" />
+      </label>
+      <label class="checkbox inline-note">
+        <input data-band-addon-enabled type="checkbox" ${addon.enabled === false ? "" : "checked"} />
+        Enabled
+      </label>
+      <button class="btn ghost band-addon-remove" type="button">Remove</button>
+    `;
+    wrap.appendChild(row);
+  });
+
+  wrap.querySelectorAll(".band-addon-remove").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const row = btn.closest("[data-band-addon-row]");
+      if (!row) return;
+      const id = row.getAttribute("data-band-addon-row");
+      state.bandDNA.addons = (state.bandDNA.addons || []).filter((entry) => entry.id !== id);
+      renderBandDNAAddonEntries();
+      saveDraft();
+      setBandProfileStatus("");
+    });
+  });
+}
+
 function renderReusableBandProfile() {
   const business = state.workOrderWorkspace.businessProfile;
   const pricing = state.workOrderWorkspace.pricingProfile;
+  const profile = state.workOrderWorkspace.bandProfile;
+  const epk = state.workOrderWorkspace.epk;
+  const dna = ensureBandDNAAddonDefaults(state.bandDNA);
+  state.bandDNA = dna;
   const setValue = (id, value) => {
     const el = document.getElementById(id);
     if (el) el.value = value || "";
@@ -3080,23 +3070,105 @@ function renderReusableBandProfile() {
     if (el) el.checked = Boolean(value);
   };
 
-  setValue("bandProfileBusinessName", business.businessName);
-  setValue("bandProfileContactEmail", business.contactEmail);
-  setValue("bandProfileContactPhone", business.contactPhone);
-  setValue("bandProfileDefaultLineup", business.defaultLineup || pricing.defaultBandConfig || "Duo");
-  setValue("bandProfileDefaultHours", pricing.defaultPerformanceHours);
-  setValue("bandProfileBaseRate", pricing.baseRate);
-  setValue("bandProfileDefaultDepositAmount", pricing.defaultDepositAmount || String(depositDefault));
-  setChecked("bandProfileDefaultDepositEnabled", pricing.defaultDepositEnabled !== false);
+  setValue("bandProfileBusinessName", business.businessName || dna.bandName);
+  setValue("bandProfileContactEmail", business.contactEmail || dna.contactEmail);
+  setValue("bandProfileContactPhone", business.contactPhone || dna.contactPhone);
+  setValue("bandProfileDefaultLineup", business.defaultLineup || pricing.defaultBandConfig || dna.lineups?.[0]?.name || "Duo");
+  setValue("bandProfileDefaultHours", pricing.defaultPerformanceHours || dna.defaultSetLength);
+  setValue("bandProfileBaseRate", pricing.baseRate || dna.musicianHourlyRate);
+  setValue(
+    "bandProfileDefaultDepositAmount",
+    toNumber(dna.defaultDeposit) > 0
+      ? dna.defaultDeposit
+      : pricing.defaultDepositAmount || String(depositDefault)
+  );
+  setChecked("bandProfileDefaultDepositEnabled", pricing.defaultDepositEnabled !== false && dna.depositEnabled !== false);
+  const profileFallbacks = {
+    hometown: dna.hometown || "",
+    introLine: dna.oneLineBio || "",
+    genreTags: Array.isArray(dna.genreTags) ? dna.genreTags.join(", ") : "",
+    artistReferences: dna.artistReferences || "",
+    eventFitLine: dna.bestFitEvents || "",
+    proofPointPrimary: dna.proofPoint || "",
+    lineupSummary: Array.isArray(dna.lineups) ? dna.lineups.map((lineup) => lineup.name).filter(Boolean).join(", ") : "",
+    signoffName: dna.signoffName || "",
+    signoffBand: dna.bandName || "",
+    signoffEmail: dna.contactEmail || "",
+  };
+  bandDnaProfileFieldMap.forEach(([id, key]) => {
+    setValue(id, profile[key] || profileFallbacks[key] || "");
+  });
+  const epkFallbacks = {
+    shortBio: dna.oneLineBio || profile.bioShortDraft || "",
+    longBio: profile.bioFullDraft || "",
+    website: dna.website || "",
+    instagram: dna.instagram || "",
+    facebook: dna.facebook || "",
+    musicLink: dna.musicLink || "",
+    videoLink: dna.videoLink || "",
+    photoLinks: epk.photoLinks || "",
+    bookingNotes: epk.bookingNotes || "",
+  };
+  bandDnaEpkFieldMap.forEach(([id, key]) => {
+    setValue(id, epk[key] || epkFallbacks[key] || "");
+  });
+  if (!(pricing.lineupRates || []).length && Array.isArray(dna.lineups)) {
+    pricing.lineupRates = dna.lineups.map((lineup) => ({
+      id: lineup.id || `lineup-${String(lineup.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+      lineup: lineup.name || "",
+      rate: lineup.rate || "",
+    }));
+  }
   renderLineupRateEntries();
+  renderBandDNAAddonEntries();
 }
 
 function saveReusableBandProfile() {
   syncReusableBandProfileFromForm();
+  const business = state.workOrderWorkspace.businessProfile;
+  const pricing = state.workOrderWorkspace.pricingProfile;
+  const profile = state.workOrderWorkspace.bandProfile;
+  const epk = state.workOrderWorkspace.epk;
+  const lineups = (pricing.lineupRates || [])
+    .filter((entry) => entry.lineup || entry.rate)
+    .map((entry) => ({
+      id: entry.id,
+      name: entry.lineup || "",
+      rate: entry.rate || "",
+      count: getLineupMusicianCount(entry.lineup, {}),
+      rateType: "hourly",
+    }));
+  updateBandDNA({
+    bandName: business.businessName || state.bandDNA.bandName || "",
+    contactEmail: business.contactEmail || "",
+    contactPhone: business.contactPhone || "",
+    defaultSetLength: pricing.defaultPerformanceHours || "",
+    musicianHourlyRate: pricing.baseRate || "",
+    defaultDeposit: pricing.defaultDepositAmount || "",
+    depositEnabled: pricing.defaultDepositEnabled !== false,
+    hometown: profile.hometown || "",
+    signoffName: profile.signoffName || "",
+    oneLineBio: profile.introLine || epk.shortBio || "",
+    artistReferences: profile.artistReferences || "",
+    genreTags: String(profile.genreTags || "")
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean),
+    bestFitEvents: profile.eventFitLine || "",
+    proofPoint: profile.proofPointPrimary || "",
+    website: epk.website || "",
+    musicLink: epk.musicLink || "",
+    videoLink: epk.videoLink || "",
+    instagram: epk.instagram || "",
+    facebook: epk.facebook || "",
+    lineups: lineups.length ? lineups : state.bandDNA.lineups,
+    addons: ensureBandDNAAddonDefaults({ ...state.bandDNA, addons: state.bandDNA.addons }).addons,
+    onboardingComplete: true,
+  });
   saveDraft();
   applyAgreementDefaultsFromProfiles(false);
   renderReusableBandProfile();
-  setBandProfileStatus("Saved ✓");
+  setBandProfileStatus("Band DNA saved ✓");
   const panel = document.getElementById("bandProfilePanel");
   if (panel) {
     panel.classList.add("saved-flash");
@@ -3301,6 +3373,14 @@ function formatMessageDate(value) {
 
 function buildMessage(type) {
   const clientName = state.agreement.clientName || "there";
+  const bandDetails = getBandContractDetails();
+  const bandName = bandDetails.bandName || "the band";
+  const signoffName = bandDetails.bandSignatureName || bandName;
+  const socialLines = [
+    state.bandDNA.instagram ? `Instagram: ${state.bandDNA.instagram}` : "",
+    state.bandDNA.facebook ? `Facebook: ${state.bandDNA.facebook}` : "",
+  ].filter(Boolean).join("\n");
+  const signoff = ["Thanks,", signoffName, bandName, socialLines].filter(Boolean).join("\n");
   const eventDate = formatMessageDate(state.agreement.performanceDate);
   const invoiceDate = formatMessageDate(state.invoice.issueDate || state.agreement.performanceDate);
   const receiptDate = formatMessageDate(state.receipt.paymentDate || state.agreement.performanceDate);
@@ -3308,23 +3388,23 @@ function buildMessage(type) {
   const venueLabel = venue === "your venue" ? venue : venue.replace(/\s+/g, " ").trim();
 
   if (type === "invoice") {
-    const subject = `Rust and Ruin Invoice – ${invoiceDate}`;
-    const body = `Hello ${state.invoice.clientName || clientName},\n\nThank you so much again for the opportunity to work with you.\n\nAttached is your invoice for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. Please let us know if you have any questions at all. We're happy to help and really look forward to performing for you.\n\nThanks,\nBeth and Josh\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
+    const subject = `${bandName} Invoice - ${invoiceDate}`;
+    const body = `Hello ${state.invoice.clientName || clientName},\n\nThank you so much again for the opportunity to work with you.\n\nAttached is your invoice for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. Please let us know if you have any questions at all. We're happy to help and really look forward to performing for you.\n\n${signoff}`;
     return { title: "Invoice Message", subject, body };
   }
 
   if (type === "receipt") {
-    const subject = `Rust and Ruin Receipt – ${receiptDate}`;
-    const body = `Hello ${state.receipt.clientName || clientName},\n\nThank you so much.\n\nAttached is your receipt for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. We truly enjoyed performing for you and really appreciate the opportunity to be part of your event. Please keep us in mind for future celebrations.\n\nThanks,\nBeth and Josh\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
+    const subject = `${bandName} Receipt - ${receiptDate}`;
+    const body = `Hello ${state.receipt.clientName || clientName},\n\nThank you so much.\n\nAttached is your receipt for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. We truly enjoyed performing for you and really appreciate the opportunity to be part of your event. Please keep us in mind for future celebrations.\n\n${signoff}`;
     return { title: "Receipt Message", subject, body };
   }
 
-  const subject = `Rust and Ruin Performance Agreement – ${eventDate}`;
+  const subject = `${bandName} Performance Agreement - ${eventDate}`;
   const contractLink = getContractSigningPageUrl();
   const signingInstructions = contractLink
     ? `To sign digitally, click this link:\n${contractLink}\n\nYou can type your full legal name and click 'I agree and sign this contract.' Your typed name serves as your legal signature and will be recorded with a timestamp.`
     : `You're welcome to sign in whichever way is easiest for you:\n- sign with your finger or stylus on your phone or tablet and send back a screenshot\n- print it, sign it, and send us a photo or scan\n- sign the hard copy and mail it back to us`;
-  const body = `Hello ${clientName},\n\nThank you so much for the opportunity to work with you. We're truly excited and really look forward to performing for you.\n\nAttached is your contract for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. To secure your date, please sign the contract and send the signed copy back to us.\n\n${signingInstructions}\n\nPlease let us know if you have any questions at all. We're happy to help and look forward to working with you.\n\nThanks,\nBeth and Josh\nRust and Ruin\nInstagram: @Rust and Ruin\nFacebook: @rustandruinvt`;
+  const body = `Hello ${clientName},\n\nThank you so much for the opportunity to work with you. We're truly excited and really look forward to performing for you.\n\nAttached is your contract for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}. To secure your date, please sign the contract and send the signed copy back to us.\n\n${signingInstructions}\n\nPlease let us know if you have any questions at all. We're happy to help and look forward to working with you.\n\n${signoff}`;
   return { title: "Agreement Message", subject, body };
 }
 
@@ -3395,14 +3475,20 @@ function getEasterDate(year) {
 }
 
 function getHolidayWeekendLabel(date) {
+  if (!(date instanceof Date) || !Number.isFinite(date.getTime())) return "";
   const year = date.getFullYear();
 
+  const newYearsObservedStart = new Date(year - 1, 11, 31);
+  const newYearsObservedEnd = new Date(year, 0, 1);
+  const mlkDay = getNthWeekdayOfMonth(year, 0, 1, 3); // third Monday in Jan
   const memorialDay = getLastWeekdayOfMonth(year, 4, 1); // last Monday in May
   const laborDay = getNthWeekdayOfMonth(year, 8, 1, 1); // first Monday in Sept
   const presidentsDay = getNthWeekdayOfMonth(year, 1, 1, 3); // third Monday in Feb
   const columbusDay = getNthWeekdayOfMonth(year, 9, 1, 2); // second Monday in Oct
   const thanksgiving = getNthWeekdayOfMonth(year, 10, 4, 4); // fourth Thursday in Nov
 
+  const mlkWeekendStart = addDays(mlkDay, -3);
+  const mlkWeekendEnd = mlkDay;
   const memorialWeekendStart = addDays(memorialDay, -3);
   const memorialWeekendEnd = memorialDay;
   const laborWeekendStart = addDays(laborDay, -3);
@@ -3418,11 +3504,18 @@ function getHolidayWeekendLabel(date) {
   const julyFourthStart = addDays(julyFourth, -1);
   const julyFourthEnd = addDays(julyFourth, 1);
 
+  const juneteenth = new Date(year, 5, 19);
+  const juneteenthWeekend = getClosestWeekend(juneteenth);
   const halloween = new Date(year, 9, 31);
   const halloweenWeekend = getClosestWeekend(halloween);
   const valentines = new Date(year, 1, 14);
   const valentinesWeekend = getClosestWeekend(valentines);
   const stPatricksDay = new Date(year, 2, 17);
+  const stPatricksWeekend = getClosestWeekend(stPatricksDay);
+  const mothersDay = getNthWeekdayOfMonth(year, 4, 0, 2); // second Sunday in May
+  const fathersDay = getNthWeekdayOfMonth(year, 5, 0, 3); // third Sunday in June
+  const veteransDay = new Date(year, 10, 11);
+  const veteransWeekend = getClosestWeekend(veteransDay);
   const easter = getEasterDate(year);
 
   const christmasWeekStart = new Date(year, 11, 21);
@@ -3431,16 +3524,22 @@ function getHolidayWeekendLabel(date) {
   const newYearsStart = new Date(year, 11, 31);
   const newYearsEnd = new Date(year + 1, 0, 1);
 
+  if (isBetween(date, newYearsObservedStart, newYearsObservedEnd)) return "New Year's";
+  if (isBetween(date, mlkWeekendStart, mlkWeekendEnd)) return "Martin Luther King Jr. Weekend";
+  if (isBetween(date, valentinesWeekend.start, valentinesWeekend.end)) return "Valentine's Weekend";
+  if (isBetween(date, stPatricksWeekend.start, stPatricksWeekend.end)) return "St. Patrick's Weekend";
+  if (isBetween(date, easter, easter)) return "Easter";
+  if (isBetween(date, mothersDay, mothersDay)) return "Mother's Day";
+  if (isBetween(date, fathersDay, fathersDay)) return "Father's Day";
   if (isBetween(date, memorialWeekendStart, memorialWeekendEnd)) return "Memorial Day Weekend";
   if (isBetween(date, laborWeekendStart, laborWeekendEnd)) return "Labor Day Weekend";
   if (isBetween(date, presidentsWeekendStart, presidentsWeekendEnd)) return "Presidents Day Weekend";
-  if (isBetween(date, columbusWeekendStart, columbusWeekendEnd)) return "Columbus Day Weekend";
+  if (isBetween(date, columbusWeekendStart, columbusWeekendEnd)) return "Indigenous Peoples' Day Weekend";
   if (isBetween(date, thanksgivingWeekendStart, thanksgivingWeekendEnd)) return "Thanksgiving Weekend";
   if (isBetween(date, julyFourthStart, julyFourthEnd)) return "Independence Day Weekend";
+  if (isBetween(date, juneteenthWeekend.start, juneteenthWeekend.end)) return "Juneteenth Weekend";
   if (isBetween(date, halloweenWeekend.start, halloweenWeekend.end)) return "Halloween Weekend";
-  if (isBetween(date, valentinesWeekend.start, valentinesWeekend.end)) return "Valentine's Weekend";
-  if (isBetween(date, stPatricksDay, stPatricksDay)) return "St. Patrick's Day";
-  if (isBetween(date, easter, easter)) return "Easter";
+  if (isBetween(date, veteransWeekend.start, veteransWeekend.end)) return "Veterans Day Weekend";
   if (isBetween(date, christmasWeekStart, christmasWeekEnd)) return "Christmas Week";
   if (isBetween(date, newYearsStart, newYearsEnd)) return "New Year's";
   return "";
@@ -3450,26 +3549,42 @@ function isHolidayWeekend(date) {
   return Boolean(getHolidayWeekendLabel(date));
 }
 
-function updateHolidayFromDate() {
-  const dateValue = document.getElementById("performanceDate").value;
-  if (!dateValue) return;
+function getAgreementHolidayLabel() {
+  const date = parseLocalDate(state.agreement.performanceDate);
+  return date ? getHolidayWeekendLabel(date) : "";
+}
 
-  const [year, month, day] = dateValue.split("-").map(Number);
-  const selectedDate = new Date(year, month - 1, day);
-  const holidayLabel = getHolidayWeekendLabel(selectedDate);
-  const isHoliday = Boolean(holidayLabel);
+function getHolidayWarningMessage(holidayLabel = getAgreementHolidayLabel()) {
+  return holidayLabel
+    ? `THIS DATE FALLS ON ${holidayLabel.toUpperCase()}`
+    : "THIS IS A HOLIDAY WEEKEND";
+}
 
-  state.agreement.holidayWeekend = isHoliday;
+function renderHolidayState() {
+  const holidayLabel = getAgreementHolidayLabel();
+  const isHoliday = Boolean(state.agreement.holidayWeekend);
   const holidayCheckbox = document.getElementById("holidayWeekend");
   if (holidayCheckbox) holidayCheckbox.checked = isHoliday;
 
   const warning = document.getElementById("holidayWarning");
   if (warning) {
-    warning.textContent = holidayLabel
-      ? `THIS DATE FALLS ON ${holidayLabel.toUpperCase()}`
-      : "THIS IS A HOLIDAY WEEKEND";
+    warning.textContent = getHolidayWarningMessage(holidayLabel);
     warning.classList.toggle("hidden", !isHoliday);
   }
+
+  const holidayDetails = document.getElementById("holidayDetails");
+  if (holidayDetails) {
+    holidayDetails.classList.toggle("hidden", !isHoliday);
+  }
+}
+
+function updateHolidayFromDate() {
+  const dateInput = document.getElementById("performanceDate");
+  const dateValue = normalizeDateValue(dateInput?.value || state.agreement.performanceDate || "");
+  state.agreement.performanceDate = dateValue;
+  const selectedDate = parseLocalDate(dateValue);
+  state.agreement.holidayWeekend = selectedDate ? isHolidayWeekend(selectedDate) : false;
+  renderHolidayState();
 }
 
 function setText(selector, value) {
@@ -3482,9 +3597,12 @@ function getAgreementTotals() {
   const depositEnabled = state.agreement.depositEnabled !== false;
   const depositWaived = state.agreement.depositWaived === true;
   const depositConfigured = depositEnabled || depositWaived;
+  const bandDNADeposit = toNumber(state.bandDNA.defaultDeposit);
   const rawDepositAmount = depositConfigured
     ? state.agreement.depositAmount
       ? toNumber(state.agreement.depositAmount)
+      : bandDNADeposit > 0
+      ? bandDNADeposit
       : depositDefault
     : 0;
   const depositCredits = depositEnabled && !depositWaived
@@ -3497,13 +3615,13 @@ function getAgreementTotals() {
     ? 0
     : Math.max(0, rawDepositAmount - depositCredits);
   const addonFees = {
-    addonTent: 25,
-    addonLights: 10,
-    addonGenerator: 75,
-    addonAdditionalSong: additionalSongFee,
-    addonRecordedSong: 5,
-    addonMCing: 50,
-    addonDJing: 50,
+    addonTent: getBandDNAAddonPrice("tent"),
+    addonLights: getBandDNAAddonPrice("lights"),
+    addonGenerator: getBandDNAAddonPrice("generator"),
+    addonAdditionalSong: getBandDNAAddonPrice("specialsong"),
+    addonRecordedSong: getBandDNAAddonPrice("recordedsong"),
+    addonMCing: getBandDNAAddonPrice("mcing"),
+    addonDJing: getBandDNAAddonPrice("djing"),
   };
   const addOnTotal = Object.entries(addonFees).reduce((total, [key, value]) => {
     return state.agreement[key] ? total + value : total;
@@ -3539,7 +3657,7 @@ function getAgreementTotals() {
   const autoCalculatedTotal = totalContractedHours * hourlyRate;
   const rawFeeTotal = String(state.agreement.feeTotal || "").replace(/[^0-9.]/g, "");
   const manualOverrideTotal = state.agreement.feeManualOverride ? toNumber(rawFeeTotal) : 0;
-  const backlineFee = state.agreement.backlineSound ? 50 : 0;
+  const backlineFee = state.agreement.backlineSound ? getBandDNAAddonPrice("backline") : 0;
   const holidayMultiplier = state.agreement.holidayWeekend
     ? state.agreement.holidayRateType === "double"
       ? 2
@@ -3547,12 +3665,14 @@ function getAgreementTotals() {
       ? 1.5
       : 1
     : 1;
-  const holidayFee =
-    !state.agreement.feeManualOverride && state.agreement.holidayWeekend
-      ? autoCalculatedTotal * (holidayMultiplier - 1)
-      : 0;
+  const basePerformanceTotal = state.agreement.feeManualOverride
+    ? manualOverrideTotal
+    : autoCalculatedTotal;
+  const holidayFee = state.agreement.holidayWeekend
+    ? basePerformanceTotal * (holidayMultiplier - 1)
+    : 0;
   const performanceFeeEffective =
-    (state.agreement.feeManualOverride ? manualOverrideTotal : autoCalculatedTotal) +
+    basePerformanceTotal +
     holidayFee +
     backlineFee;
   const discountInputEl = document.getElementById("friendsFamilyDiscountAmount");
@@ -3568,20 +3688,21 @@ function getAgreementTotals() {
   const travelHours = toNumber(state.agreement.travelHours);
   const roundTripTravelHours = travelHours * 2;
   const travelBandMembers = Math.max(0, toNumber(state.agreement.travelPerformerCount));
+  const travelHourlyRate = toNumber(state.bandDNA.travelHourlyRate);
   const travelFee = state.agreement.travelOutside
-    ? roundTripTravelHours * 25 * travelBandMembers
+    ? roundTripTravelHours * travelHourlyRate * travelBandMembers
     : 0;
   const lodgingFee = state.agreement.lodgingEnabled
     ? toNumber(state.agreement.lodgingRate)
     : 0;
   const travelLodgingTotal = travelFee + lodgingFee;
   const eventSubtotal = Math.max(0, performanceFeeEffective - cappedFriendsFamilyDiscount);
+  const bookedFeeBase = Math.max(0, eventSubtotal + addOnTotal + travelFee + lodgingFee);
   const feeSubtotal = eventSubtotal + addOnTotal + adjustedDeposit;
-  const totalWithDeposit = eventSubtotal + addOnTotal + adjustedDeposit + travelFee + lodgingFee;
 
   const depositModel =
     state.bandDNA.depositModel === "credited" ? "credited" : "addition";
-  const depositFeeBase = Math.max(0, eventSubtotal);
+  const depositFeeBase = bookedFeeBase;
   const depositDueNow = adjustedDeposit;
   let totalContractValue = depositFeeBase;
   let balanceDueAtShow = depositFeeBase;
@@ -3615,7 +3736,7 @@ function getAgreementTotals() {
     depositCredits,
     addOnTotal,
     feeSubtotal,
-    totalWithDeposit,
+    totalWithDeposit: totalClientPays,
     performanceFee,
     performanceFeeAuto: autoCalculatedTotal,
     hourlyRate,
@@ -3657,9 +3778,41 @@ function getSelectedAddonSummary(totals) {
     .map(([key]) => labelMap[key]);
 }
 
+function getSelectedAddonQuoteDetails(totals) {
+  const labelMap = {
+    addonTent: "Tent / outdoor cover",
+    addonLights: "Stage lights",
+    addonGenerator: "Generator",
+    addonAdditionalSong: "Special song request",
+    addonRecordedSong: "Recorded song beyond first",
+    addonMCing: "MC'ing",
+    addonDJing: "DJ'ing between sets",
+  };
+
+  return Object.entries(totals.addonFees || {})
+    .filter(([key]) => state.agreement[key])
+    .map(([key, price]) => `${labelMap[key] || key}: ${toMoney(price)}`);
+}
+
+function getHolidayRateQuoteDetail(totals) {
+  if (!state.agreement.holidayWeekend || totals.holidayFee <= 0) return "";
+  const holidayLabel = getAgreementHolidayLabel() || "Holiday weekend";
+  const rateLabel = state.agreement.holidayRateType === "double"
+    ? "double time (2x)"
+    : state.agreement.holidayRateType === "timeAndHalf"
+    ? "time and a half (1.5x)"
+    : "regular rate";
+  const regularPerformanceFee = Math.max(0, totals.performanceFeeEffective - totals.holidayFee);
+  return `${holidayLabel}: holiday rate is ${rateLabel}. Regular performance fee ${toMoney(regularPerformanceFee)} + holiday increase ${toMoney(totals.holidayFee)}.`;
+}
+
 function updateFeesAndDepositsFields(totals) {
-  if ((totals.depositEnabled || totals.depositWaived) && !state.agreement.depositAmount) {
-    state.agreement.depositAmount = String(depositDefault);
+  const bandDNADeposit = toNumber(state.bandDNA.defaultDeposit);
+  if (
+    (totals.depositEnabled || totals.depositWaived) &&
+    (!state.agreement.depositAmount || (totals.depositEnabled && bandDNADeposit > 0 && toNumber(state.agreement.depositAmount) <= 0))
+  ) {
+    state.agreement.depositAmount = String(bandDNADeposit > 0 ? bandDNADeposit : depositDefault);
     const depositInput = document.getElementById("depositAmount");
     if (depositInput) depositInput.value = state.agreement.depositAmount;
   }
@@ -3689,7 +3842,7 @@ function updateFeesAndDepositsFields(totals) {
   if (backlineInput) {
     backlineInput.value = totals.backlineFee > 0
       ? `${toMoney(totals.backlineFee)} included`
-      : "$0.00";
+      : "Not selected";
   }
 
   const discountInput = document.getElementById("feeDiscount");
@@ -3709,7 +3862,7 @@ function updateFeesAndDepositsFields(totals) {
 
   const dayOfDue = Math.max(
     0,
-    totals.balanceDueAtShow + totals.addOnTotal + totals.travelFee + totals.lodgingFee
+    totals.balanceDueAtShow
   );
   const dayOfValue = toMoney(dayOfDue);
   state.agreement.amountDueDayOf = dayOfValue;
@@ -3772,6 +3925,14 @@ function updateAgreementPreview() {
   setText("[data-fill='managerName']", String(contractDna.managerName || "").trim() || "__");
   setText("[data-fill='paymentSummary']", paymentConfig.paymentSummary);
   setText("[data-fill='contractPaymentMethods']", paymentConfig.paymentMethodsText);
+  setText("[data-fill='backlineAddonPrice']", toMoney(getBandDNAAddonPrice("backline")));
+  setText("[data-fill='tentAddonPrice']", toMoney(getBandDNAAddonPrice("tent")));
+  setText("[data-fill='lightsAddonPrice']", toMoney(getBandDNAAddonPrice("lights")));
+  setText("[data-fill='generatorAddonPrice']", toMoney(getBandDNAAddonPrice("generator")));
+  setText("[data-fill='specialSongAddonPrice']", toMoney(getBandDNAAddonPrice("specialsong")));
+  setText("[data-fill='recordedSongAddonPrice']", toMoney(getBandDNAAddonPrice("recordedsong")));
+  setText("[data-fill='mcingAddonPrice']", toMoney(getBandDNAAddonPrice("mcing")));
+  setText("[data-fill='djingAddonPrice']", toMoney(getBandDNAAddonPrice("djing")));
   document.querySelectorAll("[data-fill='clientName']").forEach((el) => {
     el.textContent = state.agreement.clientName || "__";
   });
@@ -3876,7 +4037,7 @@ function updateAgreementPreview() {
   setText("[data-fill='balanceDueAtShow']", toMoney(totals.balanceDueAtShow));
   setText(
     "[data-fill='totalWithDeposit']",
-    toMoney(totals.totalClientPays + totals.addOnTotal + totals.travelFee + totals.lodgingFee)
+    toMoney(totals.totalClientPays)
   );
 
   const feeStr = toMoney(totals.depositFeeBase);
@@ -3926,26 +4087,7 @@ function updateAgreementPreview() {
     travelDetails.classList.toggle("hidden", !state.agreement.travelOutside);
   }
 
-  const warning = document.getElementById("holidayWarning");
-  if (warning) {
-    const performanceDate = document.getElementById("performanceDate")?.value || "";
-    let holidayLabel = "";
-    if (performanceDate) {
-      const [year, month, day] = performanceDate.split("-").map(Number);
-      if (year && month && day) {
-        holidayLabel = getHolidayWeekendLabel(new Date(year, month - 1, day));
-      }
-    }
-    warning.textContent = holidayLabel
-      ? `THIS DATE FALLS ON ${holidayLabel.toUpperCase()}`
-      : "THIS IS A HOLIDAY WEEKEND";
-    warning.classList.toggle("hidden", !state.agreement.holidayWeekend);
-  }
-
-  const holidayDetails = document.getElementById("holidayDetails");
-  if (holidayDetails) {
-    holidayDetails.classList.toggle("hidden", !state.agreement.holidayWeekend);
-  }
+  renderHolidayState();
 
   const bandSignatureBlock = document.querySelector("#agreementPreview .contract-signatures > div:last-child");
   if (bandSignatureBlock) {
@@ -4006,7 +4148,7 @@ function updateAgreementStepSummary() {
       return;
     }
     const totals = getAgreementTotals();
-    const fee = totals.performanceFeeEffective || 0;
+    const fee = totals.depositFeeBase || totals.eventSubtotal || totals.performanceFeeEffective || 0;
     const bandConfig = state.agreement.bandConfig || "";
     const hours = parseFloat(state.agreement.hours || 0);
     if (fee > 0) {
@@ -4075,32 +4217,103 @@ function buildDefaultQuoteOptionsFromBandDNA() {
   const minimumHours = parseFloat(state.bandDNA.minimumHours) || 2;
   const agreementHours = parseFloat(state.agreement.hours) || 0;
   const hours = agreementHours > 0 ? agreementHours : minimumHours;
-  const discountAmount = state.agreement.friendsFamilyDiscount
-    ? Math.max(0, toNumber(state.agreement.friendsFamilyDiscountAmount))
-    : 0;
+  const totals = getAgreementTotals();
+  const selectedLineupName = String(state.agreement.bandConfig || "").trim().toLowerCase();
   const depositRequired = state.agreement.depositEnabled !== false && state.agreement.depositWaived !== true;
-  const depositValue = depositRequired ? (state.bandDNA.defaultDeposit || 50) : 0;
+  const depositValue = depositRequired ? toNumber(totals.depositDueNow || state.bandDNA.defaultDeposit) : 0;
+  const quoteSharedFees = totals.addOnTotal + totals.travelLodgingTotal + totals.backlineFee;
+  const selectedLineupPrice = Math.max(0, totals.depositFeeBase || totals.eventSubtotal || 0);
+  const fullBandLineup = lineups.find((lineup) => String(lineup?.name || "").trim().toLowerCase() === "full band")
+    || { name: "Full Band", count: 4, rate: "" };
+  const selectedLineup = lineups.find((lineup) => String(lineup?.name || "").trim().toLowerCase() === selectedLineupName)
+    || fullBandLineup;
+  const optionRequests = [
+    { lineup: selectedLineup, hours, selected: true, featured: false },
+    { lineup: fullBandLineup, hours: Math.max(4, hours), selected: selectedLineupName === "full band" && hours >= 4, featured: true },
+    ...lineups
+      .filter((lineup) => String(lineup?.name || "").trim().toLowerCase() !== String(selectedLineup?.name || "").trim().toLowerCase())
+      .filter((lineup) => String(lineup?.name || "").trim().toLowerCase() !== "full band")
+      .map((lineup) => ({ lineup, hours, selected: false, featured: false })),
+  ];
+  const seenOptions = new Set();
 
-  return lineups.slice(0, 2).map((lineup) => {
+  return optionRequests.reduce((options, request) => {
+    if (options.length >= 3 || !request.lineup) return options;
+    const lineup = request.lineup;
+    const optionHours = request.hours;
     const count = getLineupMusicianCount(lineup.name, lineup);
-    const ratePerHour = parseFloat(lineup.rate)
-      || (parseFloat(state.bandDNA.musicianHourlyRate || 50) * count);
-    const basePrice = ratePerHour * hours;
-    const price = Math.max(0, basePrice - discountAmount);
+    const optionKey = `${String(lineup.name || "").trim().toLowerCase()}-${optionHours}`;
+    if (seenOptions.has(optionKey)) return options;
+    seenOptions.add(optionKey);
+    const isSelectedLineup = request.selected;
+    const ratePerHour = toNumber(lineup.rate)
+      || (toNumber(state.bandDNA.musicianHourlyRate) * count);
+    const calculatedRegularPerformanceFee = ratePerHour * optionHours;
+    const calculatedHolidayFee = state.agreement.holidayWeekend
+      ? calculatedRegularPerformanceFee * (totals.holidayMultiplier - 1)
+      : 0;
+    const selectedBasePerformanceFee = totals.manualOverrideActive
+      ? totals.manualOverrideTotal
+      : totals.autoCalculatedTotal;
+    const regularPerformanceFee = isSelectedLineup
+      ? selectedBasePerformanceFee
+      : calculatedRegularPerformanceFee;
+    const holidayFee = isSelectedLineup ? totals.holidayFee : calculatedHolidayFee;
+    const performanceWithHoliday = regularPerformanceFee + holidayFee;
+    const calculatedPrice = Math.max(
+      0,
+      performanceWithHoliday + quoteSharedFees
+    );
+    const basePrice = isSelectedLineup ? selectedLineupPrice : calculatedPrice;
     const depositText = depositRequired
-      ? `$${state.bandDNA.defaultDeposit || 50} deposit to hold your date`
+      ? `${toMoney(depositValue)} deposit to hold your date`
       : "No deposit required";
-    const discountText = discountAmount > 0 ? ` · $${formatNumberInput(discountAmount)} discount applied` : "";
+    const detailLines = [
+      `${optionHours} hours of live music with ${lineup.name}.`,
+      "Sound system included.",
+    ];
+    detailLines.push(`Performance subtotal before add-ons and travel: ${toMoney(regularPerformanceFee)}.`);
+    if (holidayFee > 0) {
+      const holidayLabel = getAgreementHolidayLabel() || "Holiday weekend";
+      const rateLabel = state.agreement.holidayRateType === "double"
+        ? "double time (2x)"
+        : state.agreement.holidayRateType === "timeAndHalf"
+        ? "time and a half (1.5x)"
+        : "regular rate";
+      detailLines.push(`${holidayLabel}: holiday rate is ${rateLabel}. Holiday increase: ${toMoney(holidayFee)}.`);
+    }
+    if (totals.backlineFee > 0) {
+      detailLines.push(`Backline / sound tech included in performance fee: ${toMoney(totals.backlineFee)}.`);
+    }
+    const addonDetails = getSelectedAddonQuoteDetails(totals);
+    if (addonDetails.length) {
+      detailLines.push(`Selected add-ons (${toMoney(totals.addOnTotal)} total): ${addonDetails.join("; ")}.`);
+    }
+    if (totals.travelFee > 0) {
+      detailLines.push(`Travel charge included: ${toMoney(totals.travelFee)}.`);
+    }
+    if (totals.lodgingFee > 0) {
+      detailLines.push(`Lodging charge included: ${toMoney(totals.lodgingFee)}.`);
+    }
+    if (totals.friendsFamilyDiscountAmount > 0 && isSelectedLineup) {
+      detailLines.push(`Discount applied to this actual quote: -${toMoney(totals.friendsFamilyDiscountAmount)}.`);
+    } else if (totals.friendsFamilyDiscountAmount > 0) {
+      detailLines.push(`Discount not applied to this quote option. Apply any discount only after choosing the final option.`);
+    }
+    detailLines.push(`Total quote price for this option: ${toMoney(basePrice)}.`);
+    detailLines.push(depositText);
 
-    return {
-      label: `${lineup.name} · ${hours} hrs`,
-      sets: `${hours} hrs`,
-      price: String(price),
+    options.push({
+      label: `${lineup.name} · ${optionHours} hrs`,
+      sets: `${optionHours} hrs`,
+      price: String(Math.round(Math.max(0, basePrice))),
       deposit: String(depositValue),
-      detail: `${hours} hrs · Sound system included · ${depositText}${discountText}`,
-      featured: false,
-    };
-  });
+      detail: detailLines.join("\n"),
+      featured: request.featured,
+      included: isSelectedLineup,
+    });
+    return options;
+  }, []);
 }
 
 function getQuoteBuilderOptionsForRender() {
@@ -4117,9 +4330,36 @@ function getQuoteBuilderOptionsForRender() {
   }];
 }
 
+function refreshQuoteBuilderFromAgreement() {
+  syncAgreementStateFromForm();
+  updatePerformanceHoursFromTimes();
+  if (typeof updateFeesAndDepositsFields === "function") {
+    updateFeesAndDepositsFields(getAgreementTotals());
+  }
+  const options = buildDefaultQuoteOptionsFromBandDNA();
+  state.quoteBuilder = {
+    ...state.quoteBuilder,
+    activeQuoteId: "",
+    link: "",
+    status: "Quote options refreshed from this booking.",
+    options,
+    expiresAt: "",
+    acceptedBanner: "",
+    skipExistingQuoteLoad: true,
+  };
+}
+
 function createQuoteOptionRowMarkup(option = {}, index = 0) {
+  const included = option.included !== false;
   return `
-    <div class="form-section booking-nested-section" data-quote-option-row="${index}">
+    <div class="form-section booking-nested-section quote-option-row ${included ? "quote-option-included" : "quote-option-excluded"}" data-quote-option-row="${index}">
+      <div class="quote-option-row-head">
+        <label class="checkbox inline-note">
+          <input data-quote-field="included" type="checkbox" ${included ? "checked" : ""} />
+          ${included ? "In the actual quote" : "Add to actual quote"}
+        </label>
+        <span>${included ? "In quote cart" : "Available option"}</span>
+      </div>
       <div class="form-grid">
         <label>
           Label
@@ -4135,11 +4375,11 @@ function createQuoteOptionRowMarkup(option = {}, index = 0) {
         </label>
         <label>
           Deposit
-          <input data-quote-field="deposit" type="number" min="0" step="1" placeholder="50" value="${escapeHtml(option.deposit || "")}" />
+          <input data-quote-field="deposit" type="number" min="0" step="1" placeholder="0" value="${escapeHtml(option.deposit || "")}" />
         </label>
         <label>
           Detail
-          <textarea data-quote-field="detail" placeholder="Sound included · $50 deposit">${escapeHtml(option.detail || "")}</textarea>
+          <textarea data-quote-field="detail" placeholder="Sound included · deposit from Band DNA">${escapeHtml(option.detail || "")}</textarea>
         </label>
         <label class="checkbox inline-note">
           <input data-quote-field="featured" type="checkbox" ${option.featured ? "checked" : ""} />
@@ -4153,16 +4393,69 @@ function createQuoteOptionRowMarkup(option = {}, index = 0) {
   `;
 }
 
+function createQuoteCartSummaryMarkup(options = []) {
+  const included = (Array.isArray(options) ? options : []).filter((option) => option.included !== false);
+  const total = included.reduce((sum, option) => sum + toNumber(option.price), 0);
+  const optionMarkup = included.length
+    ? included.map((option, index) => `
+      <div class="quote-cart-item">
+        <div>
+          <strong>${escapeHtml(option.label || "Quote option")}</strong>
+          <span>${escapeHtml(option.sets || "Hours not set")} · Deposit ${toMoney(option.deposit || 0)}</span>
+        </div>
+        <div class="quote-cart-price">
+          <strong>${toMoney(option.price || 0)}</strong>
+          <button class="btn ghost" type="button" data-cart-remove-option="${index}">Remove</button>
+        </div>
+      </div>
+    `).join("")
+    : '<p class="inline-help">Nothing is in the quote cart yet. Add one option below before generating the link.</p>';
+
+  return `
+    <div class="quote-cart-summary">
+      <div class="quote-cart-head">
+        <div>
+          <p class="quote-cart-kicker">Actual quote being sent</p>
+          <h3>Quote cart</h3>
+        </div>
+        <strong>${toMoney(total)}</strong>
+      </div>
+      <div class="quote-cart-list">
+        ${optionMarkup}
+      </div>
+    </div>
+  `;
+}
+
 function renderQuoteOptionRows(options = []) {
   const wrap = document.getElementById("quoteOptionRows");
   if (!wrap) return;
-  const rows = (Array.isArray(options) ? options : []).slice(0, 3);
-  wrap.innerHTML = rows.map((option, index) => createQuoteOptionRowMarkup(option, index)).join("");
+  const rows = (Array.isArray(options) ? options : []).slice(0, 3).map((option) => ({
+    ...option,
+    included: option.included !== false,
+  }));
+  const includedRows = rows.filter((option) => option.included !== false);
+  const excludedRows = rows.filter((option) => option.included === false);
+  wrap.innerHTML = `
+    ${createQuoteCartSummaryMarkup(rows)}
+    <div class="quote-option-group">
+      <p class="quote-option-divider">Edit options already in the quote</p>
+      ${includedRows.length
+        ? includedRows.map((option, index) => createQuoteOptionRowMarkup(option, index)).join("")
+        : '<p class="inline-help">No options selected for the quote link yet.</p>'}
+    </div>
+    ${excludedRows.length ? `
+      <div class="quote-option-group">
+        <p class="quote-option-divider">Available options to add</p>
+        ${excludedRows.map((option, index) => createQuoteOptionRowMarkup(option, includedRows.length + index)).join("")}
+      </div>
+    ` : ""}
+  `;
   const addBtn = document.getElementById("addQuoteOptionBtn");
   if (addBtn) addBtn.disabled = rows.length >= 3;
 }
 
-function collectQuoteOptionsFromDom() {
+function collectAllQuoteOptionsFromDom() {
   return Array.from(document.querySelectorAll("[data-quote-option-row]"))
     .map((row) => ({
       label: row.querySelector("[data-quote-field='label']")?.value.trim() || "",
@@ -4171,8 +4464,13 @@ function collectQuoteOptionsFromDom() {
       deposit: row.querySelector("[data-quote-field='deposit']")?.value.trim() || "",
       detail: row.querySelector("[data-quote-field='detail']")?.value.trim() || "",
       featured: Boolean(row.querySelector("[data-quote-field='featured']")?.checked),
+      included: Boolean(row.querySelector("[data-quote-field='included']")?.checked),
     }))
     .filter((option) => option.label || option.sets || option.price || option.deposit || option.detail);
+}
+
+function collectQuoteOptionsFromDom() {
+  return collectAllQuoteOptionsFromDom().filter((option) => option.included !== false);
 }
 
 function renderQuoteLinkDisplay(link = "") {
@@ -4251,13 +4549,20 @@ async function renderQuoteBuilder() {
   renderQuoteLinkDisplay(state.quoteBuilder.link || "");
   setQuoteBuilderStatus(state.quoteBuilder.status || "No quote generated yet.");
 
+  if (state.quoteBuilder.skipExistingQuoteLoad) {
+    state.quoteBuilder.skipExistingQuoteLoad = false;
+    renderQuoteLinkDisplay("");
+    stopQuoteStatusPolling();
+    return;
+  }
+
   if (!state.workspace.bookingSaved || !state.workspace.bookingEventId) {
     state.quoteBuilder = {
       ...createInitialQuoteBuilderState(),
       options: getQuoteBuilderOptionsForRender(),
     };
     renderQuoteLinkDisplay("");
-    setQuoteBuilderStatus("Save the booking first, then generate a quote link.", true);
+    setQuoteBuilderStatus("Generate the quote link when ready. The booking will be saved first.");
     stopQuoteStatusPolling();
     return;
   }
@@ -4316,14 +4621,23 @@ async function saveQuoteToSupabase() {
     return;
   }
   if (!state.workspace.bookingSaved || !state.workspace.bookingEventId) {
-    setQuoteBuilderStatus("Save the booking first, then generate a quote link.", true);
-    return;
+    setQuoteBuilderStatus("Saving booking before generating quote...");
+    const bookingResult = await ensureBookingEventForAgreement({ createPendingContract: false });
+    if (!bookingResult?.ok) {
+      const reasonLabel = bookingResult?.reason ? ` (${bookingResult.reason})` : "";
+      setQuoteBuilderStatus(`Could not save booking before quote${reasonLabel}.`, true);
+      return;
+    }
+    state.workspace.bookingSaved = true;
+    state.workspace.bookingEventId = bookingResult.eventId || "";
+    saveDraft();
   }
 
   const expiryDays = Math.max(1, Number(document.getElementById("quoteExpiryDays")?.value || 7));
-  const options = collectQuoteOptionsFromDom().slice(0, 3);
+  const allOptions = collectAllQuoteOptionsFromDom().slice(0, 3);
+  const options = allOptions.filter((option) => option.included !== false).slice(0, 3);
   if (!options.length) {
-    setQuoteBuilderStatus("Add at least one quote option before generating the link.", true);
+    setQuoteBuilderStatus("Check Include in quote link on at least one option before generating the link.", true);
     return;
   }
 
@@ -4380,12 +4694,12 @@ async function saveQuoteToSupabase() {
       activeQuoteId: quoteId,
       link,
       status: savedQuote?.status || "draft",
-      options,
+      options: allOptions,
       expiresAt: savedQuote?.expires_at || payload.expires_at,
       acceptedBanner: "",
     };
     renderQuoteLinkDisplay(link);
-    renderQuoteOptionRows(options);
+    renderQuoteOptionRows(allOptions);
     await copyTextToClipboard(link, {
       statusEl: getQuoteBuilderStatusEl(),
       successMessage: "Quote link generated and copied to clipboard.",
@@ -4503,10 +4817,17 @@ function renderAgreementStepUI() {
 
   const backBtn = document.getElementById("agreementStepBack");
   const nextBtn = document.getElementById("agreementStepNext");
+  const quickSaveBtn = document.getElementById("quickSaveBooking");
   if (backBtn) backBtn.classList.toggle("hidden", currentStep === 1);
   if (nextBtn) {
     nextBtn.classList.toggle("hidden", currentStep === AGREEMENT_STEP_COUNT);
-    nextBtn.textContent = currentStep === AGREEMENT_STEP_COUNT - 1 ? "Review Booking" : "Next";
+    nextBtn.textContent = currentStep === AGREEMENT_STEP_COUNT - 1
+      ? "Review Booking / Generate Links"
+      : "Next";
+  }
+  if (quickSaveBtn) {
+    quickSaveBtn.textContent = state.workspace.bookingSaved ? "Update Booking" : "Save Booking";
+    quickSaveBtn.classList.toggle("hidden", currentStep === AGREEMENT_STEP_COUNT);
   }
 
   const saveBtn = document.getElementById("saveBookingOnly");
@@ -4522,6 +4843,7 @@ function renderAgreementStepUI() {
     contractBtn.classList.remove("ghost");
   }
   if (quoteBtn) {
+    quoteBtn.textContent = "Create Quote Link";
     quoteBtn.classList.remove("hidden");
   }
   if (contractNote) {
@@ -4675,7 +4997,7 @@ function updateInvoicePreview() {
   setText("[data-fill='invoiceAddons']", toMoney(totals.addons));
   setText("[data-fill='invoiceTotal']", totalDueDisplay);
   setText("[data-fill='lineItemTotal']", performanceFeeDisplay);
-  setText("[data-fill='bandName']", state.bandDNA.bandName || "Rust and Ruin");
+  setText("[data-fill='bandName']", state.bandDNA.bandName || "the band");
   setText("[data-fill='paymentSummary']", paymentConfig.paymentSummary);
   setText("[data-fill='bandContactLine']", [state.bandDNA.contactEmail, state.bandDNA.contactPhone].filter(Boolean).join(" · "));
   updateMessagePreview();
@@ -4768,7 +5090,7 @@ async function saveInvoiceAndGetLink(data) {
 
 function updateReceiptPreview() {
   const paymentConfig = getBandPaymentConfig();
-  setText("[data-fill='bandName']", state.bandDNA.bandName || "Rust and Ruin");
+  setText("[data-fill='bandName']", state.bandDNA.bandName || "the band");
   setText("[data-fill='receiptNumber']", state.receipt.receiptNumber || "__");
   setText("[data-fill='receiptClientName']", state.receipt.clientName || "__");
   setText("[data-fill='receiptPaymentDate']", formatDate(state.receipt.paymentDate));
@@ -4801,8 +5123,7 @@ function eventIdentityKey(event) {
 }
 
 function getSeededCalendarEvents(rangeStart = null, rangeEnd = null) {
-  if (!isBethBandDNA(state.bandDNA)) return [];
-  return SEEDED_BOOKED_EVENTS
+  return []
     .map((event, index) => {
       const start = combineDateTime(event.date, event.start);
       let end = combineDateTime(event.date, event.end);
@@ -5167,6 +5488,28 @@ async function openBookingFlowNotificationTarget(event, target) {
   await renderBookedDatesList();
 }
 
+function getBookkeepingCloseKey(event, target) {
+  const workflowTarget = String(target || "").toLowerCase();
+  if (workflowTarget !== "invoice" && workflowTarget !== "receipt") return "";
+  const eventKey = event?.id || eventIdentityKey(event);
+  return eventKey ? `${workflowTarget}:${eventKey}` : "";
+}
+
+function isBookkeepingClosed(event, target) {
+  const key = getBookkeepingCloseKey(event, target);
+  return Boolean(key && (state.calendar.closedBookkeepingKeys || []).includes(key));
+}
+
+function closeBookkeepingAttention(event, target) {
+  const key = getBookkeepingCloseKey(event, target);
+  if (!key) return false;
+  state.calendar.closedBookkeepingKeys = Array.from(
+    new Set([...(state.calendar.closedBookkeepingKeys || []), key])
+  );
+  saveDraft();
+  return true;
+}
+
 function renderNeedsYourAttention(notifications = []) {
   const list = document.getElementById("homeAttentionList");
   const summary = document.getElementById("homeAttentionSummary");
@@ -5203,6 +5546,8 @@ function renderNeedsYourAttention(notifications = []) {
     meta.textContent = item.meta;
     copy.appendChild(title);
     copy.appendChild(meta);
+    const actions = document.createElement("div");
+    actions.className = "attention-actions";
     const button = document.createElement("button");
     button.type = "button";
     button.className = "btn ghost attention-action";
@@ -5210,8 +5555,21 @@ function renderNeedsYourAttention(notifications = []) {
     button.addEventListener("click", () => {
       openBookingFlowNotificationTarget(item.event, item.target);
     });
+    actions.appendChild(button);
+    if (item.bookkeepingCloseable) {
+      const closeButton = document.createElement("button");
+      closeButton.type = "button";
+      closeButton.className = "btn ghost attention-action attention-close-action";
+      closeButton.textContent = "Bookwork done";
+      closeButton.addEventListener("click", async () => {
+        if (!closeBookkeepingAttention(item.event, item.target)) return;
+        closeButton.textContent = "Done";
+        await updateOpsProgress();
+      });
+      actions.appendChild(closeButton);
+    }
     row.appendChild(copy);
-    row.appendChild(button);
+    row.appendChild(actions);
     list.appendChild(row);
   });
 }
@@ -5223,9 +5581,9 @@ function getDashboardFirstName() {
     metadata.full_name ||
     metadata.first_name ||
     state.bandDNA.signoffName ||
-    "Beth";
-  const first = String(rawName).trim().split(/\s+/)[0] || "Beth";
-  return first.replace(/[^a-zA-Z'-]/g, "") || "Beth";
+    "there";
+  const first = String(rawName).trim().split(/\s+/)[0] || "there";
+  return first.replace(/[^a-zA-Z'-]/g, "") || "there";
 }
 
 function renderDashboardGreeting() {
@@ -5236,7 +5594,7 @@ function renderDashboardGreeting() {
   const now = new Date();
   const hour = now.getHours();
   const dayPart = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
-  const bandName = state.bandDNA.bandName || "Rust and Ruin";
+  const bandName = state.bandDNA.bandName || "your band";
   const dateLabel = now.toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -5533,8 +5891,89 @@ function renderBookHub() {
     `;
     container.insertBefore(header, container.firstChild);
   }
+  renderBookHubDrafts();
   renderBookHubCalendar();
   renderBookHubWorkOrders();
+}
+
+function getBookingDraftTitle(draft = {}) {
+  const agreement = draft.agreement || {};
+  const clientName = String(agreement.clientName || "").trim() || "Untitled booking";
+  const dateText = agreement.performanceDate ? formatDate(agreement.performanceDate) : "Date TBD";
+  const typeText = String(agreement.eventType || "").trim();
+  return [clientName, dateText, typeText].filter(Boolean).join(" · ");
+}
+
+function renderBookingDraftList(list, summary, options = {}) {
+  if (!list || !summary) return;
+  const emptyText = options.emptyText || "Saved drafts will appear here.";
+  const limit = Number(options.limit || 0);
+  const locationText = options.locationText || "";
+
+  const drafts = [...(state.bookingDrafts || [])].sort(
+    (a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)
+  );
+  summary.textContent = drafts.length
+    ? `${drafts.length} draft booking${drafts.length === 1 ? "" : "s"} ready to reopen.${locationText ? ` ${locationText}` : ""}`
+    : "No draft bookings saved.";
+
+  list.innerHTML = "";
+  if (!drafts.length) {
+    list.innerHTML = `<p class="muted booking-drafts-empty">${escapeHtml(emptyText)}</p>`;
+    return;
+  }
+
+  const draftsToRender = limit > 0 ? drafts.slice(0, limit) : drafts;
+  draftsToRender.forEach((draft) => {
+    const row = document.createElement("div");
+    row.className = "booking-draft-row";
+    const copy = document.createElement("div");
+    copy.className = "booking-draft-copy";
+    const title = document.createElement("strong");
+    title.textContent = getBookingDraftTitle(draft);
+    const meta = document.createElement("span");
+    meta.textContent = draft.updatedAt ? `Saved ${formatShortDateTime(draft.updatedAt)}` : "Saved draft";
+    copy.appendChild(title);
+    copy.appendChild(meta);
+
+    const actions = document.createElement("div");
+    actions.className = "booking-draft-actions";
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.className = "btn ghost";
+    openBtn.textContent = "Open draft";
+    openBtn.addEventListener("click", () => openBookingDraft(draft.id));
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "btn ghost";
+    deleteBtn.textContent = "Delete";
+    deleteBtn.addEventListener("click", () => deleteBookingDraft(draft.id));
+    actions.appendChild(openBtn);
+    actions.appendChild(deleteBtn);
+
+    row.appendChild(copy);
+    row.appendChild(actions);
+    list.appendChild(row);
+  });
+}
+
+function renderBookHubDrafts() {
+  renderBookingDraftList(
+    document.getElementById("bookHubDraftsList"),
+    document.getElementById("bookHubDraftsSummary")
+  );
+}
+
+function renderHomeDrafts() {
+  renderBookingDraftList(
+    document.getElementById("homeDraftsList"),
+    document.getElementById("homeDraftsSummary"),
+    {
+      emptyText: "Saved booking drafts will appear here and under Book.",
+      limit: 3,
+      locationText: "Drafts also live under Book > Draft Bookings.",
+    }
+  );
 }
 
 function renderUpcomingShowsCard(events) {
@@ -5626,9 +6065,9 @@ function renderManagerChecklist(events) {
   if (!wrap) return;
   wrap.innerHTML = "";
 
-  const myAssignmentsTitle = document.querySelector("#homeTab .needs-attention-card .dashboard-card-head h3");
+  const myAssignmentsTitle = document.querySelector("#homeTab .attention-feed-card .dashboard-card-head h3");
   if (myAssignmentsTitle) {
-    myAssignmentsTitle.textContent = state.userRole === "member" ? "My Assignments" : "Needs attention";
+    myAssignmentsTitle.textContent = state.userRole === "member" ? "My Assignments" : "Needs Your Attention";
   }
 
   if (state.userRole === "member") {
@@ -6048,6 +6487,7 @@ async function updateOpsProgress() {
           meta: showDate,
           actionLabel: "Open show",
           target: "invoice",
+          bookkeepingCloseable: true,
         };
       }
       if (stage.paid && !stage.receiptSentAt) {
@@ -6057,6 +6497,7 @@ async function updateOpsProgress() {
           meta: showDate,
           actionLabel: "Open show",
           target: "receipt",
+          bookkeepingCloseable: true,
         };
       }
       if (start && start >= now && start <= upcomingWindowEnd && !stage.paid) {
@@ -6066,11 +6507,13 @@ async function updateOpsProgress() {
           meta: showDate,
           actionLabel: "Open show",
           target: "invoice",
+          bookkeepingCloseable: true,
         };
       }
       return null;
     })
     .filter(Boolean)
+    .filter((item) => !item.bookkeepingCloseable || !isBookkeepingClosed(item.event, item.target))
     .sort((a, b) => new Date(a.event?.start_time || 0) - new Date(b.event?.start_time || 0));
   renderNeedsYourAttention(notifications);
   await updateManagerDesk();
@@ -6603,7 +7046,7 @@ function buildAgreementContractDigitalPayload() {
     deposit_amount: totals.depositDueNow,
     amount_due_day_of: Math.max(
       0,
-      totals.balanceDueAtShow + totals.addOnTotal + totals.travelFee + totals.lodgingFee
+      totals.balanceDueAtShow
     ),
     payment_methods: buildDynamicPaymentMethodsText(),
     venmo_handle: paymentConfig.venmoHandle,
@@ -9466,7 +9909,7 @@ function renderContractsHub() {
           try {
             await navigator.share({
               files: [file],
-              title: shareMessage.subject || contract.name || "Rust and Ruin Agreement",
+              title: shareMessage.subject || contract.name || "Performance Agreement",
               text: shareMessage.payload,
             });
             setContractsHubStatus(copied ? "Shared. Message copied as backup." : "Shared.");
@@ -9807,12 +10250,124 @@ function resetAgreementForm() {
   state.workspace.bookingSaved = false;
   state.workspace.bookingEventId = "";
   state.workspace.contractWizardOpen = false;
+  state.workspace.activeBookingDraftId = "";
   document.getElementById("agreementClientSigningPreview")?.remove();
   syncAgreementForm();
   updateAgreementPreview();
   renderAgreementStepUI();
   saveDraft();
   setAgreementCalendarStatus("Agreement form reset.");
+}
+
+function clonePlainObject(value) {
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (error) {
+    return {};
+  }
+}
+
+function getAgreementDraftId() {
+  return state.workspace.activeBookingDraftId || `booking-draft-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+}
+
+function saveBookingAsDraft() {
+  syncAgreementStateFromForm();
+  updatePerformanceHoursFromTimes();
+  updateHolidayFromDate();
+  updateAgreementPreview();
+  const id = getAgreementDraftId();
+  const now = new Date().toISOString();
+  const draft = {
+    id,
+    createdAt: state.bookingDrafts.find((item) => item.id === id)?.createdAt || now,
+    updatedAt: now,
+    agreementStep: state.workspace.agreementStep || 1,
+    bookingEventId: state.workspace.bookingEventId || "",
+    bookingSaved: Boolean(state.workspace.bookingSaved),
+    agreement: clonePlainObject(state.agreement),
+    quoteBuilder: {
+      options: clonePlainObject(state.quoteBuilder.options || []),
+      expiresAt: state.quoteBuilder.expiresAt || "",
+    },
+  };
+  state.workspace.activeBookingDraftId = id;
+  state.bookingDrafts = [
+    draft,
+    ...(state.bookingDrafts || []).filter((item) => item.id !== id),
+  ].slice(0, 25);
+  saveDraft();
+  renderBookHubDrafts();
+  renderHomeDrafts();
+  renderAgreementStepUI();
+  const draftBtn = document.getElementById("saveBookingDraft");
+  if (draftBtn) {
+    draftBtn.textContent = "Draft saved";
+    window.setTimeout(() => {
+      draftBtn.textContent = "Save as Draft";
+    }, 1800);
+  }
+  setAgreementCalendarStatus("Draft saved. You can reopen it from Book > Draft Bookings.");
+}
+
+function openBookingDraft(draftId) {
+  const draft = (state.bookingDrafts || []).find((item) => item.id === draftId);
+  if (!draft) return;
+  state.agreement = {
+    ...createInitialAgreementState(),
+    ...(draft.agreement || {}),
+  };
+  state.quoteBuilder = {
+    ...state.quoteBuilder,
+    ...(draft.quoteBuilder || {}),
+    options: Array.isArray(draft.quoteBuilder?.options)
+      ? draft.quoteBuilder.options
+      : state.quoteBuilder.options,
+  };
+  state.workspace.activeBookingDraftId = draft.id;
+  state.workspace.agreementStep = Math.max(1, Math.min(AGREEMENT_STEP_COUNT, Number(draft.agreementStep || 1)));
+  state.workspace.bookingSaved = Boolean(draft.bookingSaved && draft.bookingEventId);
+  state.workspace.bookingEventId = draft.bookingEventId || "";
+  state.workspace.contractWizardOpen = false;
+  state.activeTab = "agreement";
+  syncAgreementForm();
+  updateHolidayFromDate();
+  updateAgreementPreview();
+  renderAgreementStepUI();
+  if (switchTopView) {
+    switchTopView("bookkeeping");
+  }
+  saveDraft();
+  setAgreementCalendarStatus("Draft reopened. Make edits, save booking, or generate the contract when ready.");
+}
+
+function deleteBookingDraft(draftId) {
+  state.bookingDrafts = (state.bookingDrafts || []).filter((item) => item.id !== draftId);
+  if (state.workspace.activeBookingDraftId === draftId) {
+    state.workspace.activeBookingDraftId = "";
+  }
+  saveDraft();
+  renderBookHubDrafts();
+  renderHomeDrafts();
+}
+
+function syncActiveBookingDraftAfterSave(eventId) {
+  const draftId = state.workspace.activeBookingDraftId || "";
+  if (!draftId) return;
+  const now = new Date().toISOString();
+  state.bookingDrafts = (state.bookingDrafts || []).map((draft) => {
+    if (draft.id !== draftId) return draft;
+    return {
+      ...draft,
+      updatedAt: now,
+      agreementStep: state.workspace.agreementStep || draft.agreementStep || 1,
+      bookingEventId: eventId || draft.bookingEventId || "",
+      bookingSaved: Boolean(eventId || draft.bookingEventId),
+      agreement: clonePlainObject(state.agreement),
+    };
+  });
+  renderBookHubDrafts();
+  renderHomeDrafts();
 }
 
 async function saveBookingOnly() {
@@ -9831,12 +10386,18 @@ async function saveBookingOnly() {
     state.workspace.bookingSaved = true;
     state.workspace.bookingEventId = result.eventId || "";
     state.workspace.contractWizardOpen = false;
+    state.workspace.agreementStep = AGREEMENT_STEP_COUNT;
+    syncActiveBookingDraftAfterSave(result.eventId || "");
     updateSupabaseStatus("Booking saved.");
     setAgreementCalendarStatus(
-      "Booking saved. Generate Contract whenever you're ready."
+      "Booking saved. Choose Create Quote Link or Generate Contract Link when ready."
     );
     renderAgreementStepUI();
     saveDraft();
+    const reviewSection = document.querySelector("[data-agreement-step='5']");
+    if (reviewSection && typeof reviewSection.scrollIntoView === "function") {
+      reviewSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
     return;
   }
   if (result?.reason === "not_signed_in") {
@@ -10031,8 +10592,14 @@ function syncAgreementFeeOverrideFromForm() {
   const feeTotalInput = document.getElementById("feeTotal");
   if (!feeTotalInput) return;
   const rawValue = feeTotalInput.value.trim();
-  state.agreement.feeTotal = rawValue;
-  state.agreement.feeManualOverride = rawValue !== "";
+  if (!rawValue) {
+    state.agreement.feeTotal = "";
+    state.agreement.feeManualOverride = false;
+    return;
+  }
+  if (state.agreement.feeManualOverride) {
+    state.agreement.feeTotal = rawValue;
+  }
 }
 
 function syncFriendsFamilyDiscountFromForm() {
@@ -10497,7 +11064,7 @@ function buildPromoScript(channel = "email", option = 1) {
   const city = builder.city ? ` in ${builder.city}` : "";
   const bookingType = builder.bookingType || "Venue booking";
   const relationship = builder.relationship || "First Contact";
-  const bandName = profile.bandName || dna.bandName || epk.bandName || "Rust and Ruin";
+  const bandName = profile.bandName || dna.bandName || epk.bandName || "your band";
   const genreText = builder.genre || (Array.isArray(dna.genreTags) ? dna.genreTags.join(", ") : "") || profile.genreTags || profile.genreLine || "";
   const lineupText = builder.lineup || dna.lineups?.[0]?.name || profile.lineupSummary || "";
   const openDatesText = builder.openDates || "a few open dates coming up";
@@ -10616,7 +11183,7 @@ function buildPromoScript(channel = "email", option = 1) {
 
   const proofLines = relationship === "First Contact"
     ? [
-        epk.shortBio || `${bandName} is a Vermont-based live act offering flexible sets for venues, private events, and community gatherings.`,
+        epk.shortBio || `${bandName} is a live act offering flexible sets for venues, private events, and community gatherings.`,
         epk.website ? `Website: ${epk.website}` : "",
         epk.musicLink ? `Music: ${epk.musicLink}` : "",
         epk.videoLink ? `Video: ${epk.videoLink}` : "",
@@ -10693,13 +11260,13 @@ function buildPromoScript(channel = "email", option = 1) {
   const contactBlock = [
     `Thanks,`,
     profile.signoffBand || bandName,
-    profile.signoffEmail || epk.contactEmail || dna.contactEmail || "rustandruinvt@gmail.com",
+    profile.signoffEmail || epk.contactEmail || dna.contactEmail || "",
     epk.contactPhone || "",
   ].filter(Boolean).join("\n");
   const returningContactBlock = [
-    profile.signoffName || dna.signoffName || `Beth (and Josh)`,
+    profile.signoffName || dna.signoffName || "",
     profile.signoffBand || bandName,
-    profile.signoffEmail || epk.contactEmail || dna.contactEmail || "rustandruinvt@gmail.com",
+    profile.signoffEmail || epk.contactEmail || dna.contactEmail || "",
   ].filter(Boolean).join("\n");
 
   const toneLead = {
@@ -10714,7 +11281,7 @@ function buildPromoScript(channel = "email", option = 1) {
     ? `I hope you're doing well.`
     : `Hope you're doing well!`;
   const firstContactIntro = [
-    `My name is Beth, and I'm one half of ${bandName}${profile.hometown ? `, based in ${profile.hometown}` : ""}.`,
+    `${bandName}${profile.hometown ? ` is based in ${profile.hometown}` : ""}.`,
     profile.introLine || profile.originalsCoversLine || profile.vibeLine
       ? `${bandName} is ${profile.introLine || profile.lineupSummary || (hasLineup ? `${lineupText.toLowerCase()}` : "a live act")}${profile.originalsCoversLine ? ` playing ${profile.originalsCoversLine}` : ""}${profile.vibeLine ? ` with ${profile.vibeLine}` : ""}.`
       : epk.shortBio || `${bandName} is a live act with a laid-back, feel-good vibe.`,
@@ -10880,9 +11447,9 @@ function buildPromoScript(channel = "email", option = 1) {
       ...firstContactExtras,
       "",
       builder.tone === "Professional" ? "Warmly," : "Warmly,",
-      profile.signoffName || dna.signoffName || "Beth (and Josh)",
+      profile.signoffName || dna.signoffName || "",
       profile.signoffBand || bandName,
-      profile.signoffEmail || epk.contactEmail || dna.contactEmail || "rustandruinvt@gmail.com",
+      profile.signoffEmail || epk.contactEmail || dna.contactEmail || "",
     ].filter(Boolean).join("\n");
   }
 
@@ -11811,12 +12378,7 @@ function removeEventFromEverywhere(event) {
 }
 
 function getCanonicalSeededShowTitle(showDate) {
-  return (
-    SEEDED_TODD_SHOW_FILES.find((show) => show.show_date === showDate)?.show_title ||
-    SEEDED_DAN_SHOW_FILES.find((show) => show.show_date === showDate)?.show_title ||
-    SEEDED_BOOKED_EVENTS.find((event) => event.date === showDate)?.title ||
-    ""
-  );
+  return SEEDED_BOOKED_EVENTS.find((event) => event.date === showDate)?.title || "";
 }
 
 function isInternalSeededNote(noteText) {
@@ -11870,38 +12432,6 @@ function ensureSeededShowFilesForMusician(namePattern, showDates, idPrefix) {
     saveDraft();
   }
   return added || updated;
-}
-
-function ensureToddSeededShowFiles() {
-  return ensureSeededShowFilesForMusician(
-    /\btodd\b/i,
-    SEEDED_TODD_SHOW_FILES.map((show) => show.show_date),
-    "seeded-todd-show"
-  );
-}
-
-function ensureDanSeededShowFiles() {
-  return ensureSeededShowFilesForMusician(
-    /\bdan\b/i,
-    SEEDED_DAN_SHOW_FILES.map((show) => show.show_date),
-    "seeded-dan-show"
-  );
-}
-
-function ensureJennySeededShowFiles() {
-  return ensureSeededShowFilesForMusician(
-    /\bjenny\b/i,
-    SEEDED_JENNY_GARY_SHOW_DATES,
-    "seeded-jenny-show"
-  );
-}
-
-function ensureGarySeededShowFiles() {
-  return ensureSeededShowFilesForMusician(
-    /\bgary\b/i,
-    SEEDED_JENNY_GARY_SHOW_DATES,
-    "seeded-gary-show"
-  );
 }
 
 function ensureSeededMusicianBlackouts() {
@@ -12196,13 +12726,6 @@ async function fetchMusicians() {
     return;
   }
   state.musicians = data || [];
-  if (isBethBandDNA(state.bandDNA)) {
-    ensureToddSeededShowFiles();
-    ensureDanSeededShowFiles();
-    ensureJennySeededShowFiles();
-    ensureGarySeededShowFiles();
-    ensureSeededMusicianBlackouts();
-  }
   renderMusicianList();
   renderMusicianAssignments();
   renderAssignmentSummaryLists();
@@ -12619,7 +13142,7 @@ async function renderBookedDatesList() {
     const hours = Number.isFinite(start.getTime()) && Number.isFinite(end.getTime())
       ? Math.max(1, hoursBetweenTimes(formatTimeInput(start), formatTimeInput(end)))
       : Math.max(1, Number(state.bandDNA.minimumHours || 2));
-    const ratePerHour = toNumber(matchingLineup?.rate) || (toNumber(state.bandDNA.musicianHourlyRate || 50) * count);
+    const ratePerHour = toNumber(matchingLineup?.rate) || (toNumber(state.bandDNA.musicianHourlyRate) * count);
     return [{
       label: `${lineupLabel} · ${formatHourValue(hours)} hrs`,
       sets: `${formatHourValue(hours)} hrs`,
@@ -12735,9 +13258,9 @@ async function renderBookedDatesList() {
     const matchingLineup = (Array.isArray(state.bandDNA.lineups) ? state.bandDNA.lineups : [])
       .find((l) => String(l?.name || "").toLowerCase() === lineup.toLowerCase());
     const count = getLineupMusicianCount(lineup, matchingLineup || {});
-    const ratePerHour = toNumber(matchingLineup?.rate) || (toNumber(state.bandDNA.musicianHourlyRate || 50) * count);
+    const ratePerHour = toNumber(matchingLineup?.rate) || (toNumber(state.bandDNA.musicianHourlyRate) * count);
     const performanceFee = ratePerHour * hours;
-    const depositAmount = toNumber(state.bandDNA.defaultDeposit || 50);
+    const depositAmount = toNumber(state.bandDNA.defaultDeposit || depositDefault);
     const bandDetails = getBandContractDetails();
     const paymentConfig = getBandPaymentConfig();
     const { data: insertedContract, error } = await client.from("contracts").insert({
@@ -13130,7 +13653,7 @@ async function renderBookedDatesList() {
           complete: Boolean(flow.contractSentAt),
           metaText: formatPipelineTime(flow.contractSentAt, "Not sent yet"),
           actionLabel: flow.contractSentAt ? "Copy Contract Link" : "Generate Contract Link",
-            action: async () => { if (!client || !state.calendar.session || !event?.id) { detailStatus.textContent = "Sign in first."; return; } const { data: ex } = await client.from("contracts").select("id").eq("event_id", event.id).limit(1); let cId = ex&&ex.length ? ex[0].id : null; if (!cId) { const { data: ins, error } = await client.from("contracts").insert({ name: (event.title||"Event")+" Agreement", file_path: null, event_id: event.id, status: "Pending signature" }).select("id").single(); if (error||!ins) { detailStatus.textContent = "Error: "+error?.message; return; } cId = ins.id; } const link = "https://gigos.netlify.app/contract.html?id="+cId; await copyTextToClipboard(link); await client.from("events").update({ contract_sent_at: new Date().toISOString() }).eq("id", event.id); const start2 = new Date(event.start_time||Date.now()); await client.from("contracts").update({ client_name: event.title||"", event_date: start2.toISOString().slice(0,10), event_type: event.type||"", performance_time: start2.toTimeString().slice(0,5), performance_end_time: new Date(event.end_time||event.start_time).toTimeString().slice(0,5), lineup: getShowLineupLabel(event), band_name: state.bandDNA.bandName||"Rust and Ruin", band_email: state.bandDNA.contactEmail||"", band_phone: state.bandDNA.contactPhone||"", payment_methods: buildDynamicPaymentMethodsText(), venmo_handle: state.bandDNA.venmoHandle||"", paypal_handle: state.bandDNA.paypalHandle||"" }).eq("id", cId); detailStatus.textContent = "Contract link ready — send to your client!"; let lw = document.getElementById("clw-"+event.id); if(!lw){lw=document.createElement("div");lw.id="clw-"+event.id;lw.style="margin:12px 0;padding:14px;background:#fdf0e3;border:1px solid #e8a855;border-radius:12px;";lw.innerHTML="<p style='font-size:11px;font-weight:700;color:#8a5010;margin:0 0 8px;text-transform:uppercase;'>Send to Client</p><input readonly style='width:100%;padding:8px;border:1px solid #e8a855;border-radius:8px;font-size:12px;background:#fff;color:#2c1a00;box-sizing:border-box;' value='"+link+"' />";detailStatus.insertAdjacentElement("afterend",lw);} showContractLinkToast("Contract link copied."); showContractLinkToast("Contract link copied."); },
+            action: async () => { if (!client || !state.calendar.session || !event?.id) { detailStatus.textContent = "Sign in first."; return; } const { data: ex } = await client.from("contracts").select("id").eq("event_id", event.id).limit(1); let cId = ex&&ex.length ? ex[0].id : null; if (!cId) { const { data: ins, error } = await client.from("contracts").insert({ name: (event.title||"Event")+" Agreement", file_path: null, event_id: event.id, status: "Pending signature" }).select("id").single(); if (error||!ins) { detailStatus.textContent = "Error: "+error?.message; return; } cId = ins.id; } const link = "https://gigos.netlify.app/contract.html?id="+cId; await copyTextToClipboard(link); await client.from("events").update({ contract_sent_at: new Date().toISOString() }).eq("id", event.id); const start2 = new Date(event.start_time||Date.now()); await client.from("contracts").update({ client_name: event.title||"", event_date: start2.toISOString().slice(0,10), event_type: event.type||"", performance_time: start2.toTimeString().slice(0,5), performance_end_time: new Date(event.end_time||event.start_time).toTimeString().slice(0,5), lineup: getShowLineupLabel(event), band_name: state.bandDNA.bandName||"", band_email: state.bandDNA.contactEmail||"", band_phone: state.bandDNA.contactPhone||"", payment_methods: buildDynamicPaymentMethodsText(), venmo_handle: state.bandDNA.venmoHandle||"", paypal_handle: state.bandDNA.paypalHandle||"" }).eq("id", cId); detailStatus.textContent = "Contract link ready — send to your client!"; let lw = document.getElementById("clw-"+event.id); if(!lw){lw=document.createElement("div");lw.id="clw-"+event.id;lw.style="margin:12px 0;padding:14px;background:#fdf0e3;border:1px solid #e8a855;border-radius:12px;";lw.innerHTML="<p style='font-size:11px;font-weight:700;color:#8a5010;margin:0 0 8px;text-transform:uppercase;'>Send to Client</p><input readonly style='width:100%;padding:8px;border:1px solid #e8a855;border-radius:8px;font-size:12px;background:#fff;color:#2c1a00;box-sizing:border-box;' value='"+link+"' />";detailStatus.insertAdjacentElement("afterend",lw);} showContractLinkToast("Contract link copied."); showContractLinkToast("Contract link copied."); },
         });
         appendStep({
           key: "contract-signed",
@@ -13511,7 +14034,6 @@ async function fetchMusicianBlackouts() {
     return;
   }
   state.calendar.blackouts = data || [];
-  ensureSeededMusicianBlackouts();
   renderBlackoutList();
 }
 
@@ -13614,14 +14136,16 @@ function setupListeners() {
           if (promo) promo.checked = false;
           const live = document.getElementById("liveVideoCredit");
           if (live) live.checked = false;
-        } else if (!state.agreement.depositAmount) {
-          state.agreement.depositAmount = String(depositDefault);
+        } else if (!state.agreement.depositAmount || toNumber(state.agreement.depositAmount) <= 0) {
+          const bandDNADeposit = toNumber(state.bandDNA.defaultDeposit);
+          state.agreement.depositAmount = String(bandDNADeposit > 0 ? bandDNADeposit : depositDefault);
           const depositInput = document.getElementById("depositAmount");
           if (depositInput) depositInput.value = state.agreement.depositAmount;
         }
       }
       if (field === "depositWaived" && state.agreement.depositWaived && !state.agreement.depositAmount) {
-        state.agreement.depositAmount = String(depositDefault);
+        const bandDNADeposit = toNumber(state.bandDNA.defaultDeposit);
+        state.agreement.depositAmount = String(bandDNADeposit > 0 ? bandDNADeposit : depositDefault);
         const depositInput = document.getElementById("depositAmount");
         if (depositInput) depositInput.value = state.agreement.depositAmount;
       }
@@ -13783,6 +14307,7 @@ function setupListeners() {
     if (topTarget === "marketing") return "marketing";
     if (
       topTarget === "calendar" ||
+      topTarget === "bandprofile" ||
       topTarget === "workorders" ||
       topTarget === "shows" ||
       topTarget === "musicians" ||
@@ -13940,7 +14465,8 @@ function setupListeners() {
     updateMessagePreview();
     saveDraft();
     syncTopLevelShellDisplays();
-    if (target === "home") {
+  if (target === "home") {
+      renderHomeDrafts();
       void (async () => {
         await updateOpsProgress();
         applyRoleBasedUI();
@@ -14001,6 +14527,10 @@ function setupListeners() {
     }
     if (topTarget === "more") {
       switchPanel("more");
+      return;
+    }
+    if (topTarget === "bandprofile") {
+      switchPanel("bandprofile");
       return;
     }
     if (topTarget === "workorders") {
@@ -14120,6 +14650,7 @@ function setupListeners() {
   const bookHubCreateQuoteBtn = document.getElementById("bookHubCreateQuote");
   if (bookHubCreateQuoteBtn) {
     bookHubCreateQuoteBtn.addEventListener("click", () => {
+      refreshQuoteBuilderFromAgreement();
       state.activeTab = "quotebuilder";
       switchTop("bookkeeping");
       switchPanel("quotebuilder");
@@ -14158,8 +14689,15 @@ function setupListeners() {
   const homeEditBandDNABtn = document.getElementById("homeEditBandDNA");
   if (homeEditBandDNABtn) {
     homeEditBandDNABtn.addEventListener("click", () => {
-      state.onboardingStep = 1;
-      switchTop("onboarding");
+      switchTop("bandprofile");
+    });
+  }
+  const homeOpenBookDraftsBtn = document.getElementById("homeOpenBookDrafts");
+  if (homeOpenBookDraftsBtn) {
+    homeOpenBookDraftsBtn.addEventListener("click", () => {
+      state.activeTab = "bookhub";
+      switchTop("bookkeeping");
+      switchPanel("bookhub");
     });
   }
   const docsOpenSignedContractsBtn = document.getElementById("docsOpenSignedContracts");
@@ -14218,6 +14756,10 @@ function setupListeners() {
         renderWorkOrders();
         return;
       }
+      if (target === "bandprofile") {
+        switchTop("bandprofile");
+        return;
+      }
       if (target === "shows") {
         switchTop("shows");
         return;
@@ -14246,7 +14788,13 @@ function setupListeners() {
 
   const saveReusableBandProfileBtn = document.getElementById("saveReusableBandProfile");
   if (saveReusableBandProfileBtn) {
-    saveReusableBandProfileBtn.addEventListener("click", saveReusableBandProfile);
+    saveReusableBandProfileBtn.addEventListener("click", () => {
+      saveReusableBandProfile();
+      if (state.agreement.depositEnabled && !state.agreement.depositWaived) {
+        applyBandDNADepositDefaultToAgreement();
+        updateAgreementPreview();
+      }
+    });
   }
   const addLineupRateBtn = document.getElementById("addLineupRate");
   if (addLineupRateBtn) {
@@ -14254,6 +14802,16 @@ function setupListeners() {
       syncReusableBandProfileFromForm();
       state.workOrderWorkspace.pricingProfile.lineupRates.push(createLineupRateEntry());
       renderLineupRateEntries();
+      saveDraft();
+      setBandProfileStatus("");
+    });
+  }
+  const addBandDNAAddonBtn = document.getElementById("addBandDNAAddon");
+  if (addBandDNAAddonBtn) {
+    addBandDNAAddonBtn.addEventListener("click", () => {
+      syncReusableBandProfileFromForm();
+      state.bandDNA.addons = [...(state.bandDNA.addons || []), createBandDNAAddonEntry()];
+      renderBandDNAAddonEntries();
       saveDraft();
       setBandProfileStatus("");
     });
@@ -14266,6 +14824,8 @@ function setupListeners() {
   const createQuoteBtn = document.getElementById("createQuoteBtn");
   if (createQuoteBtn) {
     createQuoteBtn.addEventListener("click", () => {
+      refreshQuoteBuilderFromAgreement();
+      saveDraft();
       state.activeTab = "quotebuilder";
       switchTop("bookkeeping");
       switchPanel("quotebuilder");
@@ -14275,10 +14835,30 @@ function setupListeners() {
   if (saveBookingOnlyBtn) {
     saveBookingOnlyBtn.addEventListener("click", saveBookingOnly);
   }
+  const quickSaveBookingBtn = document.getElementById("quickSaveBooking");
+  if (quickSaveBookingBtn) {
+    quickSaveBookingBtn.addEventListener("click", saveBookingOnly);
+  }
+  const saveBookingDraftBtn = document.getElementById("saveBookingDraft");
+  if (saveBookingDraftBtn) {
+    saveBookingDraftBtn.addEventListener("click", saveBookingAsDraft);
+  }
   const generateQuoteBtn = document.getElementById("generateQuoteBtn");
   if (generateQuoteBtn) {
     generateQuoteBtn.addEventListener("click", saveQuoteToSupabase);
   }
+  const quoteBackToBookingBtns = [
+    document.getElementById("quoteBackToBooking"),
+    document.getElementById("quoteBackToBookingBottom"),
+  ].filter(Boolean);
+  quoteBackToBookingBtns.forEach((quoteBackToBookingBtn) => {
+    quoteBackToBookingBtn.addEventListener("click", () => {
+      state.activeTab = "agreement";
+      state.workspace.agreementStep = AGREEMENT_STEP_COUNT;
+      switchTop("bookkeeping");
+      switchPanel("agreement");
+    });
+  });
   const copyQuoteLinkBtn = document.getElementById("copyQuoteLinkBtn");
   if (copyQuoteLinkBtn) {
     copyQuoteLinkBtn.addEventListener("click", () => {
@@ -14296,12 +14876,17 @@ function setupListeners() {
   }
   const openQuoteLinkBtn = document.getElementById("openQuoteLinkBtn");
   if (openQuoteLinkBtn) {
-    openQuoteLinkBtn.addEventListener("click", () => {
+    openQuoteLinkBtn.addEventListener("click", async () => {
       const link = document.getElementById("quoteLinkDisplay")?.value.trim() || "";
       if (!link) {
         setQuoteBuilderStatus("Generate a quote link first.", true);
         return;
       }
+      await copyTextToClipboard(link, {
+        statusEl: getQuoteBuilderStatusEl(),
+        successMessage: "Quote link copied. Preview opened in a new tab.",
+        failureMessage: "Preview opened. Copy the link from the box above if needed.",
+      });
       window.open(link, "_blank");
     });
   }
@@ -14339,10 +14924,21 @@ function setupListeners() {
   const quoteBuilderTab = document.getElementById("quoteBuilderTab");
   if (quoteBuilderTab) {
     quoteBuilderTab.addEventListener("click", (event) => {
+      const cartRemoveBtn = event.target.closest("[data-cart-remove-option]");
+      if (cartRemoveBtn) {
+        const removeIndex = Number(cartRemoveBtn.getAttribute("data-cart-remove-option"));
+        const nextOptions = collectAllQuoteOptionsFromDom();
+        if (nextOptions[removeIndex]) nextOptions[removeIndex].included = false;
+        state.quoteBuilder.options = nextOptions;
+        renderQuoteOptionRows(nextOptions);
+        saveDraft();
+        return;
+      }
+
       const removeBtn = event.target.closest("[data-remove-quote-option]");
       if (removeBtn) {
         const removeIndex = Number(removeBtn.getAttribute("data-remove-quote-option"));
-        const nextOptions = collectQuoteOptionsFromDom().filter((_, index) => index !== removeIndex);
+        const nextOptions = collectAllQuoteOptionsFromDom().filter((_, index) => index !== removeIndex);
         state.quoteBuilder.options = nextOptions;
         renderQuoteOptionRows(nextOptions.length ? nextOptions : [{
           label: "",
@@ -14351,13 +14947,14 @@ function setupListeners() {
           deposit: state.bandDNA.defaultDeposit || "",
           detail: "",
           featured: false,
+          included: true,
         }]);
         saveDraft();
         return;
       }
 
       if (event.target.closest("#addQuoteOptionBtn")) {
-        const existingOptions = collectQuoteOptionsFromDom();
+        const existingOptions = collectAllQuoteOptionsFromDom();
         if (existingOptions.length >= 3) return;
         existingOptions.push({
           label: "",
@@ -14366,6 +14963,7 @@ function setupListeners() {
           deposit: state.bandDNA.defaultDeposit || "",
           detail: "",
           featured: false,
+          included: false,
         });
         state.quoteBuilder.options = existingOptions;
         renderQuoteOptionRows(existingOptions);
@@ -14382,12 +14980,14 @@ function setupListeners() {
     });
 
     quoteBuilderTab.addEventListener("input", () => {
-      state.quoteBuilder.options = collectQuoteOptionsFromDom();
+      state.quoteBuilder.options = collectAllQuoteOptionsFromDom();
       saveDraft();
     });
 
-    quoteBuilderTab.addEventListener("change", () => {
-      state.quoteBuilder.options = collectQuoteOptionsFromDom();
+    quoteBuilderTab.addEventListener("change", (event) => {
+      const shouldReorder = event.target?.matches?.("[data-quote-field='included']");
+      state.quoteBuilder.options = collectAllQuoteOptionsFromDom();
+      if (shouldReorder) renderQuoteOptionRows(state.quoteBuilder.options);
       saveDraft();
     });
   }
@@ -14424,7 +15024,7 @@ function setupListeners() {
       if (navigator.share) {
         try {
           await navigator.share({
-            title: "Invoice from Rust and Ruin",
+            title: "Invoice",
             url: link,
           });
           if (statusEl) {
@@ -14492,7 +15092,7 @@ function setupListeners() {
       if (navigator.share) {
         try {
           await navigator.share({
-            title: "Performance contract — Rust & Ruin",
+            title: "Performance contract",
             text: "Here is your performance contract to review and sign:",
             url: link,
           });
@@ -15673,11 +16273,10 @@ async function init() {
     }
     if (state.bandDNA.migratedFromLegacy &&
         Array.isArray(state.bandDNA.lineups)) {
-      const musicianRate = parseFloat(
-        state.bandDNA.musicianHourlyRate || 50);
+      const musicianRate = toNumber(state.bandDNA.musicianHourlyRate);
       let repaired = false;
       state.bandDNA.lineups = state.bandDNA.lineups.map((lineup) => {
-        if (!lineup.rate || parseFloat(lineup.rate) === 0) {
+        if (musicianRate > 0 && (!lineup.rate || parseFloat(lineup.rate) === 0)) {
           const count = lineup.count ||
             getLineupMusicianCount(lineup.name);
           repaired = true;
@@ -15693,11 +16292,6 @@ async function init() {
     applyAgreementDefaultsFromProfiles(false);
     applyBandProfileToPromoBuilder(false);
     loadCalendarSettings();
-    ensureToddSeededShowFiles();
-    ensureDanSeededShowFiles();
-    ensureJennySeededShowFiles();
-    ensureGarySeededShowFiles();
-    ensureSeededMusicianBlackouts();
     refreshAgreementCreatedDate();
     if (!state.agreement.chargeNonPerformance) {
       state.agreement.nonPerformanceHours = "";

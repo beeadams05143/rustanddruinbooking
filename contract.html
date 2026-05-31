@@ -333,7 +333,7 @@
       }
 
       function renderSuccess(contract, clientName, bandDNA = {}) {
-        const band = escapeHtml(contract.band_name || "Rust and Ruin");
+        const band = escapeHtml(contract.band_name || "the band");
         const dep = formatMoney(contract.deposit_amount ?? 0);
         const methods = escapeHtml(contract.payment_methods || "the payment options in your agreement");
         const signedAt = escapeHtml(formatDisplayDate(new Date().toISOString()));
@@ -359,7 +359,7 @@
       }
 
       function renderContractPage(contract, bandDNA = {}) {
-        const band = escapeHtml(contract.band_name || "Rust and Ruin");
+        const band = escapeHtml(contract.band_name || "the band");
         const client = escapeHtml(contract.client_name || "there");
         const clientEmail = escapeHtml(contract.client_email || "—");
         const venue = escapeHtml(contract.venue_name || contract.venue_address || "—");
