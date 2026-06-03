@@ -3248,6 +3248,38 @@ function persistAgreementDraftSnapshot() {
   saveAgreementSnapshotForContract(activeContract);
 }
 
+function getAgreementValuesFromContractRecord(contract = {}) {
+  const values = {};
+  const fieldMap = {
+    client_name: "clientName",
+    client_email: "clientEmail",
+    venue_name: "venueName",
+    venue_address: "venueAddress",
+    event_date: "performanceDate",
+    event_type: "eventType",
+    performance_time: "performanceTime",
+    performance_end_time: "performanceEndTime",
+    hours: "hours",
+    lineup: "bandConfig",
+    deposit_amount: "depositAmount",
+    amount_due_day_of: "amountDueDayOf",
+  };
+  Object.entries(fieldMap).forEach(([source, target]) => {
+    const value = contract?.[source];
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      values[target] = String(value);
+    }
+  });
+  if (contract?.performance_fee !== undefined && contract.performance_fee !== null && String(contract.performance_fee).trim() !== "") {
+    values.feeTotal = String(contract.performance_fee);
+    values.feeManualOverride = true;
+  }
+  if (values.depositAmount && toNumber(values.depositAmount) > 0) {
+    values.depositEnabled = true;
+  }
+  return values;
+}
+
 function saveCalendarSettings() {
   try {
     const payload = {
@@ -9250,13 +9282,15 @@ async function openAgreementForCalendarEvent(event) {
 
   setAgreementDraftContext(draftContract);
   const snapshot = getAgreementSnapshotForContract(draftContract);
-  state.agreement = snapshot
-    ? { ...createInitialAgreementState(), ...snapshot }
-    : createInitialAgreementState();
+  state.agreement = {
+    ...createInitialAgreementState(),
+    ...(snapshot || {}),
+    ...getAgreementValuesFromContractRecord(existingContract || {}),
+  };
 
   const start = new Date(event.start_time);
   const end = new Date(event.end_time || event.start_time);
-  state.agreement.clientName = state.agreement.clientName || event.title || "";
+  state.agreement.clientName = existingContract?.client_name || event.title || state.agreement.clientName || "";
   state.agreement.performanceDate = formatDateInput(start);
   state.agreement.performanceTime = formatTimeInput(start);
   state.agreement.performanceEndTime = formatTimeInput(end);
@@ -10489,28 +10523,30 @@ function loadAgreementDraftFromContract(contract, options = {}) {
   const { switchView = false } = options;
   setAgreementDraftContext(contract);
   const snapshot = getAgreementSnapshotForContract(contract);
-  if (snapshot) {
-    state.agreement = { ...createInitialAgreementState(), ...snapshot };
-  } else {
-    state.agreement = createInitialAgreementState();
-  }
+  state.agreement = {
+    ...createInitialAgreementState(),
+    ...(snapshot || {}),
+    ...getAgreementValuesFromContractRecord(contract || {}),
+  };
   const linkedEvent = state.calendar.events.find((event) => event.id === contract.event_id);
   if (linkedEvent) {
     const start = new Date(linkedEvent.start_time);
     const end = new Date(linkedEvent.end_time || linkedEvent.start_time);
-    state.agreement.clientName = state.agreement.clientName || linkedEvent.title || "";
+    state.agreement.clientName = contract?.client_name || linkedEvent.title || state.agreement.clientName || "";
     state.agreement.performanceDate = formatDateInput(start);
     state.agreement.performanceTime = formatTimeInput(start);
     state.agreement.performanceEndTime = formatTimeInput(end);
   } else if (contract?.name) {
     state.agreement.clientName =
-      state.agreement.clientName ||
+      contract?.client_name ||
       String(contract.name).replace(/\s+Agreement$/i, "").trim();
   }
   state.workspace.agreementStep = 1;
   state.workspace.bookingSaved = Boolean(contract?.event_id);
   state.workspace.bookingEventId = contract?.event_id || "";
   state.workspace.contractWizardOpen = false;
+  state.workspace.contractShareId = "";
+  state.workspace.activeBookingDraftId = "";
   syncAgreementForm();
   updateAgreementPreview();
   renderAgreementStepUI();
