@@ -5110,8 +5110,8 @@ function renderInvoiceLinkDisplay(link = state.invoice.link || "") {
   const shareBtn = document.getElementById("invoiceShareLinkBtn");
   if (display) display.value = link || "";
   if (copyBtn) copyBtn.disabled = !link;
-  if (previewBtn) previewBtn.disabled = !link;
-  if (shareBtn) shareBtn.disabled = !link;
+  if (previewBtn) previewBtn.disabled = false;
+  if (shareBtn) shareBtn.disabled = false;
 }
 
 function renderReceiptLinkDisplay(link = state.receipt.link || "") {
@@ -15958,6 +15958,14 @@ function setupListeners() {
     await generatePdf("invoice", { invoiceData });
   });
   const invoiceCreateLinkBtn = document.getElementById("invoiceCreateLinkBtn");
+  const getOrCreateInvoiceLink = async () => {
+    const existingLink = document.getElementById("invoiceLinkDisplay")?.value.trim() || state.invoice.link || "";
+    if (existingLink) return existingLink;
+    const invoiceData = getInvoiceData();
+    applyInvoiceDataToState(invoiceData);
+    updateInvoicePreview();
+    return await saveInvoiceAndGetLink(invoiceData);
+  };
   if (invoiceCreateLinkBtn) {
     invoiceCreateLinkBtn.addEventListener("click", async (event) => {
       event.preventDefault();
@@ -16000,19 +16008,19 @@ function setupListeners() {
   }
   const invoicePreviewLinkBtn = document.getElementById("invoicePreviewLinkBtn");
   if (invoicePreviewLinkBtn) {
-    invoicePreviewLinkBtn.addEventListener("click", (event) => {
+    invoicePreviewLinkBtn.addEventListener("click", async (event) => {
       event.preventDefault();
-      const link = document.getElementById("invoiceLinkDisplay")?.value.trim() || "";
+      const link = await getOrCreateInvoiceLink();
       const statusEl = document.getElementById("invoiceStatus");
       if (!link) {
         if (statusEl) {
-          statusEl.textContent = "Generate the invoice link first, then preview it.";
+          statusEl.textContent = "Could not generate the invoice link for preview.";
           statusEl.classList.add("warning");
         }
         return;
       }
       if (statusEl) {
-        statusEl.textContent = "Preview opened using the existing invoice link.";
+        statusEl.textContent = "Customer preview opened.";
         statusEl.classList.remove("warning");
       }
       window.open(link, "_blank", "noopener,noreferrer");
@@ -16022,14 +16030,11 @@ function setupListeners() {
   if (invoiceShareLinkBtn) {
     invoiceShareLinkBtn.addEventListener("click", async (event) => {
       event.preventDefault();
-      const invoiceData = getInvoiceData();
-      applyInvoiceDataToState(invoiceData);
-      updateInvoicePreview();
-      const link = await saveInvoiceAndGetLink(invoiceData);
+      const link = await getOrCreateInvoiceLink();
       const statusEl = document.getElementById("invoiceStatus");
       if (!link) {
         if (statusEl) {
-          statusEl.textContent = "Could not save the invoice before sharing.";
+          statusEl.textContent = "Could not generate the invoice link before sharing.";
           statusEl.classList.add("warning");
         }
         return;
@@ -16045,7 +16050,7 @@ function setupListeners() {
             url: link,
           });
           if (statusEl) {
-            statusEl.textContent = "Invoice link generated and shared.";
+            statusEl.textContent = "Invoice shared.";
             statusEl.classList.remove("warning");
           }
           return;
@@ -16055,7 +16060,7 @@ function setupListeners() {
       }
       await copyTextToClipboard(payload, {
         statusEl,
-        successMessage: "Invoice link generated. Message copied for sharing.",
+        successMessage: "Invoice message copied for sharing.",
         failureMessage: "Could not copy invoice message.",
       });
     });
