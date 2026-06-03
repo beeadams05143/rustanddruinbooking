@@ -5106,9 +5106,11 @@ function applyInvoiceDataToState(data = {}) {
 function renderInvoiceLinkDisplay(link = state.invoice.link || "") {
   const display = document.getElementById("invoiceLinkDisplay");
   const copyBtn = document.getElementById("invoiceCopyLinkBtn");
+  const previewBtn = document.getElementById("invoicePreviewLinkBtn");
   const shareBtn = document.getElementById("invoiceShareLinkBtn");
   if (display) display.value = link || "";
   if (copyBtn) copyBtn.disabled = !link;
+  if (previewBtn) previewBtn.disabled = !link;
   if (shareBtn) shareBtn.disabled = !link;
 }
 
@@ -15394,23 +15396,24 @@ function setupListeners() {
     }
     const inBookkeeping =
       target === "agreement" || target === "invoice" || target === "receipt";
+    const showSharedBookkeepingTools = inBookkeeping && target !== "invoice";
     const showAgreementDocumentTools = target === "agreement" && state.workspace.contractWizardOpen;
     if (messagePreviewWrap) {
       if (target === "agreement") {
         messagePreviewWrap.classList.add("hidden");
       } else {
-        messagePreviewWrap.classList.toggle("hidden", !inBookkeeping);
+        messagePreviewWrap.classList.toggle("hidden", !showSharedBookkeepingTools);
       }
     }
     if (pdfActionsBar) {
       pdfActionsBar.classList.toggle(
         "hidden",
-        target === "agreement" ? !showAgreementDocumentTools : !inBookkeeping
+        target === "agreement" ? !showAgreementDocumentTools : !showSharedBookkeepingTools
       );
     }
-    if (topOpenPdfBtn) topOpenPdfBtn.classList.toggle("hidden", !inBookkeeping);
-    if (topPrintPdfBtn) topPrintPdfBtn.classList.toggle("hidden", !inBookkeeping);
-    if (sharePdfBtn) sharePdfBtn.classList.toggle("hidden", !inBookkeeping);
+    if (topOpenPdfBtn) topOpenPdfBtn.classList.toggle("hidden", !showSharedBookkeepingTools);
+    if (topPrintPdfBtn) topPrintPdfBtn.classList.toggle("hidden", !showSharedBookkeepingTools);
+    if (sharePdfBtn) sharePdfBtn.classList.toggle("hidden", !showSharedBookkeepingTools);
     document.querySelectorAll(".section-tab[data-panel]").forEach((btn) => {
       btn.classList.toggle("active", btn.getAttribute("data-panel") === target);
     });
@@ -15993,6 +15996,26 @@ function setupListeners() {
         failureMessage: "Could not copy invoice share link.",
       });
       window.open(link, "_blank");
+    });
+  }
+  const invoicePreviewLinkBtn = document.getElementById("invoicePreviewLinkBtn");
+  if (invoicePreviewLinkBtn) {
+    invoicePreviewLinkBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      const link = document.getElementById("invoiceLinkDisplay")?.value.trim() || "";
+      const statusEl = document.getElementById("invoiceStatus");
+      if (!link) {
+        if (statusEl) {
+          statusEl.textContent = "Generate the invoice link first, then preview it.";
+          statusEl.classList.add("warning");
+        }
+        return;
+      }
+      if (statusEl) {
+        statusEl.textContent = "Preview opened using the existing invoice link.";
+        statusEl.classList.remove("warning");
+      }
+      window.open(link, "_blank", "noopener,noreferrer");
     });
   }
   const invoiceShareLinkBtn = document.getElementById("invoiceShareLinkBtn");
