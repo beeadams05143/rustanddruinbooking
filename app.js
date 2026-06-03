@@ -5298,7 +5298,7 @@ async function saveReceiptAndGetLink(data = null) {
 async function saveReceiptPublicLinkToSupabase(client, receiptPayload, savedReceiptId = "") {
   const status = document.getElementById("receiptStatus");
   const publicPayload = {
-    event_id: null,
+    event_id: state.workspace.bookingEventId || null,
     client_name: receiptPayload.clientName || "",
     client_email: "",
     venue_name: receiptPayload.venueName || "",
