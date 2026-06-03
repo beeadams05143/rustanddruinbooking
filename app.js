@@ -770,6 +770,7 @@ async function hydrateAgreementFromBookingRecord(eventId = state.workspace.booki
 
   syncAgreementForm();
   updatePerformanceHoursFromTimes();
+  updateHolidayFromDate();
   updateAgreementPreview();
   return { event, quote, contract };
 }
@@ -10548,6 +10549,7 @@ function loadAgreementDraftFromContract(contract, options = {}) {
   state.workspace.contractShareId = "";
   state.workspace.activeBookingDraftId = "";
   syncAgreementForm();
+  updateHolidayFromDate();
   updateAgreementPreview();
   renderAgreementStepUI();
   saveDraft();
