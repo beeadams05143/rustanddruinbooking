@@ -5302,7 +5302,7 @@ async function saveReceiptPublicLinkToSupabase(client, receiptPayload, savedRece
     client_name: receiptPayload.clientName || "",
     client_email: "",
     venue_name: receiptPayload.venueName || "",
-    event_date: receiptPayload.eventDate || "",
+    event_date: receiptPayload.eventDate || null,
     options: [
       {
         __receipt: {
