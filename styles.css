@@ -124,11 +124,45 @@ body {
   bottom: 0;
   z-index: 50;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0;
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
   background: #e8942a;
   border-top: 0.5px solid #c97818;
+}
+
+.calendar-quick-actions {
+  justify-content: flex-end;
+  margin: 12px 0;
+}
+
+.recurrence-field {
+  gap: 10px;
+}
+
+.recurrence-week-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 8px;
+}
+
+.event-delete-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.event-delete-choices .danger {
+  border-color: #e58a4a;
+  color: #9a3f00;
+}
+
+.calendar-save-status {
+  flex: 1 1 260px;
+  margin: 0;
+  font-weight: 700;
 }
 
 .bottom-nav-tab {
@@ -1398,10 +1432,22 @@ body {
   border: 1px solid var(--stroke);
   border-radius: 14px;
   background: #f5efe3;
+  color: var(--ink);
 }
 
 .epk-summary-card p {
   margin: 0 0 10px;
+}
+
+.epk-summary-card strong {
+  color: var(--ink);
+}
+
+.epk-extra-note-preview {
+  padding: 12px 14px;
+  border-left: 4px solid var(--orange);
+  border-radius: 10px;
+  background: #fff8ea;
 }
 
 .priority-tag {
@@ -2342,6 +2388,28 @@ textarea {
   margin: 0;
 }
 
+.invoice-workflow-card {
+  margin-top: 22px;
+}
+
+.invoice-workflow-card .inline-actions {
+  align-items: stretch;
+}
+
+.invoice-workflow-card .btn {
+  min-width: 170px;
+}
+
+#invoiceLinkDisplay {
+  margin-top: 14px;
+  font-size: 0.9rem;
+}
+
+#receiptLinkDisplay {
+  margin-top: 14px;
+  font-size: 0.9rem;
+}
+
 .agreement-actions {
   flex-wrap: wrap;
   justify-content: flex-start;
@@ -2373,6 +2441,11 @@ textarea {
 
 #invoicePreview,
 #invoicePreview * {
+  color: #2c1a00 !important;
+}
+
+#receiptPreview,
+#receiptPreview * {
   color: #2c1a00 !important;
 }
 
@@ -2581,6 +2654,13 @@ textarea {
   white-space: nowrap;
 }
 
+.calendar-title-item.paused {
+  background: #eadfce;
+  border: 1px dashed #a06a2b;
+  color: #8a5a20;
+  font-style: italic;
+}
+
 .calendar-clip {
   font-size: 0.85rem;
   color: var(--ink-soft);
@@ -2668,6 +2748,9 @@ textarea {
 .calendar-title {
   font-weight: 700;
   font-size: 1.1rem;
+  color: #2c1a00;
+  opacity: 1;
+  text-align: center;
 }
 
 .calendar-grid {
@@ -2690,6 +2773,7 @@ textarea {
   min-height: 84px;
   padding: 8px;
   background: #f5efe3;
+  color: #2c1a00;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -2713,6 +2797,7 @@ textarea {
 
 .calendar-day-number {
   font-weight: 700;
+  color: #2c1a00;
 }
 
 .calendar-day.holiday .calendar-day-number {
@@ -2837,6 +2922,11 @@ textarea {
   font-size: 0.9rem;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.event-meta.paused {
+  color: #9a4f17;
+  font-weight: 700;
 }
 
 .app-header,

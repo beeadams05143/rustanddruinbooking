@@ -178,6 +178,37 @@
         };
       }
 
+      function normalizePublicInvoiceRow(row) {
+        const entries = Array.isArray(row?.options) ? row.options : [];
+        const invoiceEntry = entries.find((entry) => entry && typeof entry === "object" && entry.__invoice);
+        if (!invoiceEntry?.__invoice) return null;
+        const invoice = invoiceEntry.__invoice;
+        const meta = invoiceEntry.__meta || {};
+        return {
+          invoice: {
+            invoiceNumber: invoice.invoiceNumber || "",
+            clientName: invoice.clientName || row.client_name || "",
+            clientEmail: invoice.clientEmail || row.client_email || "",
+            issueDate: invoice.issueDate || "",
+            dueDate: invoice.dueDate || "",
+            description: invoice.description || "Live performance",
+            performanceFee: Number(invoice.performanceFee || 0),
+            depositDue: Number(invoice.depositDue || 0),
+            depositPaid: Number(invoice.depositPaid || 0),
+            addOns: Number(invoice.addOns || 0),
+            total: Number(invoice.total || 0),
+            performanceDate: invoice.performanceDate || row.event_date || "",
+          },
+          bandDNA: {
+            bandName: meta.band_name || invoice.bandDNA?.bandName || "",
+            contactEmail: meta.contact_email || invoice.bandDNA?.contactEmail || "",
+            contactPhone: meta.contact_phone || invoice.bandDNA?.contactPhone || "",
+            venmoHandle: meta.venmo_handle || invoice.bandDNA?.venmoHandle || "",
+            paypalHandle: meta.paypal_handle || invoice.bandDNA?.paypalHandle || "",
+          },
+        };
+      }
+
       function normalizeVenmoHandle(value) {
         return String(value || "")
           .trim()
@@ -242,9 +273,10 @@
 
       function renderInvoice(data, bandDNA = {}) {
         if (!data) {
-          statusEl.textContent = "Invoice not found.";
+          statusEl.textContent = "Invoice not found. Ask the sender to create a fresh invoice link.";
           return;
         }
+        statusEl.textContent = "";
         const totalDue = Number(data.total || 0) > 0
           ? Number(data.total || 0)
           : Number(data.performanceFee || 0) + Number(data.depositDue || 0) + Number(data.addOns || 0);
@@ -284,15 +316,6 @@
         let data = null;
         let bandDNA = {};
         let client = null;
-        if (shareId) {
-          try {
-            data = JSON.parse(localStorage.getItem(`${INVOICE_SHARE_STORAGE_PREFIX}${shareId}`) || "null");
-            bandDNA = data?.bandDNA || {};
-          } catch (error) {
-            data = null;
-          }
-        }
-
         if (window.supabase?.createClient && window.RR_SUPABASE_CONFIG?.url && window.RR_SUPABASE_CONFIG?.anonKey) {
           client = window.supabase.createClient(
             window.RR_SUPABASE_CONFIG.url,
@@ -307,6 +330,21 @@
           };
         }
 
+        if (!data && shareId && client && !String(shareId).startsWith("inv_")) {
+          try {
+            const { data: row, error } = await client
+              .from("invoices")
+              .select("*")
+              .eq("id", shareId)
+              .maybeSingle();
+            if (!error && row) {
+              data = normalizeInvoiceRow(row);
+            }
+          } catch (error) {
+            data = null;
+          }
+        }
+
         if (!data && invoiceNumber && client) {
           try {
             const { data: rows, error } = await client
@@ -318,6 +356,39 @@
             if (!error && Array.isArray(rows) && rows.length) {
               data = normalizeInvoiceRow(rows[0]);
             }
+          } catch (error) {
+            data = null;
+          }
+        }
+
+        if (!data && shareId && client) {
+          try {
+            const { data: publicRow, error } = await client
+              .from("quotes")
+              .select("*")
+              .eq("id", shareId)
+              .maybeSingle();
+            if (error) {
+              statusEl.textContent = `Could not load public invoice link: ${error.message || "permission denied"}`;
+            }
+            const publicInvoice = !error ? normalizePublicInvoiceRow(publicRow) : null;
+            if (publicInvoice?.invoice) {
+              data = publicInvoice.invoice;
+              bandDNA = {
+                ...bandDNA,
+                ...publicInvoice.bandDNA,
+              };
+            }
+          } catch (error) {
+            statusEl.textContent = `Could not load public invoice link: ${error.message || "unknown error"}`;
+            data = null;
+          }
+        }
+
+        if (!data && shareId) {
+          try {
+            data = JSON.parse(localStorage.getItem(`${INVOICE_SHARE_STORAGE_PREFIX}${shareId}`) || "null");
+            bandDNA = data?.bandDNA || bandDNA;
           } catch (error) {
             data = null;
           }

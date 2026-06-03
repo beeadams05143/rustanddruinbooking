@@ -1020,6 +1020,10 @@
                     Booking notes
                     <textarea id="epkBookingNotes" placeholder="Available for public venues, private events, community concerts, senior living, etc."></textarea>
                   </label>
+                  <label>
+                    Extra EPK + bio notes
+                    <textarea id="epkExtraNotes" placeholder="Stories, audience reactions, press notes, song details, or wording you want reflected in bios and EPK copy."></textarea>
+                  </label>
                 </div>
               </div>
 
@@ -1726,11 +1730,15 @@
               <span class="field-note">Use this only if you want the total due to be exactly this amount.</span>
             </label>
           </div>
-          <div class="form-footer">
-            <button class="btn ghost" id="invoiceCopyMessage" type="button" style="background:transparent;border:1px solid #e8a855;color:#f47c20;border-radius:20px;">Copy Invoice Message</button>
-            <button class="primary" id="generatePdfBtn" type="button">Generate / Share PDF</button>
-            <button class="btn ghost" id="invoiceCopyLinkBtn" type="button">Copy Share Link</button>
-            <button class="btn ghost" id="invoiceShareLinkBtn" type="button">Share Invoice</button>
+          <div class="form-section invoice-workflow-card">
+            <h3>Review & Send Invoice</h3>
+            <p class="inline-help">Invoices auto-save to the list below when you copy or share.</p>
+            <div class="inline-actions">
+              <button class="btn" id="invoiceCreateLinkBtn" type="button">Copy Invoice Message</button>
+              <button class="btn ghost" id="invoiceShareLinkBtn" type="button">Share Invoice</button>
+            </div>
+            <input id="invoiceLinkDisplay" readonly placeholder="Invoice link will appear here" />
+            <p id="invoiceStatus" class="muted"></p>
           </div>
           <div class="form-section">
             <h3>Saved Invoices</h3>
@@ -1741,9 +1749,7 @@
               </label>
             </div>
             <div class="inline-actions">
-              <button class="btn" id="invoiceSave">Save invoice to cloud</button>
               <button class="btn ghost" id="invoiceUpload">Upload PDF</button>
-              <p id="invoiceStatus" class="muted"></p>
             </div>
             <div id="invoiceList" class="event-list"></div>
           </div>
@@ -1829,9 +1835,15 @@
               <input id="receiptRelatedInvoice" />
             </label>
           </div>
-          <div class="form-footer">
-            <button class="btn ghost" id="receiptCopyMessage">Copy Receipt Message</button>
-            <button class="primary" id="receiptPdf">Generate / Share PDF</button>
+          <div class="form-section invoice-workflow-card">
+            <h3>Review & Send Receipt</h3>
+            <p class="inline-help">Receipts auto-save to the list below when you copy or share.</p>
+            <div class="inline-actions">
+              <button class="btn" id="receiptCreateLinkBtn" type="button">Copy Receipt Message</button>
+              <button class="btn ghost" id="receiptShareLinkBtn" type="button">Share Receipt</button>
+            </div>
+            <input id="receiptLinkDisplay" readonly placeholder="Receipt link will appear here" />
+            <p id="receiptStatus" class="muted"></p>
           </div>
           <div class="form-section">
             <h3>Saved Receipts</h3>
@@ -1842,9 +1854,7 @@
               </label>
             </div>
             <div class="inline-actions">
-              <button class="btn" id="receiptSave">Save receipt to cloud</button>
               <button class="btn ghost" id="receiptUpload">Upload PDF</button>
-              <p id="receiptStatus" class="muted"></p>
             </div>
             <div id="receiptList" class="event-list"></div>
           </div>
@@ -1920,6 +1930,9 @@
                 <div class="calendar-title" id="calendarTitle">Month Year</div>
                 <button class="btn ghost" id="calendarNext">Next</button>
               </div>
+              <div class="inline-actions calendar-quick-actions">
+                <button class="btn" id="calendarQuickAdd" type="button">+ Add date</button>
+              </div>
               <div class="calendar-grid calendar-weekdays">
                 <div>Sun</div>
                 <div>Mon</div>
@@ -1936,7 +1949,7 @@
           <div class="form-section">
             <h3>Add or Update Event</h3>
             <div class="inline-actions">
-              <button class="btn ghost" id="toggleCalendarForm">Add event</button>
+              <button class="btn ghost" id="toggleCalendarForm">+ Add date</button>
             </div>
             <div id="calendarEventFormWrap" class="hidden">
             <div class="form-grid">
@@ -1967,16 +1980,35 @@
                 End time
                 <input id="calendarEndTime" type="time" />
               </label>
+              <div class="field-stack recurrence-field">
+                <label>
+                  Repeat monthly
+                  <select id="calendarMonthlyWeek">
+                    <option value="">Do not repeat</option>
+                    <option value="1">1st matching weekday</option>
+                    <option value="2">2nd matching weekday</option>
+                    <option value="3">3rd matching weekday</option>
+                    <option value="4">4th matching weekday</option>
+                    <option value="last">Last matching weekday</option>
+                  </select>
+                </label>
+                <p class="inline-help" id="calendarRepeatHelp">For multiple monthly dates, choose the first date and check every week you need.</p>
+                <div class="recurrence-week-grid" id="calendarMonthlyWeeks">
+                  <label class="checkbox"><input type="checkbox" value="1" /> 1st</label>
+                  <label class="checkbox"><input type="checkbox" value="2" /> 2nd</label>
+                  <label class="checkbox"><input type="checkbox" value="3" /> 3rd</label>
+                  <label class="checkbox"><input type="checkbox" value="4" /> 4th</label>
+                  <label class="checkbox"><input type="checkbox" value="last" /> Last</label>
+                </div>
+              </div>
               <label>
-                Schedule every month
-                <select id="calendarMonthlyWeek">
-                  <option value="">Do not repeat</option>
-                  <option value="1">1st week</option>
-                  <option value="2">2nd week</option>
-                  <option value="3">3rd week</option>
-                  <option value="4">4th week</option>
-                  <option value="last">Last week</option>
-                </select>
+                Pause until
+                <input id="calendarPauseUntil" type="date" />
+                <span class="field-note">Paused dates stay on the calendar but do not count as booked shows.</span>
+              </label>
+              <label class="checkbox">
+                <input id="calendarPauseFuture" type="checkbox" checked />
+                Also pause matching future dates
               </label>
               <label>
                 Notes
@@ -2002,6 +2034,7 @@
             <div class="inline-actions">
               <button class="btn" id="calendarSave">Save event</button>
               <button class="btn ghost" id="calendarClear">Clear form</button>
+              <p class="muted calendar-save-status" id="calendarStatus"></p>
               <p id="calendarConflict" class="warning hidden"></p>
               <label class="pin-field hidden" id="overridePinWrap">
                 Override PIN
@@ -2014,7 +2047,6 @@
           <div class="form-section">
             <h3>Events on selected day</h3>
             <p class="muted" id="selectedEventLabel">Select a date to view events.</p>
-            <p class="muted" id="calendarStatus"></p>
             <p class="muted">
               How to link a contract: Click a date, then click <strong>Select</strong> on the event.
               In the Signed Contracts list, click <strong>Link to selected event</strong>.
@@ -2384,10 +2416,9 @@
               <h3>6. Share PDFs + Message</h3>
               <ol class="howto-list">
                 <li>Open the tab you need: <strong>Agreement</strong>, <strong>Invoice</strong>, or <strong>Receipt</strong>.</li>
-                <li>Click <strong>Generate / Share PDF</strong> to prepare the document.</li>
-                <li>The matching message is copied to your clipboard automatically.</li>
-                <li>Click <strong>Share PDF</strong> to send it directly from your phone if supported.</li>
-                <li>Paste the copied message into your email or text.</li>
+                <li>For invoices, click <strong>Copy Invoice Message</strong>. It auto-saves and includes the invoice link.</li>
+                <li>For receipts, click <strong>Copy Receipt Message</strong>. It auto-saves and includes the receipt link.</li>
+                <li>Use share buttons when you want the phone/browser share sheet.</li>
               </ol>
             </article>
 
@@ -2411,6 +2442,16 @@
             <p class="marketing-section-subtitle">Open the existing builder to create outreach messages, save templates, and manage your promo drafts.</p>
             <div class="inline-actions">
               <button class="btn" id="marketingOpenPromoBuilder" type="button">Open Promo + Outreach Builder</button>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3 class="marketing-section-title">EPK Builder</h3>
+            <p class="marketing-section-subtitle">Update your band profile, proof points, bios, links, photos, and booking notes.</p>
+            <div class="inline-actions">
+              <button class="btn" id="marketingOpenEpkBuilder" type="button">Open EPK Builder</button>
+              <button class="btn ghost" id="marketingCopyEpkDraft" type="button">Copy EPK Draft</button>
+              <p id="marketingEpkStatus" class="muted marketing-social-status" aria-live="polite"></p>
             </div>
           </div>
 
@@ -2493,6 +2534,19 @@
             </svg>
           </span>
           <span class="bottom-nav-label">Book</span>
+        </button>
+        <button class="bottom-nav-tab" data-bottom="calendar" type="button" aria-label="Calendar">
+          <span class="bottom-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="5" width="16" height="15" rx="2" />
+              <path d="M8 3v4" />
+              <path d="M16 3v4" />
+              <path d="M4 10h16" />
+              <path d="M12 13v4" />
+              <path d="M10 15h4" />
+            </svg>
+          </span>
+          <span class="bottom-nav-label">Calendar</span>
         </button>
         <button class="bottom-nav-tab" data-bottom="docs" type="button" aria-label="Docs">
           <span class="bottom-nav-icon" aria-hidden="true">

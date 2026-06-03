@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Receipt</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body {
+        background: #f5edd8;
+        margin: 0;
+        padding: 24px 16px 48px;
+      }
+
+      .receipt-shell {
+        width: min(100%, 880px);
+        margin: 0 auto;
+      }
+
+      .receipt-status {
+        margin: 0 auto 16px;
+        width: min(100%, 880px);
+        color: #8a6840;
+        text-align: center;
+      }
+
+      #receiptPreview,
+      #receiptPreview * {
+        color: #2c1a00 !important;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="receipt-status" id="receiptViewStatus">Loading receipt...</p>
+    <div class="receipt-shell">
+      <div class="receipt" id="receiptPreview">
+        <div class="invoice-header">
+          <div>
+            <p class="contract-tag">Receipt</p>
+            <h2 data-fill="bandName">Band Name</h2>
+            <p data-fill="receiptNumber"></p>
+          </div>
+          <div>
+            <p>Payment date: <span data-fill="receiptPaymentDate"></span></p>
+          </div>
+        </div>
+        <div class="invoice-body">
+          <p>Received from: <span data-fill="receiptClientName"></span></p>
+          <p>Payment method: <span data-fill="receiptPaymentMethod"></span></p>
+          <p>Related invoice: <span data-fill="receiptRelatedInvoice"></span></p>
+          <div class="invoice-total">
+            <span>Total paid</span>
+            <span data-fill="receiptAmountPaid"></span>
+          </div>
+        </div>
+        <footer class="contract-footer">
+          <p>Thank you for supporting live music.</p>
+          <p id="receiptBandContact"></p>
+        </footer>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const receiptId = params.get("id");
+      const receiptNumber = params.get("receipt");
+      const statusEl = document.getElementById("receiptViewStatus");
+
+      function setText(selector, value) {
+        document.querySelectorAll(selector).forEach((el) => {
+          el.textContent = value;
+        });
+      }
+
+      function toMoney(value) {
+        const amount = Number(value || 0);
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(Number.isFinite(amount) ? amount : 0);
+      }
+
+      function formatDate(value) {
+        if (!value) return "__";
+        const parsed = new Date(value);
+        if (!Number.isFinite(parsed.getTime())) {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+            const [year, month, day] = String(value).split("-").map(Number);
+            return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            });
+          }
+          return String(value);
+        }
+        return parsed.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+      }
+
+      function normalizeReceiptRow(row) {
+        if (!row) return null;
+        return {
+          receiptNumber: row.receipt_number || "",
+          clientName: row.client_name || "",
+          paymentDate: row.payment_date || "",
+          amountPaid: Number(row.amount_paid || 0),
+          paymentMethod: row.payment_method || "",
+          relatedInvoice: row.related_invoice || "",
+        };
+      }
+
+      function normalizePublicReceiptRow(row) {
+        const entries = Array.isArray(row?.options) ? row.options : [];
+        const receiptEntry = entries.find((entry) => entry && typeof entry === "object" && entry.__receipt);
+        if (!receiptEntry?.__receipt) return null;
+        const receipt = receiptEntry.__receipt;
+        const meta = receiptEntry.__meta || {};
+        return {
+          receipt: {
+            receiptNumber: receipt.receiptNumber || "",
+            clientName: receipt.clientName || row.client_name || "",
+            paymentDate: receipt.paymentDate || row.event_date || "",
+            amountPaid: Number(receipt.amountPaid || 0),
+            paymentMethod: receipt.paymentMethod || "",
+            relatedInvoice: receipt.relatedInvoice || "",
+          },
+          bandDNA: {
+            bandName: meta.band_name || "",
+            contactEmail: meta.contact_email || "",
+            contactPhone: meta.contact_phone || "",
+          },
+        };
+      }
+
+      async function loadBandDNA(client) {
+        if (!client) return {};
+        try {
+          const { data, error } = await client
+            .from("app_settings")
+            .select("value")
+            .eq("key", "band_dna")
+            .maybeSingle();
+          if (error || !data?.value) return {};
+          return JSON.parse(data.value) || {};
+        } catch (error) {
+          return {};
+        }
+      }
+
+      function renderReceipt(data, bandDNA = {}) {
+        if (!data) {
+          statusEl.textContent = "Receipt not found.";
+          return;
+        }
+        setText("[data-fill='bandName']", bandDNA.bandName || "the band");
+        setText("[data-fill='receiptNumber']", data.receiptNumber || "__");
+        setText("[data-fill='receiptClientName']", data.clientName || "__");
+        setText("[data-fill='receiptPaymentDate']", formatDate(data.paymentDate));
+        setText("[data-fill='receiptPaymentMethod']", data.paymentMethod || "__");
+        setText("[data-fill='receiptRelatedInvoice']", data.relatedInvoice || "__");
+        setText("[data-fill='receiptAmountPaid']", toMoney(data.amountPaid));
+        document.getElementById("receiptBandContact").textContent = [bandDNA.contactEmail, bandDNA.contactPhone]
+          .filter(Boolean)
+          .join(" · ");
+        statusEl.textContent = "";
+      }
+
+      async function loadReceipt() {
+        let client = null;
+        let data = null;
+        let bandDNA = {};
+        if (window.supabase?.createClient && window.RR_SUPABASE_CONFIG?.url && window.RR_SUPABASE_CONFIG?.anonKey) {
+          client = window.supabase.createClient(
+            window.RR_SUPABASE_CONFIG.url,
+            window.RR_SUPABASE_CONFIG.anonKey
+          );
+        }
+        if (client) {
+          bandDNA = await loadBandDNA(client);
+        }
+        if (receiptId && client) {
+          try {
+            const { data: row, error } = await client
+              .from("receipts")
+              .select("*")
+              .eq("id", receiptId)
+              .maybeSingle();
+            if (!error && row) data = normalizeReceiptRow(row);
+          } catch (error) {
+            data = null;
+          }
+        }
+        if (!data && receiptNumber && client) {
+          try {
+            const { data: rows, error } = await client
+              .from("receipts")
+              .select("*")
+              .eq("receipt_number", receiptNumber)
+              .order("created_at", { ascending: false })
+              .limit(1);
+            if (!error && Array.isArray(rows) && rows.length) {
+              data = normalizeReceiptRow(rows[0]);
+            }
+          } catch (error) {
+            data = null;
+          }
+        }
+        if (!data && receiptId && client) {
+          try {
+            const { data: publicRow, error } = await client
+              .from("quotes")
+              .select("*")
+              .eq("id", receiptId)
+              .maybeSingle();
+            if (error) {
+              statusEl.textContent = `Could not load public receipt link: ${error.message || "permission denied"}`;
+            }
+            const publicReceipt = !error ? normalizePublicReceiptRow(publicRow) : null;
+            if (publicReceipt?.receipt) {
+              data = publicReceipt.receipt;
+              bandDNA = {
+                ...bandDNA,
+                ...publicReceipt.bandDNA,
+              };
+            }
+          } catch (error) {
+            statusEl.textContent = `Could not load public receipt link: ${error.message || "unknown error"}`;
+            data = null;
+          }
+        }
+        renderReceipt(data, bandDNA);
+      }
+
+      loadReceipt();
+    </script>
+  </body>
+</html>
