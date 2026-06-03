@@ -11329,7 +11329,8 @@ function syncAgreementForm() {
     }
   });
 
-  const savedAmount = state.agreement.friendsFamilyDiscountAmount;
+  const discountEnabled = Boolean(state.agreement.friendsFamilyDiscount);
+  const savedAmount = discountEnabled ? state.agreement.friendsFamilyDiscountAmount : "";
   const discountButtonsWrap = document.getElementById("friendsFamilyDiscountButtons");
   if (discountButtonsWrap) {
     discountButtonsWrap.querySelectorAll("button[data-discount]").forEach((button) => {
@@ -11392,8 +11393,25 @@ function syncFriendsFamilyDiscountFromForm() {
   const discountEnabled = discountToggle ? discountToggle.checked : Boolean(state.agreement.friendsFamilyDiscount);
 
   state.agreement.friendsFamilyDiscount = discountEnabled;
+  if (!discountEnabled) {
+    state.agreement.friendsFamilyDiscountAmount = "";
+  }
   if (discountField) {
     discountField.value = state.agreement.friendsFamilyDiscountAmount || "0";
+  }
+  const discountButtonsWrap = document.getElementById("friendsFamilyDiscountButtons");
+  if (discountButtonsWrap) {
+    discountButtonsWrap.querySelectorAll("button[data-discount]").forEach((button) => {
+      button.classList.toggle(
+        "active",
+        Boolean(
+          discountEnabled &&
+            state.agreement.friendsFamilyDiscountAmount &&
+            state.agreement.friendsFamilyDiscountAmount !== "0" &&
+            button.getAttribute("data-discount") === state.agreement.friendsFamilyDiscountAmount
+        )
+      );
+    });
   }
 }
 
@@ -14976,6 +14994,9 @@ function setupListeners() {
         const depositInput = document.getElementById("depositAmount");
         if (depositInput) depositInput.value = state.agreement.depositAmount;
       }
+      if (field === "friendsFamilyDiscount") {
+        syncFriendsFamilyDiscountFromForm();
+      }
       updateAgreementPreview();
       renderAgreementStepUI();
       saveDraft();
@@ -14991,13 +15012,17 @@ function setupListeners() {
       const button = e.target.closest("button[data-discount]");
       if (!button) return;
       const amount = button.getAttribute("data-discount");
-      state.agreement.friendsFamilyDiscountAmount = amount;
+      const discountToggle = document.getElementById("friendsFamilyDiscount");
+      const enabled = amount !== "0";
+      state.agreement.friendsFamilyDiscount = enabled;
+      state.agreement.friendsFamilyDiscountAmount = enabled ? amount : "";
+      if (discountToggle) discountToggle.checked = enabled;
       const hiddenInput = document.getElementById("friendsFamilyDiscountAmount");
-      if (hiddenInput) hiddenInput.value = amount;
+      if (hiddenInput) hiddenInput.value = enabled ? amount : "0";
       discountButtonsWrap.querySelectorAll("button[data-discount]").forEach((btn) => {
         btn.classList.remove("active");
       });
-      if (amount !== "0") button.classList.add("active");
+      if (enabled) button.classList.add("active");
       if (state.workspace.bookingSaved) {
         state.workspace.bookingSaved = false;
         state.workspace.contractWizardOpen = false;
