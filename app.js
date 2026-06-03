@@ -7397,6 +7397,51 @@ function buildAgreementContractDigitalPayload() {
   };
 }
 
+async function saveContractPublicLinkToSupabase(client, contractPayload = {}, savedContractId = "") {
+  if (!client || !savedContractId) return "";
+  const publicPayload = {
+    event_id: state.workspace.bookingEventId || contractPayload.event_id || null,
+    client_name: contractPayload.client_name || "",
+    client_email: contractPayload.client_email || "",
+    venue_name: contractPayload.venue_name || contractPayload.venue_address || "",
+    event_date: contractPayload.event_date || "",
+    options: [
+      {
+        __contract: {
+          ...contractPayload,
+          savedContractId,
+          id: savedContractId,
+        },
+        __meta: {
+          band_name: state.bandDNA.bandName || contractPayload.band_name || "",
+          contact_email: state.bandDNA.contactEmail || contractPayload.band_email || "",
+          contact_phone: state.bandDNA.contactPhone || contractPayload.band_phone || "",
+          venmo_handle: normalizeVenmoHandle(state.bandDNA.venmoHandle || contractPayload.venmo_handle || ""),
+          paypal_handle: normalizePaypalHandle(state.bandDNA.paypalHandle || contractPayload.paypal_handle || ""),
+          payment_methods: contractPayload.payment_methods || buildDynamicPaymentMethodsText(),
+        },
+      },
+    ],
+    status: "contract_pending_signature",
+    expires_at: null,
+  };
+
+  const { data, error } = await client
+    .from("quotes")
+    .insert(publicPayload)
+    .select("id")
+    .single();
+  if (error || !data?.id) {
+    console.error("Contract public link save failed:", error);
+    setAgreementCalendarStatus(
+      formatSupabaseError(error, "Contract saved, but could not create a public signing link."),
+      true
+    );
+    return "";
+  }
+  return data.id;
+}
+
 async function autoSaveCreatedAgreementPdf(blob, fileName) {
   const client = state.calendar.client;
   if (!client || !state.calendar.session || !blob) return;
@@ -11170,7 +11215,10 @@ async function generateAgreementContractLink() {
   if (linkedEvent) linkedEvent.contract_sent_at = sentAt;
 
   state.workspace.contractShareId = contractId;
-  const link = getContractSigningPageUrl();
+  const publicShareId = await saveContractPublicLinkToSupabase(client, payload, contractId);
+  const link = publicShareId
+    ? getContractSigningPageUrl(publicShareId)
+    : getContractSigningPageUrl(contractId);
   const contractSendWrap = document.getElementById("contractSendWrap");
   const contractLinkDisplay = document.getElementById("contractLinkDisplay");
   if (contractSendWrap) contractSendWrap.classList.remove("hidden");

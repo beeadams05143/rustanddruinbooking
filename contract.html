@@ -224,6 +224,7 @@
       const contractId = params.get("id");
       const app = document.getElementById("app");
       let activeContractTable = "contracts";
+      let activeContractId = contractId;
 
       function escapeHtml(value) {
         return String(value || "")
@@ -314,6 +315,32 @@
         return {
           venmoHandle: contract.venmo_handle || bandDNA.venmoHandle || "",
           paypalHandle: contract.paypal_handle || bandDNA.paypalHandle || "",
+        };
+      }
+
+      function normalizePublicContractRow(row) {
+        const entries = Array.isArray(row?.options) ? row.options : [];
+        const contractEntry = entries.find((entry) => entry && typeof entry === "object" && entry.__contract);
+        if (!contractEntry?.__contract) return null;
+        const contract = {
+          ...contractEntry.__contract,
+          id: contractEntry.__contract.savedContractId || contractEntry.__contract.id || "",
+          event_id: contractEntry.__contract.event_id || row.event_id || null,
+          client_name: contractEntry.__contract.client_name || row.client_name || "",
+          client_email: contractEntry.__contract.client_email || row.client_email || "",
+          venue_name: contractEntry.__contract.venue_name || row.venue_name || "",
+          event_date: contractEntry.__contract.event_date || row.event_date || "",
+        };
+        const meta = contractEntry.__meta || {};
+        return {
+          contract,
+          bandDNA: {
+            bandName: meta.band_name || contract.band_name || "",
+            contactEmail: meta.contact_email || contract.band_email || "",
+            contactPhone: meta.contact_phone || contract.band_phone || "",
+            venmoHandle: meta.venmo_handle || contract.venmo_handle || "",
+            paypalHandle: meta.paypal_handle || contract.paypal_handle || "",
+          },
         };
       }
 
@@ -464,6 +491,10 @@
             signStatus.textContent = "Enter your full legal name and confirm you agree to the terms.";
             return;
           }
+          if (!activeContractId) {
+            signStatus.textContent = "This signing link is missing its contract record. Please ask for a fresh link.";
+            return;
+          }
           signBtn.disabled = true;
           signStatus.textContent = "Signing…";
           const signedAt = new Date().toISOString();
@@ -474,7 +505,7 @@
               client_signature: clientName,
               signed_ip: null,
             })
-            .eq("id", contractId);
+            .eq("id", activeContractId);
           if (error) {
             signStatus.textContent = "We could not save your signature. Please try again.";
             signBtn.disabled = false;
@@ -520,12 +551,37 @@
           const bandDNA = await loadBandDNA();
           let contract = null;
           let error = null;
-          ({ data: contract, error } = await supabaseClient
-            .from("contracts")
-            .select("*")
-            .eq("id", contractId)
-            .maybeSingle());
-          activeContractTable = "contracts";
+          let renderBandDNA = bandDNA;
+
+          try {
+            const { data: publicRow, error: publicError } = await supabaseClient
+              .from("quotes")
+              .select("*")
+              .eq("id", contractId)
+              .maybeSingle();
+            const publicContract = !publicError ? normalizePublicContractRow(publicRow) : null;
+            if (publicContract?.contract) {
+              contract = publicContract.contract;
+              renderBandDNA = {
+                ...renderBandDNA,
+                ...publicContract.bandDNA,
+              };
+              activeContractTable = "contracts";
+              activeContractId = contract.id || contract.savedContractId || "";
+            }
+          } catch (publicError) {
+            contract = null;
+          }
+
+          if (!contract) {
+            ({ data: contract, error } = await supabaseClient
+              .from("contracts")
+              .select("*")
+              .eq("id", contractId)
+              .maybeSingle());
+            activeContractTable = "contracts";
+            activeContractId = contractId;
+          }
           if (error || !contract) {
             const detail = error?.message
               ? `Contract unavailable: ${error.message}`
@@ -534,10 +590,10 @@
             return;
           }
           if (contract.signed_at) {
-            renderSigned(contract, bandDNA);
+            renderSigned(contract, renderBandDNA);
             return;
           }
-          renderContractPage(contract, bandDNA);
+          renderContractPage(contract, renderBandDNA);
         } catch (e) {
           setUnavailable(e?.message ? `Contract unavailable: ${e.message}` : undefined);
         }
