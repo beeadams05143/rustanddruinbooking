@@ -10920,17 +10920,11 @@ async function addAgreementToCalendarPending() {
 function resetAgreementForm() {
   state.agreement = createInitialAgreementState();
   applyAgreementDefaultsFromProfiles(true);
-  state.agreementDraftContext = {
-    contractId: "",
-    eventId: "",
-    name: "",
-  };
+  clearAgreementContractContext();
   state.workspace.agreementStep = 1;
   state.workspace.bookingSaved = false;
   state.workspace.bookingEventId = "";
-  state.workspace.contractWizardOpen = false;
   state.workspace.activeBookingDraftId = "";
-  document.getElementById("agreementClientSigningPreview")?.remove();
   syncAgreementForm();
   updateAgreementPreview();
   renderAgreementStepUI();
@@ -10948,6 +10942,32 @@ function clonePlainObject(value) {
 
 function getAgreementDraftId() {
   return state.workspace.activeBookingDraftId || `booking-draft-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+}
+
+function clearAgreementContractContext() {
+  stopContractSignaturePoll();
+  state.agreementDraftContext = {
+    contractId: "",
+    eventId: "",
+    name: "",
+  };
+  state.workspace.contractWizardOpen = false;
+  state.workspace.contractShareId = "";
+  const sendWrap = document.getElementById("contractSendWrap");
+  const linkDisplay = document.getElementById("contractLinkDisplay");
+  const sendStatus = document.getElementById("contractSendStatus");
+  const signedBanner = document.getElementById("contractSignedBanner");
+  if (sendWrap) sendWrap.classList.add("hidden");
+  if (linkDisplay) linkDisplay.value = "";
+  if (sendStatus) {
+    sendStatus.textContent = "";
+    sendStatus.classList.remove("warning");
+  }
+  if (signedBanner) {
+    signedBanner.textContent = "";
+    signedBanner.classList.add("hidden");
+  }
+  document.getElementById("agreementClientSigningPreview")?.remove();
 }
 
 function saveBookingAsDraft() {
@@ -10975,6 +10995,7 @@ function saveBookingAsDraft() {
     draft,
     ...(state.bookingDrafts || []).filter((item) => item.id !== id),
   ].slice(0, 25);
+  clearAgreementContractContext();
   saveDraft();
   renderBookHubDrafts();
   renderHomeDrafts();
@@ -11007,7 +11028,7 @@ function openBookingDraft(draftId) {
   state.workspace.agreementStep = Math.max(1, Math.min(AGREEMENT_STEP_COUNT, Number(draft.agreementStep || 1)));
   state.workspace.bookingSaved = Boolean(draft.bookingSaved && draft.bookingEventId);
   state.workspace.bookingEventId = draft.bookingEventId || "";
-  state.workspace.contractWizardOpen = false;
+  clearAgreementContractContext();
   state.activeTab = "agreement";
   syncAgreementForm();
   updateHolidayFromDate();
