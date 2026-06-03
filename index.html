@@ -1818,6 +1818,14 @@
               <input id="receiptPaymentDate" type="date" />
             </label>
             <label>
+              Show / event date
+              <input id="receiptEventDate" type="date" />
+            </label>
+            <label>
+              Show / venue
+              <input id="receiptVenueName" placeholder="Optional" />
+            </label>
+            <label>
               Amount paid
               <input id="receiptAmountPaid" />
             </label>
@@ -1869,7 +1877,8 @@
                 <p data-fill="receiptNumber"></p>
               </div>
               <div>
-                <p>Performance date: <span data-fill="performanceDate"></span></p>
+                <p>Show date: <span data-fill="receiptEventDate"></span></p>
+                <p>Show / venue: <span data-fill="receiptVenueName"></span></p>
                 <p>Payment date: <span data-fill="receiptPaymentDate"></span></p>
               </div>
             </div>

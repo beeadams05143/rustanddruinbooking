@@ -41,6 +41,8 @@
             <p data-fill="receiptNumber"></p>
           </div>
           <div>
+            <p>Show date: <span data-fill="receiptEventDate"></span></p>
+            <p>Show / venue: <span data-fill="receiptVenueName"></span></p>
             <p>Payment date: <span data-fill="receiptPaymentDate"></span></p>
           </div>
         </div>
@@ -111,6 +113,8 @@
           receiptNumber: row.receipt_number || "",
           clientName: row.client_name || "",
           paymentDate: row.payment_date || "",
+          eventDate: "",
+          venueName: "",
           amountPaid: Number(row.amount_paid || 0),
           paymentMethod: row.payment_method || "",
           relatedInvoice: row.related_invoice || "",
@@ -128,6 +132,8 @@
             receiptNumber: receipt.receiptNumber || "",
             clientName: receipt.clientName || row.client_name || "",
             paymentDate: receipt.paymentDate || row.event_date || "",
+            eventDate: receipt.eventDate || "",
+            venueName: receipt.venueName || row.venue_name || "",
             amountPaid: Number(receipt.amountPaid || 0),
             paymentMethod: receipt.paymentMethod || "",
             relatedInvoice: receipt.relatedInvoice || "",
@@ -163,6 +169,8 @@
         setText("[data-fill='bandName']", bandDNA.bandName || "the band");
         setText("[data-fill='receiptNumber']", data.receiptNumber || "__");
         setText("[data-fill='receiptClientName']", data.clientName || "__");
+        setText("[data-fill='receiptEventDate']", formatDate(data.eventDate));
+        setText("[data-fill='receiptVenueName']", data.venueName || "__");
         setText("[data-fill='receiptPaymentDate']", formatDate(data.paymentDate));
         setText("[data-fill='receiptPaymentMethod']", data.paymentMethod || "__");
         setText("[data-fill='receiptRelatedInvoice']", data.relatedInvoice || "__");

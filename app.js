@@ -75,6 +75,8 @@ function createInitialReceiptState() {
     receiptNumber: "REC-001",
     clientName: "",
     paymentDate: "",
+    eventDate: "",
+    venueName: "",
     amountPaid: "",
     paymentMethod: "Venmo",
     relatedInvoice: "",
@@ -526,6 +528,8 @@ const receiptFields = [
   "receiptNumber",
   "receiptClientName",
   "receiptPaymentDate",
+  "receiptEventDate",
+  "receiptVenueName",
   "receiptAmountPaid",
   "receiptPaymentMethod",
   "receiptRelatedInvoice",
@@ -3422,26 +3426,33 @@ function buildMessage(type) {
   const receiptDate = formatMessageDate(state.receipt.paymentDate || state.agreement.performanceDate);
   const venue = state.agreement.venueAddress || "your venue";
   const venueLabel = venue === "your venue" ? venue : venue.replace(/\s+/g, " ").trim();
+  const receiptEventDate = state.receipt.eventDate ? formatMessageDate(state.receipt.eventDate) : "";
+  const receiptVenue = String(state.receipt.venueName || "").trim();
   const hasSavedBookingContext = Boolean(state.workspace.bookingSaved && state.workspace.bookingEventId);
   const hasInvoiceBookingContext = hasSavedBookingContext;
-  const hasReceiptBookingContext = Boolean(hasSavedBookingContext || state.receipt.relatedInvoice);
   const eventPhrase = hasSavedBookingContext
     ? ` for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}`
     : "";
+  const receiptContext = receiptEventDate && receiptVenue
+    ? ` for the performance on ${receiptEventDate} at ${receiptVenue}`
+    : receiptEventDate
+      ? ` for the performance on ${receiptEventDate}`
+      : receiptVenue
+        ? ` for the performance at ${receiptVenue}`
+        : "";
 
   if (type === "invoice") {
     const subject = `${bandName} Invoice - ${invoiceDate}`;
     const invoiceLink = state.invoice.link ? `\n\nYou can view your invoice here:\n${state.invoice.link}` : "";
     const invoiceContext = hasInvoiceBookingContext ? eventPhrase : "";
-    const body = `Hello ${state.invoice.clientName || clientName},\n\nThank you so much again for the opportunity to work with you.\n\nHere is your invoice${invoiceContext}.${invoiceLink}\n\nPlease let us know if you have any questions at all. We're happy to help and really look forward to performing for you.\n\n${signoff}`;
+    const body = `Hello ${state.invoice.clientName || "there"},\n\nThank you so much again for the opportunity to work with you.\n\nHere is your invoice${invoiceContext}.${invoiceLink}\n\nPlease let us know if you have any questions at all. We're happy to help and really look forward to performing for you.\n\n${signoff}`;
     return { title: "Invoice Message", subject, body };
   }
 
   if (type === "receipt") {
     const subject = `${bandName} Receipt - ${receiptDate}`;
     const receiptLink = state.receipt.link ? `\n\nYou can view your receipt here:\n${state.receipt.link}` : "";
-    const receiptContext = hasReceiptBookingContext ? eventPhrase : "";
-    const body = `Hello ${state.receipt.clientName || clientName},\n\nThank you so much.\n\nHere is your receipt${receiptContext}.${receiptLink}\n\nWe truly appreciate the opportunity to work with you. Please keep us in mind for future celebrations.\n\n${signoff}`;
+    const body = `Hello ${state.receipt.clientName || "there"},\n\nThank you so much.\n\nHere is your receipt${receiptContext}.${receiptLink}\n\nWe truly appreciate the opportunity to work with you. Please keep us in mind for future celebrations.\n\n${signoff}`;
     return { title: "Receipt Message", subject, body };
   }
 
@@ -5241,6 +5252,8 @@ function updateReceiptPreview() {
   setText("[data-fill='bandName']", state.bandDNA.bandName || "the band");
   setText("[data-fill='receiptNumber']", state.receipt.receiptNumber || "__");
   setText("[data-fill='receiptClientName']", state.receipt.clientName || "__");
+  setText("[data-fill='receiptEventDate']", formatDate(state.receipt.eventDate));
+  setText("[data-fill='receiptVenueName']", state.receipt.venueName || "__");
   setText("[data-fill='receiptPaymentDate']", formatDate(state.receipt.paymentDate));
   setText("[data-fill='receiptPaymentMethod']", state.receipt.paymentMethod || "__");
   setText("[data-fill='receiptRelatedInvoice']", state.receipt.relatedInvoice || "__");
@@ -5285,11 +5298,11 @@ async function saveReceiptAndGetLink(data = null) {
 async function saveReceiptPublicLinkToSupabase(client, receiptPayload, savedReceiptId = "") {
   const status = document.getElementById("receiptStatus");
   const publicPayload = {
-    event_id: state.workspace.bookingEventId || null,
+    event_id: null,
     client_name: receiptPayload.clientName || "",
     client_email: "",
-    venue_name: state.agreement.venueAddress || "",
-    event_date: receiptPayload.paymentDate || state.agreement.performanceDate || "",
+    venue_name: receiptPayload.venueName || "",
+    event_date: receiptPayload.eventDate || "",
     options: [
       {
         __receipt: {
@@ -11582,6 +11595,8 @@ function syncReceiptForm() {
     receiptNumber: "receiptNumber",
     receiptClientName: "clientName",
     receiptPaymentDate: "paymentDate",
+    receiptEventDate: "eventDate",
+    receiptVenueName: "venueName",
     receiptAmountPaid: "amountPaid",
     receiptPaymentMethod: "paymentMethod",
     receiptRelatedInvoice: "relatedInvoice",
@@ -15182,6 +15197,8 @@ function setupListeners() {
         receiptNumber: "receiptNumber",
         receiptClientName: "clientName",
         receiptPaymentDate: "paymentDate",
+        receiptEventDate: "eventDate",
+        receiptVenueName: "venueName",
         receiptAmountPaid: "amountPaid",
         receiptPaymentMethod: "paymentMethod",
         receiptRelatedInvoice: "relatedInvoice",
