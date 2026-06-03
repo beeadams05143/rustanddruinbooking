@@ -212,9 +212,12 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
     <script>
-      const SUPABASE_URL = "https://ipxjalcgiaqcyubrxqxu.supabase.co";
-      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlweGphbGNnaWFxY3l1YnJ4cXh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0NTY3MzUsImV4cCI6MjA4NzAzMjczNX0.b4RpnOTLAqpA4t6UntLPESK1gzUHtLNYHQNw54ghUmQ";
+      const SUPABASE_URL =
+        window.RR_SUPABASE_CONFIG?.url || "https://ipxjalcgiaqcyubrxqxu.supabase.co";
+      const SUPABASE_ANON_KEY =
+        window.RR_SUPABASE_CONFIG?.anonKey || "sb_publishable_-XW9I_e7OR4TUMq0B4SG-Q_el-7vKPJ";
       const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       const params = new URLSearchParams(window.location.search);
@@ -303,8 +306,8 @@
         `;
       }
 
-      function setUnavailable() {
-        app.innerHTML = "<p>This contract is no longer available.</p>";
+      function setUnavailable(message = "This contract is no longer available.") {
+        app.innerHTML = `<p>${escapeHtml(message)}</p>`;
       }
 
       function getContractPaymentMeta(contract = {}, bandDNA = {}) {
@@ -524,7 +527,10 @@
             .maybeSingle());
           activeContractTable = "contracts";
           if (error || !contract) {
-            setUnavailable();
+            const detail = error?.message
+              ? `Contract unavailable: ${error.message}`
+              : "This contract is no longer available.";
+            setUnavailable(detail);
             return;
           }
           if (contract.signed_at) {
@@ -533,7 +539,7 @@
           }
           renderContractPage(contract, bandDNA);
         } catch (e) {
-          setUnavailable();
+          setUnavailable(e?.message ? `Contract unavailable: ${e.message}` : undefined);
         }
       }
 

@@ -9,8 +9,8 @@ function createInitialAgreementState() {
     clientEmail: "",
     clientPhone: "",
     performanceDate: "",
-    performanceTime: "",
-    performanceEndTime: "",
+    performanceTime: "17:00",
+    performanceEndTime: "20:00",
     holidayWeekend: false,
     holidayRateType: "timeAndHalf",
     hours: "",
@@ -6088,6 +6088,34 @@ function getBookingDraftTitle(draft = {}) {
   return [clientName, dateText, typeText].filter(Boolean).join(" · ");
 }
 
+function getPendingContractDrafts() {
+  return [...(state.calendar.contracts || [])]
+    .filter((contract) => {
+      if (contract?.file_path) return false;
+      const status = String(contract.status || "").toLowerCase();
+      return !status.includes("created")
+        && !status.includes("no contract needed")
+        && !status.includes("signed")
+        && !contractHasSignedVersion(contract);
+    })
+    .sort((a, b) => new Date(b.uploaded_at || b.created_at || 0) - new Date(a.uploaded_at || a.created_at || 0));
+}
+
+function getContractDraftTitle(contract = {}) {
+  return String(contract.name || "Pending contract").trim();
+}
+
+function getContractDraftMeta(contract = {}) {
+  const linkedEvent = state.calendar.events.find((event) => event.id === contract.event_id);
+  const eventText = linkedEvent
+    ? `${linkedEvent.title || eventTypeLabel(linkedEvent.type)} · ${formatShortDateTime(linkedEvent.start_time)}`
+    : "No event linked";
+  const savedText = contract.uploaded_at || contract.created_at
+    ? `Saved ${formatShortDateTime(contract.uploaded_at || contract.created_at)}`
+    : "Pending signature";
+  return `${eventText} · ${savedText}`;
+}
+
 function renderBookingDraftList(list, summary, options = {}) {
   if (!list || !summary) return;
   const emptyText = options.emptyText || "Saved drafts will appear here.";
@@ -6149,15 +6177,76 @@ function renderBookHubDrafts() {
 }
 
 function renderHomeDrafts() {
-  renderBookingDraftList(
-    document.getElementById("homeDraftsList"),
-    document.getElementById("homeDraftsSummary"),
-    {
-      emptyText: "Saved booking drafts will appear here and under Book.",
-      limit: 3,
-      locationText: "Drafts also live under Book > Draft Bookings.",
-    }
-  );
+  const list = document.getElementById("homeDraftsList");
+  const summary = document.getElementById("homeDraftsSummary");
+  if (!list || !summary) return;
+
+  const bookingDrafts = [...(state.bookingDrafts || [])]
+    .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))
+    .map((draft) => ({
+      type: "booking",
+      id: draft.id,
+      updatedAt: draft.updatedAt || draft.createdAt || "",
+      title: getBookingDraftTitle(draft),
+      meta: draft.updatedAt ? `Saved ${formatShortDateTime(draft.updatedAt)}` : "Saved booking draft",
+      openLabel: "Open draft",
+      onOpen: () => openBookingDraft(draft.id),
+      onDelete: () => deleteBookingDraft(draft.id),
+    }));
+  const contractDrafts = getPendingContractDrafts().map((contract) => ({
+    type: "contract",
+    id: contract.id,
+    updatedAt: contract.uploaded_at || contract.created_at || "",
+    title: getContractDraftTitle(contract),
+    meta: getContractDraftMeta(contract),
+    openLabel: "Edit draft",
+    onOpen: () => editDraftContract(contract),
+    onDelete: async () => {
+      await deleteContractRecord(contract.id);
+      renderHomeDrafts();
+    },
+  }));
+  const drafts = [...bookingDrafts, ...contractDrafts]
+    .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+
+  summary.textContent = drafts.length
+    ? `${drafts.length} draft${drafts.length === 1 ? "" : "s"} ready to reopen. Drafts also live under Book and Docs.`
+    : "No draft bookings or contracts saved.";
+
+  list.innerHTML = "";
+  if (!drafts.length) {
+    list.innerHTML = "<p class=\"muted booking-drafts-empty\">Saved booking and contract drafts will appear here.</p>";
+    return;
+  }
+
+  drafts.slice(0, 3).forEach((draft) => {
+    const row = document.createElement("div");
+    row.className = "booking-draft-row";
+    const copy = document.createElement("div");
+    copy.className = "booking-draft-copy";
+    const title = document.createElement("strong");
+    title.textContent = draft.title;
+    const meta = document.createElement("span");
+    meta.textContent = draft.type === "contract"
+      ? `Contract draft · ${draft.meta}`
+      : draft.meta;
+    copy.appendChild(title);
+    copy.appendChild(meta);
+
+    const actions = document.createElement("div");
+    actions.className = "booking-draft-actions";
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.className = "btn ghost";
+    openBtn.textContent = draft.openLabel;
+    openBtn.addEventListener("click", draft.onOpen);
+    actions.appendChild(openBtn);
+    actions.appendChild(createConfirmDeleteButton(draft.onDelete));
+
+    row.appendChild(copy);
+    row.appendChild(actions);
+    list.appendChild(row);
+  });
 }
 
 function renderUpcomingShowsCard(events) {
@@ -8512,6 +8601,7 @@ async function fetchContracts() {
     updateContractList();
     updateCreatedContractList();
     renderContractsHub();
+    renderHomeDrafts();
     updateOpsProgress();
     return;
   }
@@ -8531,6 +8621,7 @@ async function fetchContracts() {
   updateContractList();
   updateCreatedContractList();
   renderContractsHub();
+  renderHomeDrafts();
   renderAssignmentSummaryLists();
   updateOpsProgress();
 }
@@ -10415,16 +10506,7 @@ function renderContractsHub() {
   if (pendingSection) pendingSection.classList.add("contracts-hub-section");
   if (signedSection) signedSection.classList.add("contracts-hub-section");
 
-  const pendingContracts = state.calendar.contracts
-    .filter((contract) => {
-      if (contract?.file_path) return false;
-      const status = String(contract.status || "").toLowerCase();
-      return !status.includes("created")
-        && !status.includes("no contract needed")
-        && !status.includes("signed")
-        && !contractHasSignedVersion(contract);
-    })
-    .sort((a, b) => new Date(b.uploaded_at || b.created_at || 0) - new Date(a.uploaded_at || a.created_at || 0));
+  const pendingContracts = getPendingContractDrafts();
 
   const signedContracts = state.calendar.contracts
     .filter((contract) => {
@@ -13867,7 +13949,7 @@ async function renderBookedDatesList() {
     const depositAmount = toNumber(state.bandDNA.defaultDeposit || depositDefault);
     const bandDetails = getBandContractDetails();
     const paymentConfig = getBandPaymentConfig();
-    const { data: insertedContract, error } = await client.from("contracts").insert({
+    const contractPayload = {
       name: `${event.title || event.type || "Event"} Agreement`,
       file_path: null,
       event_id: event.id,
@@ -13895,19 +13977,46 @@ async function renderBookedDatesList() {
       payment_methods: buildDynamicPaymentMethodsText(),
       venmo_handle: paymentConfig.venmoHandle || "",
       paypal_handle: paymentConfig.paypalHandle || "",
-    }).select("id").single();
-    if (error || !insertedContract) {
-      console.error("contracts insert failed:", JSON.stringify(error));
+    };
+    const { data: existingContracts } = await client
+      .from("contracts")
+      .select("id")
+      .eq("event_id", event.id)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    const existingContractId = Array.isArray(existingContracts) && existingContracts.length
+      ? existingContracts[0].id
+      : "";
+    const { data: savedContract, error } = existingContractId
+      ? await client
+          .from("contracts")
+          .update(contractPayload)
+          .eq("id", existingContractId)
+          .select("id")
+          .single()
+      : await client
+          .from("contracts")
+          .insert(contractPayload)
+          .select("id")
+          .single();
+    if (error || !savedContract) {
+      console.error("contracts save failed:", JSON.stringify(error));
       if (detailStatus) {
         detailStatus.textContent = `Could not generate contract link: ${error?.message || JSON.stringify(error)}`;
         detailStatus.style.color = "#b53b2b";
       }
       return;
     }
-    const contractLink = "https://gigos.netlify.app/contract.html?id=" + insertedContract.id;
-    await copyTextToClipboard(contractLink);
+    const contractLink = getContractSigningPageUrl(savedContract.id);
+    const copied = await copyTextToClipboard(contractLink, {
+      statusEl: detailStatus,
+      successMessage: "Contract link copied. Send it to your client to sign.",
+      failureMessage: "Contract link ready, but could not copy it.",
+    });
     if (detailStatus) {
-      detailStatus.textContent = "Contract link ready — send to your client to sign.";
+      detailStatus.textContent = copied
+        ? "Contract link copied. Send it to your client to sign."
+        : "Contract link ready — send it to your client to sign.";
       detailStatus.style.color = "";
       detailStatus.classList.remove("warning");
     }
@@ -13927,10 +14036,19 @@ async function renderBookedDatesList() {
   <p style="margin:0 0 10px;font-size:13px;color:#5a3a1a;">Paste this link into a text or email. Your client can read and sign digitally.</p>
   <input readonly style="width:100%;padding:8px 10px;border:1px solid #e8a855;border-radius:8px;font-size:12px;background:#fff;color:#2c1a00;box-sizing:border-box;" value="${contractLink}" />
   <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-    <button type="button" onclick="navigator.clipboard.writeText('${contractLink}')" style="border:none;border-radius:20px;padding:8px 16px;background:#f47c20;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">Copy link</button>
+    <button type="button" data-copy-contract-link="${contractLink}" style="border:none;border-radius:20px;padding:8px 16px;background:#f47c20;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">Copy link</button>
     <button type="button" onclick="window.open('${contractLink}','_blank')" style="border:1px solid #e8a855;border-radius:20px;padding:8px 16px;background:transparent;color:#8a5010;font-weight:700;font-size:13px;cursor:pointer;">Preview link</button>
   </div>
 </div>`;
+      contractLinkWrap.querySelector("[data-copy-contract-link]")?.addEventListener("click", async (event) => {
+        const link = event.currentTarget.dataset.copyContractLink || contractLink;
+        const copied = await copyTextToClipboard(link, {
+          statusEl: detailStatus,
+          successMessage: "Contract link copied.",
+          failureMessage: "Contract link ready, but could not copy it.",
+        });
+        showContractLinkToast(copied ? "Contract link copied." : "Contract link ready.");
+      });
     }
     const contractMarker = pipeline?.querySelector(".show-flow-step:nth-child(3) .show-flow-marker");
     const contractMeta = pipeline?.querySelector(".show-flow-step:nth-child(3) .show-flow-meta");
@@ -14257,7 +14375,7 @@ async function renderBookedDatesList() {
           complete: Boolean(flow.contractSentAt),
           metaText: formatPipelineTime(flow.contractSentAt, "Not sent yet"),
           actionLabel: flow.contractSentAt ? "Copy Contract Link" : "Generate Contract Link",
-            action: async () => { if (!client || !state.calendar.session || !event?.id) { detailStatus.textContent = "Sign in first."; return; } const { data: ex } = await client.from("contracts").select("id").eq("event_id", event.id).limit(1); let cId = ex&&ex.length ? ex[0].id : null; if (!cId) { const { data: ins, error } = await client.from("contracts").insert({ name: (event.title||"Event")+" Agreement", file_path: null, event_id: event.id, status: "Pending signature" }).select("id").single(); if (error||!ins) { detailStatus.textContent = "Error: "+error?.message; return; } cId = ins.id; } const link = "https://gigos.netlify.app/contract.html?id="+cId; await copyTextToClipboard(link); await client.from("events").update({ contract_sent_at: new Date().toISOString() }).eq("id", event.id); const start2 = new Date(event.start_time||Date.now()); await client.from("contracts").update({ client_name: event.title||"", event_date: start2.toISOString().slice(0,10), event_type: event.type||"", performance_time: start2.toTimeString().slice(0,5), performance_end_time: new Date(event.end_time||event.start_time).toTimeString().slice(0,5), lineup: getShowLineupLabel(event), band_name: state.bandDNA.bandName||"", band_email: state.bandDNA.contactEmail||"", band_phone: state.bandDNA.contactPhone||"", payment_methods: buildDynamicPaymentMethodsText(), venmo_handle: state.bandDNA.venmoHandle||"", paypal_handle: state.bandDNA.paypalHandle||"" }).eq("id", cId); detailStatus.textContent = "Contract link ready — send to your client!"; let lw = document.getElementById("clw-"+event.id); if(!lw){lw=document.createElement("div");lw.id="clw-"+event.id;lw.style="margin:12px 0;padding:14px;background:#fdf0e3;border:1px solid #e8a855;border-radius:12px;";lw.innerHTML="<p style='font-size:11px;font-weight:700;color:#8a5010;margin:0 0 8px;text-transform:uppercase;'>Send to Client</p><input readonly style='width:100%;padding:8px;border:1px solid #e8a855;border-radius:8px;font-size:12px;background:#fff;color:#2c1a00;box-sizing:border-box;' value='"+link+"' />";detailStatus.insertAdjacentElement("afterend",lw);} showContractLinkToast("Contract link copied."); showContractLinkToast("Contract link copied."); },
+          action: () => copyContractLinkForShow(event, detailStatus),
         });
         appendStep({
           key: "contract-signed",
@@ -15793,15 +15911,16 @@ function setupListeners() {
   }
   const copyContractLinkBtn = document.getElementById("copyContractLinkBtn");
   if (copyContractLinkBtn) {
-    copyContractLinkBtn.addEventListener("click", () => {
+    copyContractLinkBtn.addEventListener("click", async () => {
       const link = document.getElementById("contractLinkDisplay")?.value.trim() || "";
       if (!link) return;
       const clientName = state.agreement.clientName?.trim() || "your client";
-      copyTextToClipboard(link, {
+      const copied = await copyTextToClipboard(link, {
         statusEl: document.getElementById("contractSendStatus"),
         successMessage: `Link copied! Send this to ${clientName} to sign digitally.`,
         failureMessage: "Could not copy the link.",
       });
+      showContractLinkToast(copied ? "Contract link copied." : "Contract link ready.");
     });
   }
   const openContractLinkBtn = document.getElementById("openContractLinkBtn");

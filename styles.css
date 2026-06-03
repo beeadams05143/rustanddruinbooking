@@ -1707,6 +1707,13 @@ body {
 .contract-send-status {
   margin-top: 16px;
   margin-bottom: 0;
+  min-height: 1.4em;
+  color: #6f430c;
+  font-weight: 800;
+}
+
+.contract-send-status.warning {
+  color: #b53b2b;
 }
 
 .hidden {
