@@ -6946,6 +6946,7 @@ function updateInvoiceList() {
     const actions = document.createElement("div");
     actions.className = "event-actions";
     const edit = document.createElement("button");
+    edit.type = "button";
     edit.className = "btn ghost";
     edit.textContent = "Edit";
     edit.addEventListener("click", () => {
@@ -6953,6 +6954,7 @@ function updateInvoiceList() {
     });
     actions.appendChild(edit);
     const view = document.createElement("button");
+    view.type = "button";
     view.className = "btn ghost";
     view.textContent = "View PDF";
     view.addEventListener("click", async () => {
@@ -6973,6 +6975,7 @@ function updateInvoiceList() {
     });
     actions.appendChild(view);
     const toggle = document.createElement("button");
+    toggle.type = "button";
     toggle.className = "btn ghost";
     toggle.textContent = invoice.paid ? "Mark unpaid" : "Mark paid";
     toggle.addEventListener("click", async () => {
@@ -7002,8 +7005,8 @@ function editInvoiceRecord(invoice = {}) {
     invoiceNumber: invoice.invoice_number || state.invoice.invoiceNumber || DEFAULT_INVOICE_NUMBER,
     clientName: invoice.client_name || "",
     clientEmail: invoice.client_email || "",
-    issueDate: invoice.issue_date || "",
-    dueDate: invoice.due_date || "",
+    issueDate: normalizeDateValue(invoice.issue_date || ""),
+    dueDate: normalizeDateValue(invoice.due_date || ""),
     description: invoice.description || "Live performance",
     performanceFee: invoice.performance_fee ?? "",
     depositDue: invoice.deposit_due ?? "",
@@ -7023,6 +7026,11 @@ function editInvoiceRecord(invoice = {}) {
   }
   state.activeTab = "invoice";
   if (switchTopView) switchTopView("bookkeeping");
+  window.requestAnimationFrame(() => {
+    const firstField = document.getElementById("invoiceNumber");
+    firstField?.scrollIntoView({ behavior: "smooth", block: "center" });
+    firstField?.focus({ preventScroll: true });
+  });
 }
 
 async function deleteInvoiceRecord(invoice = {}) {
