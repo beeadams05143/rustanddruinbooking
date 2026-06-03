@@ -5117,10 +5117,19 @@ function renderInvoiceLinkDisplay(link = state.invoice.link || "") {
 function renderReceiptLinkDisplay(link = state.receipt.link || "") {
   const display = document.getElementById("receiptLinkDisplay");
   const copyBtn = document.getElementById("receiptCopyLinkBtn");
+  const previewBtn = document.getElementById("receiptPreviewLinkBtn");
   const shareBtn = document.getElementById("receiptShareLinkBtn");
   if (display) display.value = link || "";
   if (copyBtn) copyBtn.disabled = !link;
-  if (shareBtn) shareBtn.disabled = !link;
+  if (previewBtn) previewBtn.disabled = false;
+  if (shareBtn) shareBtn.disabled = false;
+}
+
+function keepBookkeepingWorkspaceActive(tab = state.activeTab) {
+  const target = tab === "receipt" ? "receipt" : tab === "invoice" ? "invoice" : state.activeTab;
+  state.activeTab = target;
+  state.workspace.top = "bookkeeping";
+  saveDraft();
 }
 
 function generateShareId() {
@@ -15151,6 +15160,7 @@ function setupListeners() {
       state.invoice.link = "";
       renderInvoiceLinkDisplay("");
       updateInvoicePreview();
+      keepBookkeepingWorkspaceActive("invoice");
     };
     el.addEventListener("input", handler);
     el.addEventListener("change", handler);
@@ -15172,6 +15182,7 @@ function setupListeners() {
       state.receipt.link = "";
       renderReceiptLinkDisplay("");
       updateReceiptPreview();
+      keepBookkeepingWorkspaceActive("receipt");
     });
   });
 
@@ -15396,7 +15407,7 @@ function setupListeners() {
     }
     const inBookkeeping =
       target === "agreement" || target === "invoice" || target === "receipt";
-    const showSharedBookkeepingTools = inBookkeeping && target !== "invoice";
+    const showSharedBookkeepingTools = inBookkeeping && target !== "invoice" && target !== "receipt";
     const showAgreementDocumentTools = target === "agreement" && state.workspace.contractWizardOpen;
     if (messagePreviewWrap) {
       if (target === "agreement") {
@@ -15959,9 +15970,7 @@ function setupListeners() {
   });
   const invoiceCreateLinkBtn = document.getElementById("invoiceCreateLinkBtn");
   const keepInvoiceWorkspaceActive = () => {
-    state.activeTab = "invoice";
-    state.workspace.top = "bookkeeping";
-    saveDraft();
+    keepBookkeepingWorkspaceActive("invoice");
   };
   const getOrCreateInvoiceLink = async () => {
     keepInvoiceWorkspaceActive();
@@ -16083,6 +16092,12 @@ function setupListeners() {
   if (receiptPdfBtn) {
     receiptPdfBtn.addEventListener("click", () => generatePdf("receipt"));
   }
+  const getOrCreateReceiptLink = async () => {
+    keepBookkeepingWorkspaceActive("receipt");
+    const existingLink = document.getElementById("receiptLinkDisplay")?.value.trim() || state.receipt.link || "";
+    if (existingLink) return existingLink;
+    return await saveReceiptAndGetLink();
+  };
   const receiptCreateLinkBtn = document.getElementById("receiptCreateLinkBtn");
   if (receiptCreateLinkBtn) {
     receiptCreateLinkBtn.addEventListener("click", async (event) => {
@@ -16090,7 +16105,7 @@ function setupListeners() {
       const link = await saveReceiptAndGetLink();
       if (!link) return;
       const statusEl = document.getElementById("receiptStatus");
-      state.activeTab = "receipt";
+      keepBookkeepingWorkspaceActive("receipt");
       updateMessagePreview();
       await copyCurrentMessageToClipboard({
         statusEl,
@@ -16098,6 +16113,27 @@ function setupListeners() {
         successMessage: "Receipt saved. Message copied. Link is below.",
         failureMessage: "Receipt saved, but the message could not be copied.",
       });
+    });
+  }
+  const receiptPreviewLinkBtn = document.getElementById("receiptPreviewLinkBtn");
+  if (receiptPreviewLinkBtn) {
+    receiptPreviewLinkBtn.addEventListener("click", async (event) => {
+      event.preventDefault();
+      const link = await getOrCreateReceiptLink();
+      const statusEl = document.getElementById("receiptStatus");
+      if (!link) {
+        if (statusEl) {
+          statusEl.textContent = "Could not generate the receipt link for preview.";
+          statusEl.classList.add("warning");
+        }
+        return;
+      }
+      if (statusEl) {
+        statusEl.textContent = "Customer preview opened.";
+        statusEl.classList.remove("warning");
+      }
+      keepBookkeepingWorkspaceActive("receipt");
+      window.open(link, "_blank", "noopener,noreferrer");
     });
   }
   const receiptCopyLinkBtn = document.getElementById("receiptCopyLinkBtn");
@@ -16125,23 +16161,23 @@ function setupListeners() {
   if (receiptShareLinkBtn) {
     receiptShareLinkBtn.addEventListener("click", async (event) => {
       event.preventDefault();
-      const link = await saveReceiptAndGetLink();
+      const link = await getOrCreateReceiptLink();
       const statusEl = document.getElementById("receiptStatus");
       if (!link) {
         if (statusEl) {
-          statusEl.textContent = "Could not save the receipt before sharing.";
+          statusEl.textContent = "Could not generate the receipt link before sharing.";
           statusEl.classList.add("warning");
         }
         return;
       }
-      state.activeTab = "receipt";
+      keepBookkeepingWorkspaceActive("receipt");
       updateMessagePreview();
-      const { subject, body, payload } = getCurrentShareMessage();
+      const { subject, payload } = getCurrentShareMessage();
       if (navigator.share) {
         try {
-          await navigator.share({ title: subject, text: body, url: link });
+          await navigator.share({ title: subject, text: payload, url: link });
           if (statusEl) {
-            statusEl.textContent = "Receipt saved and ready to share.";
+            statusEl.textContent = "Receipt message and link shared.";
             statusEl.classList.remove("warning");
           }
           return;
@@ -16151,8 +16187,8 @@ function setupListeners() {
       }
       await copyTextToClipboard(payload, {
         statusEl,
-        successMessage: "Receipt saved. Message copied for sharing.",
-        failureMessage: "Could not copy receipt message.",
+        successMessage: "Receipt message and link copied for sharing.",
+        failureMessage: "Could not copy receipt message and link.",
       });
     });
   }
@@ -17040,8 +17076,11 @@ function setupListeners() {
       }, 2000);
     });
   }
+  const bookkeepingPanelIds = new Set(["agreement", "invoice", "receipt", "quotebuilder", "bookhub"]);
   const preferredTop = state.calendar.session
-    ? state.workspace.top || "home"
+    ? bookkeepingPanelIds.has(state.activeTab)
+      ? "bookkeeping"
+      : state.workspace.top || "home"
     : "login";
   switchTop(preferredTop);
   setMusicianEditorState("");
