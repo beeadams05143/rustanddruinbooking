@@ -6945,6 +6945,13 @@ function updateInvoiceList() {
     header.appendChild(badge);
     const actions = document.createElement("div");
     actions.className = "event-actions";
+    const edit = document.createElement("button");
+    edit.className = "btn ghost";
+    edit.textContent = "Edit";
+    edit.addEventListener("click", () => {
+      editInvoiceRecord(invoice);
+    });
+    actions.appendChild(edit);
     const view = document.createElement("button");
     view.className = "btn ghost";
     view.textContent = "View PDF";
@@ -6978,10 +6985,86 @@ function updateInvoiceList() {
       await fetchInvoices();
     });
     actions.appendChild(toggle);
+    actions.appendChild(
+      createConfirmDeleteButton(async () => {
+        await deleteInvoiceRecord(invoice);
+      })
+    );
     card.appendChild(header);
     card.appendChild(actions);
     list.appendChild(card);
   });
+}
+
+function editInvoiceRecord(invoice = {}) {
+  state.invoice = {
+    ...createInitialInvoiceState(),
+    invoiceNumber: invoice.invoice_number || state.invoice.invoiceNumber || DEFAULT_INVOICE_NUMBER,
+    clientName: invoice.client_name || "",
+    clientEmail: invoice.client_email || "",
+    issueDate: invoice.issue_date || "",
+    dueDate: invoice.due_date || "",
+    description: invoice.description || "Live performance",
+    performanceFee: invoice.performance_fee ?? "",
+    depositDue: invoice.deposit_due ?? "",
+    depositPaid: invoice.deposit_paid ?? "",
+    addons: invoice.addons ?? "",
+    totalOverride: invoice.total_override ?? "",
+    link: "",
+  };
+  syncInvoiceForm();
+  renderInvoiceLinkDisplay("");
+  updateInvoicePreview();
+  saveDraft();
+  const status = document.getElementById("invoiceStatus");
+  if (status) {
+    status.textContent = "Invoice loaded for editing. Save or generate a fresh link when ready.";
+    status.classList.remove("warning");
+  }
+  state.activeTab = "invoice";
+  if (switchTopView) switchTopView("bookkeeping");
+}
+
+async function deleteInvoiceRecord(invoice = {}) {
+  const client = state.calendar.client;
+  const status = document.getElementById("invoiceStatus");
+  if (!client || !state.calendar.session || !invoice?.id) {
+    if (status) {
+      status.textContent = "Sign in to delete invoices.";
+      status.classList.add("warning");
+    }
+    return;
+  }
+  const pdfPath = invoice.pdf_path || invoice.file_path || invoice.storage_path || "";
+  if (pdfPath) {
+    const { error: storageError } = await client
+      .storage
+      .from("signed-contracts")
+      .remove([pdfPath]);
+    if (storageError && status) {
+      status.textContent = "Invoice record will be deleted, but the PDF file could not be removed.";
+      status.classList.add("warning");
+    }
+  }
+  const { error } = await client
+    .from("invoices")
+    .delete()
+    .eq("id", invoice.id);
+  if (error) {
+    if (status) {
+      status.textContent = formatSupabaseError(error, "Could not delete invoice.");
+      status.classList.add("warning");
+    }
+    return;
+  }
+  if (state.invoice.invoiceNumber && state.invoice.invoiceNumber === invoice.invoice_number) {
+    resetInvoiceForm();
+  }
+  await fetchInvoices();
+  if (status) {
+    status.textContent = "Invoice deleted.";
+    status.classList.remove("warning");
+  }
 }
 
 function updateReceiptList() {
