@@ -7021,7 +7021,7 @@ function editInvoiceRecord(invoice = {}) {
   saveDraft();
   const status = document.getElementById("invoiceStatus");
   if (status) {
-    status.textContent = "Invoice loaded for editing. Save or generate a fresh link when ready.";
+    status.textContent = "Invoice loaded for editing. Generate a fresh invoice link when ready.";
     status.classList.remove("warning");
   }
   state.activeTab = "invoice";
@@ -15969,8 +15969,8 @@ function setupListeners() {
       await copyCurrentMessageToClipboard({
         statusEl,
         triggerButton: invoiceCreateLinkBtn,
-        successMessage: "Invoice saved. Message copied. Link is below.",
-        failureMessage: "Invoice saved, but the message could not be copied.",
+        successMessage: "Invoice link generated. Message copied. Link is below.",
+        failureMessage: "Invoice link generated, but the message could not be copied.",
       });
     });
   }
@@ -16022,7 +16022,7 @@ function setupListeners() {
             url: link,
           });
           if (statusEl) {
-            statusEl.textContent = "Invoice saved and ready to share.";
+            statusEl.textContent = "Invoice link generated and shared.";
             statusEl.classList.remove("warning");
           }
           return;
@@ -16032,7 +16032,7 @@ function setupListeners() {
       }
       await copyTextToClipboard(payload, {
         statusEl,
-        successMessage: "Invoice saved. Message copied for sharing.",
+        successMessage: "Invoice link generated. Message copied for sharing.",
         failureMessage: "Could not copy invoice message.",
       });
     });
