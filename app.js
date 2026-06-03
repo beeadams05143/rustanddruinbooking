@@ -7023,7 +7023,7 @@ function editInvoiceRecord(invoice = {}) {
   saveDraft();
   const status = document.getElementById("invoiceStatus");
   if (status) {
-    status.textContent = "Invoice loaded for editing. Generate a fresh invoice link when ready.";
+    status.textContent = "Invoice loaded for editing. Preview or share when ready.";
     status.classList.remove("warning");
   }
   state.activeTab = "invoice";
@@ -15958,7 +15958,13 @@ function setupListeners() {
     await generatePdf("invoice", { invoiceData });
   });
   const invoiceCreateLinkBtn = document.getElementById("invoiceCreateLinkBtn");
+  const keepInvoiceWorkspaceActive = () => {
+    state.activeTab = "invoice";
+    state.workspace.top = "bookkeeping";
+    saveDraft();
+  };
   const getOrCreateInvoiceLink = async () => {
+    keepInvoiceWorkspaceActive();
     const existingLink = document.getElementById("invoiceLinkDisplay")?.value.trim() || state.invoice.link || "";
     if (existingLink) return existingLink;
     const invoiceData = getInvoiceData();
@@ -15975,7 +15981,7 @@ function setupListeners() {
       const link = await saveInvoiceAndGetLink(invoiceData);
       if (!link) return;
       const statusEl = document.getElementById("invoiceStatus");
-      state.activeTab = "invoice";
+      keepInvoiceWorkspaceActive();
       updateMessagePreview();
       await copyCurrentMessageToClipboard({
         statusEl,
@@ -16023,6 +16029,7 @@ function setupListeners() {
         statusEl.textContent = "Customer preview opened.";
         statusEl.classList.remove("warning");
       }
+      keepInvoiceWorkspaceActive();
       window.open(link, "_blank", "noopener,noreferrer");
     });
   }
@@ -16039,18 +16046,18 @@ function setupListeners() {
         }
         return;
       }
-      state.activeTab = "invoice";
+      keepInvoiceWorkspaceActive();
       updateMessagePreview();
-      const { subject, body, payload } = getCurrentShareMessage();
+      const { subject, payload } = getCurrentShareMessage();
       if (navigator.share) {
         try {
           await navigator.share({
             title: subject,
-            text: body,
+            text: payload,
             url: link,
           });
           if (statusEl) {
-            statusEl.textContent = "Invoice shared.";
+            statusEl.textContent = "Invoice message and link shared.";
             statusEl.classList.remove("warning");
           }
           return;
@@ -16060,8 +16067,8 @@ function setupListeners() {
       }
       await copyTextToClipboard(payload, {
         statusEl,
-        successMessage: "Invoice message copied for sharing.",
-        failureMessage: "Could not copy invoice message.",
+        successMessage: "Invoice message and link copied for sharing.",
+        failureMessage: "Could not copy invoice message and link.",
       });
     });
   }
