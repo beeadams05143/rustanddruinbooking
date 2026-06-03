@@ -3422,18 +3422,26 @@ function buildMessage(type) {
   const receiptDate = formatMessageDate(state.receipt.paymentDate || state.agreement.performanceDate);
   const venue = state.agreement.venueAddress || "your venue";
   const venueLabel = venue === "your venue" ? venue : venue.replace(/\s+/g, " ").trim();
+  const hasSavedBookingContext = Boolean(state.workspace.bookingSaved && state.workspace.bookingEventId);
+  const hasInvoiceBookingContext = hasSavedBookingContext;
+  const hasReceiptBookingContext = Boolean(hasSavedBookingContext || state.receipt.relatedInvoice);
+  const eventPhrase = hasSavedBookingContext
+    ? ` for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}`
+    : "";
 
   if (type === "invoice") {
     const subject = `${bandName} Invoice - ${invoiceDate}`;
     const invoiceLink = state.invoice.link ? `\n\nYou can view your invoice here:\n${state.invoice.link}` : "";
-    const body = `Hello ${state.invoice.clientName || clientName},\n\nThank you so much again for the opportunity to work with you.\n\nHere is your invoice for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}.${invoiceLink}\n\nPlease let us know if you have any questions at all. We're happy to help and really look forward to performing for you.\n\n${signoff}`;
+    const invoiceContext = hasInvoiceBookingContext ? eventPhrase : "";
+    const body = `Hello ${state.invoice.clientName || clientName},\n\nThank you so much again for the opportunity to work with you.\n\nHere is your invoice${invoiceContext}.${invoiceLink}\n\nPlease let us know if you have any questions at all. We're happy to help and really look forward to performing for you.\n\n${signoff}`;
     return { title: "Invoice Message", subject, body };
   }
 
   if (type === "receipt") {
     const subject = `${bandName} Receipt - ${receiptDate}`;
     const receiptLink = state.receipt.link ? `\n\nYou can view your receipt here:\n${state.receipt.link}` : "";
-    const body = `Hello ${state.receipt.clientName || clientName},\n\nThank you so much.\n\nHere is your receipt for the performance on ${eventDate}${venueLabel !== "your venue" ? ` at ${venueLabel}` : ""}.${receiptLink}\n\nWe truly enjoyed performing for you and really appreciate the opportunity to be part of your event. Please keep us in mind for future celebrations.\n\n${signoff}`;
+    const receiptContext = hasReceiptBookingContext ? eventPhrase : "";
+    const body = `Hello ${state.receipt.clientName || clientName},\n\nThank you so much.\n\nHere is your receipt${receiptContext}.${receiptLink}\n\nWe truly appreciate the opportunity to work with you. Please keep us in mind for future celebrations.\n\n${signoff}`;
     return { title: "Receipt Message", subject, body };
   }
 
