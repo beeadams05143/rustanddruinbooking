@@ -9,8 +9,8 @@ function createInitialAgreementState() {
     clientEmail: "",
     clientPhone: "",
     performanceDate: "",
-    performanceTime: "17:00",
-    performanceEndTime: "20:00",
+    performanceTime: "",
+    performanceEndTime: "",
     holidayWeekend: false,
     holidayRateType: "timeAndHalf",
     hours: "",
@@ -3324,6 +3324,18 @@ function formatTimeInput(date) {
   return `${hours}:${minutes}`;
 }
 
+function formatContractTime(timeValue) {
+  if (!timeValue) return "";
+  const parsed = parseTimeValue(timeValue);
+  if (!parsed) return String(timeValue);
+  const date = new Date();
+  date.setHours(parsed.hours, parsed.minutes || 0, 0, 0);
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function normalizeDateValue(dateStr) {
   if (!dateStr) return "";
   const trimmed = String(dateStr).trim();
@@ -4881,16 +4893,20 @@ function renderAgreementStepUI() {
   const backBtn = document.getElementById("agreementStepBack");
   const nextBtn = document.getElementById("agreementStepNext");
   const quickSaveBtn = document.getElementById("quickSaveBooking");
+  const draftBtn = document.getElementById("saveBookingDraft");
   if (backBtn) backBtn.classList.toggle("hidden", currentStep === 1);
   if (nextBtn) {
     nextBtn.classList.toggle("hidden", currentStep === AGREEMENT_STEP_COUNT);
     nextBtn.textContent = currentStep === AGREEMENT_STEP_COUNT - 1
-      ? "Review Booking / Generate Links"
+      ? "Save Booking"
       : "Next";
   }
   if (quickSaveBtn) {
     quickSaveBtn.textContent = state.workspace.bookingSaved ? "Update Booking" : "Save Booking";
-    quickSaveBtn.classList.toggle("hidden", currentStep === AGREEMENT_STEP_COUNT);
+    quickSaveBtn.classList.toggle("hidden", currentStep >= AGREEMENT_STEP_COUNT - 1);
+  }
+  if (draftBtn) {
+    draftBtn.classList.toggle("hidden", currentStep >= AGREEMENT_STEP_COUNT - 1);
   }
 
   const saveBtn = document.getElementById("saveBookingOnly");
@@ -7528,8 +7544,8 @@ function buildAgreementContractDigitalPayload() {
     venue_address: venueAddress,
     event_date: state.agreement.performanceDate || "",
     event_type: state.agreement.eventType || "",
-    performance_time: state.agreement.performanceTime || "",
-    performance_end_time: state.agreement.performanceEndTime || "",
+    performance_time: formatContractTime(state.agreement.performanceTime) || state.agreement.performanceTime || "",
+    performance_end_time: formatContractTime(state.agreement.performanceEndTime) || state.agreement.performanceEndTime || "",
     hours: state.agreement.hours || "",
     lineup: state.agreement.bandConfig || "",
     performance_fee: (() => {
@@ -10649,8 +10665,8 @@ function loadAgreementDraftFromContract(contract, options = {}) {
   const snapshot = getAgreementSnapshotForContract(contract);
   state.agreement = {
     ...createInitialAgreementState(),
-    ...(snapshot || {}),
     ...getAgreementValuesFromContractRecord(contract || {}),
+    ...(snapshot || {}),
   };
   const linkedEvent = state.calendar.events.find((event) => event.id === contract.event_id);
   if (linkedEvent) {
@@ -10672,6 +10688,7 @@ function loadAgreementDraftFromContract(contract, options = {}) {
   state.workspace.contractShareId = "";
   state.workspace.activeBookingDraftId = "";
   syncAgreementForm();
+  updatePerformanceHoursFromTimes();
   updateHolidayFromDate();
   updateAgreementPreview();
   renderAgreementStepUI();
@@ -10829,7 +10846,6 @@ function renderContractsHub() {
       });
       actions.appendChild(signedWrap);
       actions.appendChild(noContractWrap);
-      actions.appendChild(openUnsignedBtn);
       actions.appendChild(uploadBtn);
       actions.appendChild(editBtn);
       actions.appendChild(
@@ -11125,7 +11141,6 @@ async function addAgreementToCalendarPending() {
 
 function resetAgreementForm() {
   state.agreement = createInitialAgreementState();
-  applyAgreementDefaultsFromProfiles(true);
   clearAgreementContractContext();
   state.workspace.agreementStep = 1;
   state.workspace.bookingSaved = false;
@@ -11304,12 +11319,12 @@ async function saveBookingOnly() {
     if (reviewSection && typeof reviewSection.scrollIntoView === "function") {
       reviewSection.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-    return;
+    return true;
   }
   if (result?.reason === "not_signed_in") {
     updateSupabaseStatus("Sign in on Calendar tab first, then save the booking.", true);
     setAgreementCalendarStatus("Sign in on Calendar tab first.", true);
-    return;
+    return false;
   }
   if (result?.reason === "missing_fields") {
     const details = result?.details
@@ -11320,11 +11335,22 @@ async function saveBookingOnly() {
       true
     );
     setAgreementCalendarStatus(`Missing/invalid date or time in Booking.${details}`, true);
-    return;
+    return false;
   }
   const reasonLabel = result?.reason ? ` (${result.reason})` : "";
   updateSupabaseStatus(`Could not save booking right now${reasonLabel}.`, true);
   setAgreementCalendarStatus(`Could not save booking${reasonLabel}.`, true);
+  return false;
+}
+
+async function openQuoteBuilderAfterSavingBooking() {
+  const saved = await saveBookingOnly();
+  if (!saved) return;
+  refreshQuoteBuilderFromAgreement();
+  saveDraft();
+  state.activeTab = "quotebuilder";
+  switchTop("bookkeeping");
+  switchPanel("quotebuilder");
 }
 
 async function generateAgreementContractLink() {
@@ -15816,13 +15842,7 @@ function setupListeners() {
   }
   const createQuoteBtn = document.getElementById("createQuoteBtn");
   if (createQuoteBtn) {
-    createQuoteBtn.addEventListener("click", () => {
-      refreshQuoteBuilderFromAgreement();
-      saveDraft();
-      state.activeTab = "quotebuilder";
-      switchTop("bookkeeping");
-      switchPanel("quotebuilder");
-    });
+    createQuoteBtn.addEventListener("click", openQuoteBuilderAfterSavingBooking);
   }
   const saveBookingOnlyBtn = document.getElementById("saveBookingOnly");
   if (saveBookingOnlyBtn) {
@@ -15896,9 +15916,13 @@ function setupListeners() {
   }
   const agreementStepNextBtn = document.getElementById("agreementStepNext");
   if (agreementStepNextBtn) {
-    agreementStepNextBtn.addEventListener("click", () => {
+    agreementStepNextBtn.addEventListener("click", async () => {
       syncAgreementStateFromForm();
       updatePerformanceHoursFromTimes();
+      if (Number(state.workspace.agreementStep || 1) === AGREEMENT_STEP_COUNT - 1) {
+        await saveBookingOnly();
+        return;
+      }
       state.workspace.agreementStep = Math.min(
         AGREEMENT_STEP_COUNT,
         Number(state.workspace.agreementStep || 1) + 1
@@ -15909,10 +15933,6 @@ function setupListeners() {
       renderAgreementStepUI();
       saveDraft();
     });
-  }
-  const resetAgreementBtn = document.getElementById("resetAgreement");
-  if (resetAgreementBtn) {
-    resetAgreementBtn.addEventListener("click", resetAgreementForm);
   }
   const quoteBuilderTab = document.getElementById("quoteBuilderTab");
   if (quoteBuilderTab) {

@@ -262,6 +262,22 @@
         return parsed.toLocaleDateString("en-US", { dateStyle: "long" });
       }
 
+      function formatContractTime(value) {
+        if (!value) return "—";
+        const trimmed = String(value).trim();
+        const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+        if (!match) return escapeHtml(trimmed);
+        const hours = Number(match[1]);
+        const minutes = Number(match[2]);
+        if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return escapeHtml(trimmed);
+        const date = new Date();
+        date.setHours(hours, minutes, 0, 0);
+        return escapeHtml(date.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+        }));
+      }
+
       function normalizeVenmoHandle(value) {
         return String(value || "")
           .trim()
@@ -400,8 +416,8 @@
         const bandSignatureName = escapeHtml(contract.band_signature_name || bandDNA.signoffName || contract.band_name || "Band representative");
         const evDate = formatEventDate(contract.event_date);
         const evType = escapeHtml(contract.event_type || "—");
-        const pStart = escapeHtml(contract.performance_time || "—");
-        const pEnd = escapeHtml(contract.performance_end_time || "—");
+        const pStart = formatContractTime(contract.performance_time || "");
+        const pEnd = formatContractTime(contract.performance_end_time || "");
         const hours = escapeHtml(contract.hours || "—");
         const lineup = escapeHtml(contract.lineup || "—");
         const perfFee = formatMoney(contract.performance_fee ?? 0);
