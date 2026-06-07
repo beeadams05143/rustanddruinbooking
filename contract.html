@@ -172,6 +172,13 @@
         cursor: not-allowed;
       }
 
+      @media print {
+        button.primary-btn,
+        .payment-buttons {
+          display: none !important;
+        }
+      }
+
       .notice,
       .success {
         margin-top: 14px;
@@ -363,6 +370,7 @@
       function renderSigned(contract, bandDNA = {}) {
         const name = escapeHtml(contract.client_signature || contract.client_name || "Client");
         const when = formatDisplayDate(contract.signed_at);
+        const bodyHtml = contract.contract_text ? String(contract.contract_text) : String(contract.legal_text || "");
         const paymentActions = renderPaymentActions(
           contract.deposit_amount ?? 0,
           `${contract.band_name || "Band"} deposit`,
@@ -374,6 +382,8 @@
             <h1>Already signed</h1>
             <p class="meta">This contract has already been signed by ${name} on ${escapeHtml(when)}. Thank you!</p>
             ${paymentActions}
+            <button type="button" class="primary-btn" onclick="window.print()">Download / Print PDF</button>
+            <div class="contract-scroll" style="max-height:none">${bodyHtml}</div>
           </div>
         `;
       }
@@ -397,7 +407,7 @@
               ${paymentActions}
               <p class="meta"><strong>Signed as:</strong> ${escapeHtml(clientName)}</p>
               <p class="meta"><strong>Signed at:</strong> ${signedAt}</p>
-              <button type="button" class="primary-btn" onclick="window.print()">Download / Print signed contract</button>
+              <button type="button" class="primary-btn" onclick="window.print()">Download / Print PDF</button>
             </div>
             <div class="contract-scroll" style="max-height:none">${bodyHtml}</div>
           </div>

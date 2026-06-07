@@ -9,8 +9,8 @@ function createInitialAgreementState() {
     clientEmail: "",
     clientPhone: "",
     performanceDate: "",
-    performanceTime: "",
-    performanceEndTime: "",
+    performanceTime: "19:00",
+    performanceEndTime: "22:00",
     holidayWeekend: false,
     holidayRateType: "timeAndHalf",
     hours: "",
@@ -11402,6 +11402,8 @@ async function generateAgreementContractLink() {
   if (linkedEvent) linkedEvent.contract_sent_at = sentAt;
 
   state.workspace.contractShareId = contractId;
+  state.workspace.top = "bookkeeping";
+  state.activeTab = "agreement";
   const publicShareId = await saveContractPublicLinkToSupabase(client, payload, contractId);
   const link = publicShareId
     ? getContractSigningPageUrl(publicShareId)
@@ -11426,10 +11428,6 @@ async function generateAgreementContractLink() {
 
 async function submitAgreement() {
   await generateAgreementContractLink();
-  const sendWrap = document.getElementById("contractSendWrap");
-  if (sendWrap && typeof sendWrap.scrollIntoView === "function") {
-    sendWrap.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
 }
 
 function seedInvoiceFromAgreement() {
