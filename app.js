@@ -4137,17 +4137,16 @@ function setText(selector, value) {
 }
 
 function getAgreementTotals() {
-  const depositEnabled = state.agreement.depositEnabled !== false;
   const depositWaived = state.agreement.depositWaived === true;
-  const depositConfigured = depositEnabled || depositWaived;
+  const depositShortcutEnabled = state.agreement.depositEnabled === true;
   const bandDNADeposit = toNumber(state.bandDNA.defaultDeposit);
-  const rawDepositAmount = depositConfigured
-    ? state.agreement.depositAmount
-      ? toNumber(state.agreement.depositAmount)
-      : bandDNADeposit > 0
-      ? bandDNADeposit
-      : depositDefault
+  const manualDepositAmount = toNumber(state.agreement.depositAmount);
+  const rawDepositAmount = manualDepositAmount > 0
+    ? manualDepositAmount
+    : depositShortcutEnabled && bandDNADeposit > 0
+    ? bandDNADeposit
     : 0;
+  const depositEnabled = rawDepositAmount > 0;
   const depositCredits = depositEnabled && !depositWaived
     ? (state.agreement.promoCredit ? 5 : 0) +
       (state.agreement.liveVideoCredit ? 10 : 0)
@@ -4243,8 +4242,7 @@ function getAgreementTotals() {
   const bookedFeeBase = Math.max(0, eventSubtotal + addOnTotal + travelFee + lodgingFee);
   const feeSubtotal = eventSubtotal + addOnTotal + adjustedDeposit;
 
-  const depositModel =
-    state.bandDNA.depositModel === "credited" ? "credited" : "addition";
+  const depositModel = "credited";
   const depositFeeBase = bookedFeeBase;
   const depositDueNow = adjustedDeposit;
   let totalContractValue = depositFeeBase;
@@ -4350,16 +4348,6 @@ function getHolidayRateQuoteDetail(totals) {
 }
 
 function updateFeesAndDepositsFields(totals) {
-  const bandDNADeposit = toNumber(state.bandDNA.defaultDeposit);
-  if (
-    (totals.depositEnabled || totals.depositWaived) &&
-    (!state.agreement.depositAmount || (totals.depositEnabled && bandDNADeposit > 0 && toNumber(state.agreement.depositAmount) <= 0))
-  ) {
-    state.agreement.depositAmount = String(bandDNADeposit > 0 ? bandDNADeposit : depositDefault);
-    const depositInput = document.getElementById("depositAmount");
-    if (depositInput) depositInput.value = state.agreement.depositAmount;
-  }
-
   const feeValue = totals.manualOverrideActive
     ? toMoney(totals.manualOverrideTotal)
     : toMoney(totals.performanceFeeEffective);
@@ -4652,7 +4640,7 @@ function updateAgreementPreview() {
 
   const depositAmountInput = document.getElementById("depositAmount");
   if (depositAmountInput) {
-    depositAmountInput.disabled = (!totals.depositEnabled && !totals.depositWaived) || totals.depositWaived;
+    depositAmountInput.disabled = false;
   }
 
   const depositWaivedInput = document.getElementById("depositWaived");
@@ -4768,8 +4756,9 @@ function buildDefaultQuoteOptionsFromBandDNA() {
   const hours = agreementHours > 0 ? agreementHours : minimumHours;
   const totals = getAgreementTotals();
   const selectedLineupName = String(state.agreement.bandConfig || "").trim().toLowerCase();
-  const depositRequired = state.agreement.depositEnabled !== false && state.agreement.depositWaived !== true;
-  const depositValue = depositRequired ? toNumber(totals.depositDueNow || state.bandDNA.defaultDeposit) : 0;
+  const depositValue = state.agreement.depositWaived === true
+    ? 0
+    : toNumber(totals.depositDueNow);
   const quoteSharedFees = totals.addOnTotal + totals.travelLodgingTotal + totals.backlineFee;
   const selectedLineupPrice = Math.max(0, totals.depositFeeBase || totals.eventSubtotal || 0);
   const fullBandLineup = lineups.find((lineup) => String(lineup?.name || "").trim().toLowerCase() === "full band")
@@ -15830,26 +15819,20 @@ function setupListeners() {
         const nonPerformanceField = document.getElementById("nonPerformanceHours");
         if (nonPerformanceField) nonPerformanceField.value = "";
       }
+      if (field === "depositAmount") {
+        const depositShortcut = document.getElementById("depositEnabled");
+        if (depositShortcut && depositShortcut.checked) {
+          depositShortcut.checked = false;
+          state.agreement.depositEnabled = false;
+        }
+      }
       if (field === "depositEnabled") {
-        if (!state.agreement.depositEnabled) {
-          state.agreement.promoCredit = false;
-          state.agreement.liveVideoCredit = false;
-          const promo = document.getElementById("promoCredit");
-          if (promo) promo.checked = false;
-          const live = document.getElementById("liveVideoCredit");
-          if (live) live.checked = false;
-        } else if (!state.agreement.depositAmount || toNumber(state.agreement.depositAmount) <= 0) {
+        if (state.agreement.depositEnabled) {
           const bandDNADeposit = toNumber(state.bandDNA.defaultDeposit);
           state.agreement.depositAmount = String(bandDNADeposit > 0 ? bandDNADeposit : depositDefault);
           const depositInput = document.getElementById("depositAmount");
           if (depositInput) depositInput.value = state.agreement.depositAmount;
         }
-      }
-      if (field === "depositWaived" && state.agreement.depositWaived && !state.agreement.depositAmount) {
-        const bandDNADeposit = toNumber(state.bandDNA.defaultDeposit);
-        state.agreement.depositAmount = String(bandDNADeposit > 0 ? bandDNADeposit : depositDefault);
-        const depositInput = document.getElementById("depositAmount");
-        if (depositInput) depositInput.value = state.agreement.depositAmount;
       }
       if (field === "friendsFamilyDiscount") {
         syncFriendsFamilyDiscountFromForm();

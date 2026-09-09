@@ -3940,13 +3940,37 @@ button.btn.ghost.active:hover {
     overflow: hidden !important;
   }
 
-  #invoicePreview, #invoicePreview * {
+  .page {
+    visibility: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  #invoiceTab:not(.hidden),
+  #invoiceTab:not(.hidden) #invoicePreview,
+  #invoiceTab:not(.hidden) #invoicePreview * {
     visibility: visible !important;
     height: auto !important;
     overflow: visible !important;
   }
 
-  #invoicePreview {
+  #invoiceTab:not(.hidden) {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  #invoiceTab:not(.hidden) #invoicePreview {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
@@ -3964,6 +3988,172 @@ button.btn.ghost.active:hover {
   #invoicePreview * {
     color: black !important;
     background: transparent !important;
+  }
+
+  #agreementTab:not(.hidden),
+  #agreementTab:not(.hidden) .preview-panel,
+  #agreementTab:not(.hidden) #agreementPreview,
+  #agreementTab:not(.hidden) #agreementPreview * {
+    visibility: visible !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  #agreementTab:not(.hidden) {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  #agreementTab:not(.hidden) > .form-panel,
+  #agreementTab:not(.hidden) .agreement-step-footer,
+  #agreementTab:not(.hidden) button,
+  #agreementTab:not(.hidden) input,
+  #agreementTab:not(.hidden) select,
+  #agreementTab:not(.hidden) textarea,
+  #agreementTab:not(.hidden) .tabs,
+  #agreementTab:not(.hidden) .badge:not(.contract-summary .badge),
+  #contractSignedBanner,
+  #contractSendWrap {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  #agreementTab:not(.hidden) .preview-panel {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  #agreementTab:not(.hidden) #agreementPreview {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: white !important;
+    color: black !important;
+    font-size: 9.3pt !important;
+    line-height: 1.18 !important;
+    page-break-after: avoid !important;
+  }
+
+  #agreementTab:not(.hidden) #agreementPreview * {
+    color: black !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  #agreementPreview .contract-header {
+    display: grid !important;
+    grid-template-columns: 1.25fr 0.75fr !important;
+    gap: 0.12in !important;
+    padding: 0 0 0.08in !important;
+    margin: 0 0 0.08in !important;
+    border-bottom: 0.5pt solid #777 !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  #agreementPreview .contract-tag {
+    font-size: 8pt !important;
+    letter-spacing: 0.08em !important;
+    margin: 0 0 0.03in !important;
+  }
+
+  #agreementPreview h2 {
+    font-size: 14pt !important;
+    line-height: 1.05 !important;
+    margin: 0 0 0.03in !important;
+  }
+
+  #agreementPreview h3 {
+    font-size: 10.5pt !important;
+    line-height: 1.1 !important;
+    margin: 0 0 0.03in !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  #agreementPreview p {
+    margin: 0 0 0.045in !important;
+  }
+
+  #agreementPreview .contract-note,
+  #agreementPreview .contract-meta,
+  #agreementPreview .signature-note,
+  #agreementPreview .contract-footer {
+    font-size: 8.3pt !important;
+    line-height: 1.15 !important;
+  }
+
+  #agreementPreview .contract-section {
+    margin: 0 0 0.075in !important;
+    padding: 0 !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  #agreementPreview .contract-section h3,
+  #agreementPreview .contract-section p:last-child {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  #agreementPreview .contract-summary,
+  #agreementPreview .contract-signatures {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.08in !important;
+    padding: 0.07in !important;
+    margin: 0 0 0.08in !important;
+    border: 0.5pt solid #777 !important;
+    border-radius: 0 !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  #agreementPreview .summary-header {
+    gap: 0.04in !important;
+    margin: 0 0 0.03in !important;
+  }
+
+  #agreementPreview .summary-title,
+  #agreementPreview .badge {
+    font-size: 7.2pt !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  #agreementPreview .badge {
+    padding: 0 !important;
+    border-radius: 0 !important;
+    color: black !important;
+  }
+
+  #agreementPreview .contract-footer {
+    margin-top: 0.04in !important;
+    padding-top: 0.04in !important;
+    border-top: 0.5pt solid #777 !important;
+    text-align: center !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   .bottom-nav, #bottomNav, nav, .nav, header {
