@@ -1,4 +1,6 @@
+const GIGOS_BUILD_VERSION = "2026-09-09-contract-pdf-fix-1";
 console.log("APP LOADED");
+console.log("[GigOS BUILD]", GIGOS_BUILD_VERSION);
 const depositDefault = 0;
 const AGREEMENT_STEP_COUNT = 5;
 let showHubFocusStep = "";
@@ -17870,7 +17872,8 @@ function setupListeners() {
   const openPdfBtn = document.getElementById("openPdf");
   if (openPdfBtn) {
     openPdfBtn.addEventListener("click", async () => {
-      await generatePdf(state.activeTab, { openAfterGenerate: true });
+      const previewWindow = openPendingPdfPreviewWindow();
+      await generatePdf(state.activeTab, { openAfterGenerate: true, previewWindow });
     });
   }
   const printPdfBtn = document.getElementById("printPdf");
@@ -17956,12 +17959,142 @@ function createInvoicePdfExportTarget(source) {
   return wrapper;
 }
 
+function createContractPdfExportTarget(source) {
+  console.log("[GigOS PDF DEBUG] cloning/render prep complete");
+  const wrapper = document.createElement("div");
+  wrapper.className = "contract-pdf-export-wrapper";
+  wrapper.style.position = "fixed";
+  wrapper.style.left = "0";
+  wrapper.style.top = "0";
+  wrapper.style.width = "7.7in";
+  wrapper.style.minHeight = "10.2in";
+  wrapper.style.padding = "0";
+  wrapper.style.boxSizing = "border-box";
+  wrapper.style.background = "#ffffff";
+  wrapper.style.color = "#000000";
+  wrapper.style.zIndex = "9999";
+  wrapper.style.pointerEvents = "none";
+
+  const clone = source.cloneNode(true);
+  clone.id = "agreementPreviewPdfExport";
+  clone.classList.add("contract-pdf-export");
+  wrapper.appendChild(clone);
+  document.body.appendChild(wrapper);
+  return wrapper;
+}
+
+function openPendingPdfPreviewWindow() {
+  const previewWindow = window.open("", "_blank");
+  if (!previewWindow) {
+    console.warn("[GigOS PDF DEBUG] preview window blocked");
+    return null;
+  }
+  previewWindow.document.write("<!doctype html><title>Generating PDF...</title><body style=\"font-family:system-ui,sans-serif;padding:24px;\">Generating PDF...</body>");
+  previewWindow.document.close();
+  return previewWindow;
+}
+
+function openLastPdfPreview(previewWindow = null) {
+  const statusEl = document.getElementById("pdfStatus");
+  if (!lastPdfUrl) {
+    if (statusEl) statusEl.textContent = "Generate a PDF first.";
+    return false;
+  }
+  const targetWindow = previewWindow || window.open(lastPdfUrl, "_blank", "noopener,noreferrer");
+  if (!targetWindow && statusEl) {
+    statusEl.textContent = "Popup blocked. Allow popups to open the PDF preview.";
+    return false;
+  }
+  if (previewWindow) {
+    previewWindow.location.href = lastPdfUrl;
+  }
+  if (statusEl) {
+    statusEl.textContent = "PDF preview opened in a new tab.";
+  }
+  console.log("[GigOS PDF DEBUG] preview/open complete");
+  return true;
+}
+
+function withTimeout(promise, timeoutMs, label) {
+  let timeoutId = null;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId) window.clearTimeout(timeoutId);
+  });
+}
+
+async function renderElementToPdfBlob(element, fileName, options = {}) {
+  const {
+    maxPages = 2,
+    renderScale = 1.25,
+    jpegQuality = 0.72,
+  } = options;
+  console.log("[GigOS PDF DEBUG] html2canvas start");
+  const canvas = await withTimeout(
+    window.html2canvas(element, {
+      scale: renderScale,
+      backgroundColor: "#ffffff",
+      useCORS: true,
+      imageTimeout: 8000,
+      logging: false,
+      windowWidth: element.scrollWidth || element.offsetWidth || 740,
+    }),
+    20000,
+    "html2canvas"
+  );
+  console.log("[GigOS PDF DEBUG] html2canvas complete", {
+    width: canvas.width,
+    height: canvas.height,
+  });
+  console.log("[GigOS PDF DEBUG] jsPDF/html2pdf start");
+  const pdf = new window.jspdf.jsPDF({
+    orientation: "portrait",
+    unit: "pt",
+    format: "letter",
+  });
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = pdf.internal.pageSize.getHeight();
+  const margin = 28.8;
+  const pageWidth = pdfWidth - margin * 2;
+  const pageHeight = pdfHeight - margin * 2;
+  const scale = Math.min(pageWidth / canvas.width, (pageHeight * maxPages) / canvas.height);
+  const renderWidth = canvas.width * scale;
+  const renderHeight = canvas.height * scale;
+  const xOffset = margin + (pageWidth - renderWidth) / 2;
+  const pageCount = Math.min(maxPages, Math.ceil(renderHeight / pageHeight));
+  const imgData = canvas.toDataURL("image/jpeg", jpegQuality);
+
+  for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+    if (pageIndex > 0) pdf.addPage();
+    pdf.addImage(
+      imgData,
+      "JPEG",
+      xOffset,
+      margin - pageIndex * pageHeight,
+      renderWidth,
+      renderHeight,
+      undefined,
+      "FAST"
+    );
+  }
+  console.log("[GigOS PDF DEBUG] PDF created", { fileName, pageCount });
+  return pdf.output("blob");
+}
+
 async function generatePdf(type, options = {}) {
   const statusEl = document.getElementById("pdfStatus");
   const openButton = document.getElementById("openPdf");
   const printButton = document.getElementById("printPdf");
   const shareButton = document.getElementById("sharePdf");
-  const { openAfterGenerate = false, invoiceData = null } = options;
+  const { openAfterGenerate = false, invoiceData = null, previewWindow = null } = options;
+  let exportTarget = null;
+  let statusShouldClear = false;
+
+  console.log("[GigOS PDF DEBUG] generation started", { type, openAfterGenerate });
 
   const previewMap = {
     agreement: "agreementPreview",
@@ -17970,192 +18103,187 @@ async function generatePdf(type, options = {}) {
   };
 
   const target = document.getElementById(previewMap[type]);
-  if (!target) return;
-
-  if (type === "agreement") {
-    state.workspace.contractShareId = "";
-    prepareAgreementForOutput();
-    refreshAgreementCreatedDate();
-    updateAgreementPreview();
-    saveDraft();
-  }
-
-  if (type === "invoice") {
-    const currentInvoiceData = invoiceData || getInvoiceData();
-    applyInvoiceDataToState(currentInvoiceData);
-    updateInvoicePreview();
-  }
-
-  const isMobileSafari = /iP(hone|ad)/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent);
-  if (isMobileSafari && type === "invoice") {
-    const invoiceFieldMap = {
-      invoiceNumber: "invoiceNumber",
-      invoiceClientName: "clientName",
-      invoiceClientEmail: "clientEmail",
-      invoiceIssueDate: "issueDate",
-      invoiceDueDate: "dueDate",
-      invoiceDescription: "description",
-      invoicePerformanceFee: "performanceFee",
-      invoiceDepositDue: "depositDue",
-      invoiceDepositPaid: "depositPaid",
-      invoiceAddons: "addons",
-      invoiceTotalOverride: "totalOverride",
-    };
-    Object.entries(invoiceFieldMap).forEach(([id, key]) => {
-      const el = document.getElementById(id);
-      if (el) state.invoice[key] = el.value;
-    });
-    updateInvoicePreview();
-    const cleanupPrintView = () => {
-      document.body.classList.remove("pdf-export", "safari-invoice-print");
-    };
-    window.addEventListener("afterprint", cleanupPrintView, { once: true });
-    document.body.classList.add("pdf-export", "safari-invoice-print");
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    if (statusEl) {
-      statusEl.textContent = "Opening print dialog — use Share then Print, or Save to Files as PDF";
-    }
-    updateInvoicePreview();
-    window.print();
+  console.log("[GigOS PDF DEBUG] contract element found", !!target);
+  if (!target) {
+    if (statusEl) statusEl.textContent = "PDF target not found.";
     return;
   }
-
-  if (!window.html2canvas || !window.jspdf) {
-    statusEl.textContent = "PDF tools not loaded. Using Print instead.";
-    updateInvoicePreview();
-    window.print();
-    return;
-  }
-
-  if (type === "invoice" && window.html2pdf) {
-    const fileName = `RustAndRuin-Invoice-${state.invoice.invoiceNumber}.pdf`;
-    const exportTarget = createInvoicePdfExportTarget(target);
-    const opt = {
-      margin: 0,
-      filename: fileName,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: {
-        scale: 2,
-        backgroundColor: "#ffffff",
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: 900,
-      },
-      jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-    };
+  if (statusEl) {
     statusEl.textContent = "Generating PDF...";
-    try {
+    statusShouldClear = true;
+  }
+
+  try {
+    if (type === "agreement") {
+      state.workspace.contractShareId = "";
+      prepareAgreementForOutput();
+      refreshAgreementCreatedDate();
+      updateAgreementPreview();
+      saveDraft();
+    }
+
+    if (type === "invoice") {
+      const currentInvoiceData = invoiceData || getInvoiceData();
+      applyInvoiceDataToState(currentInvoiceData);
+      updateInvoicePreview();
+    }
+
+    const isMobileSafari = /iP(hone|ad)/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent);
+    if (isMobileSafari && type === "invoice") {
+      const invoiceFieldMap = {
+        invoiceNumber: "invoiceNumber",
+        invoiceClientName: "clientName",
+        invoiceClientEmail: "clientEmail",
+        invoiceIssueDate: "issueDate",
+        invoiceDueDate: "dueDate",
+        invoiceDescription: "description",
+        invoicePerformanceFee: "performanceFee",
+        invoiceDepositDue: "depositDue",
+        invoiceDepositPaid: "depositPaid",
+        invoiceAddons: "addons",
+        invoiceTotalOverride: "totalOverride",
+      };
+      Object.entries(invoiceFieldMap).forEach(([id, key]) => {
+        const el = document.getElementById(id);
+        if (el) state.invoice[key] = el.value;
+      });
+      updateInvoicePreview();
+      const cleanupPrintView = () => {
+        document.body.classList.remove("pdf-export", "safari-invoice-print");
+      };
+      window.addEventListener("afterprint", cleanupPrintView, { once: true });
+      document.body.classList.add("pdf-export", "safari-invoice-print");
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      if (statusEl) {
+        statusEl.textContent = "Opening print dialog — use Share then Print, or Save to Files as PDF";
+      }
+      updateInvoicePreview();
+      window.print();
+      return;
+    }
+
+    if (!window.html2canvas || !window.jspdf) {
+      if (statusEl) statusEl.textContent = "PDF tools not loaded. Using Print instead.";
+      updateInvoicePreview();
+      window.print();
+      return;
+    }
+
+    if (type === "invoice" && window.html2pdf) {
+      const fileName = `RustAndRuin-Invoice-${state.invoice.invoiceNumber}.pdf`;
+      exportTarget = createInvoicePdfExportTarget(target);
+      const opt = {
+        margin: 0,
+        filename: fileName,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          backgroundColor: "#ffffff",
+          scrollX: 0,
+          scrollY: 0,
+          windowWidth: 900,
+        },
+        jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+      };
+      console.log("[GigOS PDF DEBUG] jsPDF/html2pdf start");
       const blob = await window.html2pdf().set(opt).from(exportTarget).outputPdf("blob");
+      console.log("[GigOS PDF DEBUG] PDF created", { fileName });
       setLastGeneratedPdf(blob, fileName);
       if (openButton) openButton.disabled = !lastPdfUrl;
       if (printButton) printButton.disabled = !lastPdfUrl;
       if (shareButton) shareButton.disabled = !lastPdfBlob;
       await window.html2pdf().set(opt).from(exportTarget).save();
-      statusEl.textContent = "PDF ready.";
+      if (statusEl) statusEl.textContent = "PDF ready.";
       if (openAfterGenerate) {
-        openLastPdfPreview();
+        openLastPdfPreview(previewWindow);
       }
       await saveInvoiceToSupabaseInternal(true);
       if (lastPdfBlob) {
         await autoSaveInvoicePdf(lastPdfBlob, fileName);
       }
       return;
-    } catch (error) {
-      statusEl.textContent = "PDF generation failed. Try refreshing the page.";
-      return;
-    } finally {
-      exportTarget.remove();
     }
-  }
 
-  statusEl.textContent = "Generating PDF...";
+    let fileName = "";
+    let pdfBlob = null;
+    if (type === "agreement") {
+      fileName = `RustAndRuin-Agreement-${state.agreement.clientName || "Client"}.pdf`;
+      exportTarget = createContractPdfExportTarget(target);
+      pdfBlob = await renderElementToPdfBlob(exportTarget.firstElementChild, fileName, {
+        maxPages: 2,
+        renderScale: 1.35,
+        jpegQuality: 0.74,
+      });
+    } else {
+      fileName = type === "receipt"
+        ? `RustAndRuin-Receipt-${state.receipt.receiptNumber}.pdf`
+        : `RustAndRuin-Invoice-${state.invoice.invoiceNumber}.pdf`;
+      document.body.classList.add("pdf-export");
+      console.log("[GigOS PDF DEBUG] cloning/render prep complete");
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      pdfBlob = await renderElementToPdfBlob(target, fileName, {
+        maxPages: 1,
+        renderScale: 1.05,
+        jpegQuality: 0.58,
+      });
+      document.body.classList.remove("pdf-export");
+    }
 
-  document.body.classList.add("pdf-export");
-  await new Promise((resolve) => requestAnimationFrame(resolve));
-
-  let canvas = null;
-  try {
-    const renderScale = type === "agreement" ? 0.95 : 1.05;
-    canvas = await window.html2canvas(target, {
-      scale: renderScale,
-      backgroundColor: "#ffffff",
-      useCORS: true,
+    setLastGeneratedPdf(pdfBlob, fileName);
+    if (openButton) openButton.disabled = !lastPdfUrl;
+    if (printButton) printButton.disabled = !lastPdfUrl;
+    if (shareButton) {
+      shareButton.disabled = !lastPdfBlob;
+    }
+    statusShouldClear = false;
+    const copiedMessage = await copyCurrentMessageToClipboard({
+      statusEl,
+      successMessage: "PDF ready. Message copied to clipboard. Use Share PDF or Print PDF above.",
+      failureMessage: "PDF ready, but the message could not be copied. Use Share PDF or Print PDF above.",
     });
+    if (!copiedMessage && statusEl) {
+      statusEl.textContent = "PDF ready, but the message could not be copied. Use Share PDF or Print PDF above.";
+    }
+    const actionsBar = document.getElementById("pdfActionsBar");
+    if (actionsBar && typeof actionsBar.scrollIntoView === "function") {
+      actionsBar.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } else if (typeof window.scrollTo === "function") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    if (openAfterGenerate) {
+      openLastPdfPreview(previewWindow);
+    }
+    setTimeout(() => {
+      if (statusEl) statusEl.textContent = "";
+    }, 3000);
+
+    if (type === "agreement") {
+      await ensureHoldEventForAgreement();
+      if (lastPdfBlob) {
+        await autoSaveCreatedAgreementPdf(lastPdfBlob, fileName);
+      }
+    } else if (type === "invoice") {
+      await saveInvoiceToSupabaseInternal(true);
+      if (lastPdfBlob) {
+        await autoSaveInvoicePdf(lastPdfBlob, fileName);
+      }
+    } else if (type === "receipt") {
+      await saveReceiptToSupabaseInternal(true);
+      if (lastPdfBlob) {
+        await autoSaveReceiptPdf(lastPdfBlob, fileName);
+      }
+    }
   } catch (error) {
-    statusEl.textContent = "PDF generation failed. Try refreshing the page.";
+    console.error("[GigOS PDF ERROR]", error);
+    if (statusEl) statusEl.textContent = "PDF generation failed. Check the console for details.";
+    if (previewWindow && !previewWindow.closed) {
+      previewWindow.document.body.textContent = "PDF generation failed. Check the GigOS console for details.";
+    }
+  } finally {
     document.body.classList.remove("pdf-export");
-    return;
-  }
-  document.body.classList.remove("pdf-export");
-
-  const imgData = canvas.toDataURL("image/jpeg", 0.58);
-  const pdf = new window.jspdf.jsPDF({
-    orientation: "portrait",
-    unit: "pt",
-    format: "letter",
-  });
-
-  const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = pdf.internal.pageSize.getHeight();
-  const margin = 0;
-  const maxWidth = pdfWidth - margin * 2;
-  const maxHeight = pdfHeight - margin * 2;
-  const scale = Math.min(maxWidth / canvas.width, maxHeight / canvas.height);
-  const renderWidth = canvas.width * scale;
-  const renderHeight = canvas.height * scale;
-  const xOffset = (pdfWidth - renderWidth) / 2;
-  const yOffset = (pdfHeight - renderHeight) / 2;
-
-  pdf.addImage(imgData, "JPEG", xOffset, yOffset, renderWidth, renderHeight, undefined, "FAST");
-
-  const fileNameMap = {
-    agreement: `RustAndRuin-Agreement-${state.agreement.clientName || "Client"}.pdf`,
-    invoice: `RustAndRuin-Invoice-${state.invoice.invoiceNumber}.pdf`,
-    receipt: `RustAndRuin-Receipt-${state.receipt.receiptNumber}.pdf`,
-  };
-
-  const fileName = fileNameMap[type];
-  setLastGeneratedPdf(pdf.output("blob"), fileName);
-  if (openButton) openButton.disabled = !lastPdfUrl;
-  if (printButton) printButton.disabled = !lastPdfUrl;
-  if (shareButton) {
-    shareButton.disabled = !lastPdfBlob;
-  }
-  const copiedMessage = await copyCurrentMessageToClipboard({
-    statusEl,
-    successMessage: "PDF ready. Message copied to clipboard. Use Share PDF or Print PDF above.",
-    failureMessage: "PDF ready, but the message could not be copied. Use Share PDF or Print PDF above.",
-  });
-  if (!copiedMessage && statusEl) {
-    statusEl.textContent = "PDF ready, but the message could not be copied. Use Share PDF or Print PDF above.";
-  }
-  const actionsBar = document.getElementById("pdfActionsBar");
-  if (actionsBar && typeof actionsBar.scrollIntoView === "function") {
-    actionsBar.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  } else if (typeof window.scrollTo === "function") {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-  if (openAfterGenerate) {
-    openLastPdfPreview();
-  }
-  setTimeout(() => {
-    statusEl.textContent = "";
-  }, 3000);
-
-  if (type === "agreement") {
-    await ensureHoldEventForAgreement();
-    if (lastPdfBlob) {
-      await autoSaveCreatedAgreementPdf(lastPdfBlob, fileName);
-    }
-  } else if (type === "invoice") {
-    await saveInvoiceToSupabaseInternal(true);
-    if (lastPdfBlob) {
-      await autoSaveInvoicePdf(lastPdfBlob, fileName);
-    }
-  } else if (type === "receipt") {
-    await saveReceiptToSupabaseInternal(true);
-    if (lastPdfBlob) {
-      await autoSaveReceiptPdf(lastPdfBlob, fileName);
+    if (exportTarget) exportTarget.remove();
+    if (statusShouldClear && statusEl && statusEl.textContent === "Generating PDF...") {
+      statusEl.textContent = "PDF generation stopped. Check the console for details.";
     }
   }
 }
@@ -18174,23 +18302,6 @@ function setLastGeneratedPdf(blob, fileName) {
   if (lastPdfBlob) {
     lastPdfUrl = URL.createObjectURL(lastPdfBlob);
   }
-}
-
-function openLastPdfPreview() {
-  const statusEl = document.getElementById("pdfStatus");
-  if (!lastPdfUrl) {
-    if (statusEl) statusEl.textContent = "Generate a PDF first.";
-    return false;
-  }
-  const previewWindow = window.open(lastPdfUrl, "_blank", "noopener,noreferrer");
-  if (!previewWindow && statusEl) {
-    statusEl.textContent = "Popup blocked. Allow popups to open the PDF preview.";
-    return false;
-  }
-  if (statusEl) {
-    statusEl.textContent = "PDF preview opened in a new tab.";
-  }
-  return true;
 }
 
 function printLastPdf() {
@@ -18370,6 +18481,8 @@ async function init() {
     syncAgreementForm();
     syncInvoiceForm();
     syncReceiptForm();
+    const buildBadge = document.getElementById("buildBadge");
+    if (buildBadge) buildBadge.textContent = `GigOS build: ${GIGOS_BUILD_VERSION}`;
     const overridePinInput = document.getElementById("overridePin");
     if (overridePinInput) {
       overridePinInput.value = state.calendar.overridePin ? "••••" : "";
