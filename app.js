@@ -9,8 +9,8 @@ function createInitialAgreementState() {
     clientEmail: "",
     clientPhone: "",
     performanceDate: "",
-    performanceTime: "19:00",
-    performanceEndTime: "22:00",
+    performanceTime: "",
+    performanceEndTime: "",
     holidayWeekend: false,
     holidayRateType: "timeAndHalf",
     hours: "",
@@ -431,10 +431,22 @@ const state = {
     syncChannel: null,
     syncTimer: null,
     syncRefreshTimer: null,
+    authLoading: false,
+    authInitPromise: null,
   },
   billing: {
     invoices: [],
     receipts: [],
+  },
+  forms: {
+    booking: { mode: "create", editingRecordId: "" },
+    invoice: { mode: "create", editingRecordId: "" },
+    receipt: { mode: "create", editingRecordId: "" },
+    quote: { mode: "create", editingRecordId: "" },
+    contract: { mode: "create", editingRecordId: "" },
+    contact: { mode: "create", editingRecordId: "" },
+    payment: { mode: "create", editingRecordId: "" },
+    expense: { mode: "create", editingRecordId: "" },
   },
   bookingDrafts: [],
   workOrders: [],
@@ -2410,8 +2422,11 @@ const SUPABASE_ANON_KEY =
   window.RR_SUPABASE_CONFIG?.anonKey || "sb_publishable_-XW9I_e7OR4TUMq0B4SG-Q_el-7vKPJ";
 const OVERRIDE_PIN_SETTING = "override_pin";
 const CALENDAR_AUTH_SEEN_KEY = "gigos-calendar-auth-seen";
+const NAVIGATION_STATE_KEY = "gigos_navigation_state";
+const VISIBLE_FORM_STATE_KEY = "gigos_visible_form_state";
 const AUTO_HOLD_NOTE = "Pending contract signature (auto-created from agreement)";
 let switchTopView = null;
+let restoreNavigationView = null;
 const SYNC_POLL_INTERVAL_MS = 15000;
 const DEFAULT_MUSICIAN_ROSTER = [
   { name: "Lead performer", role: "Lead vocals / instrument" },
@@ -2441,6 +2456,23 @@ function safeStorageSet(key, value) {
 function safeStorageGet(key) {
   try {
     return localStorage.getItem(key);
+  } catch (error) {
+    return null;
+  }
+}
+
+function safeSessionSet(key, value) {
+  try {
+    sessionStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function safeSessionGet(key) {
+  try {
+    return sessionStorage.getItem(key);
   } catch (error) {
     return null;
   }
@@ -2504,6 +2536,7 @@ function saveDraft() {
       workspace: state.workspace,
       invoice: state.invoice,
       receipt: state.receipt,
+      forms: state.forms,
       bookingDrafts: state.bookingDrafts,
       workOrders: state.workOrders,
       workOrderWorkspace: state.workOrderWorkspace,
@@ -2523,7 +2556,440 @@ function saveDraft() {
   }
 }
 
+function getTopForPanel(panel = state.activeTab) {
+  if (panel === "login") return "login";
+  if (panel === "onboarding") return "onboarding";
+  if (panel === "home") return "home";
+  if (panel === "marketing") return "marketing";
+  if (panel === "calendar") return "calendar";
+  if (panel === "allabout" || panel === "howto") return "about";
+  if (panel === "contractshub" || panel === "contracts" || panel === "contractscreated") {
+    return "contracts";
+  }
+  if (panel === "bookhub" || panel === "agreement" || panel === "quotebuilder" || panel === "invoice" || panel === "receipt") {
+    return "bookkeeping";
+  }
+  if (panel === "bandprofile") return "bandprofile";
+  if (panel === "workorders") return "workorders";
+  if (panel === "shows") return "shows";
+  if (panel === "musicians") return "musicians";
+  if (panel === "troubleshooting") return "troubleshooting";
+  if (panel === "more") return "more";
+  return state.workspace.top && state.workspace.top !== "login" ? state.workspace.top : "home";
+}
+
+function getNavigationState() {
+  const panel = state.activeTab || "login";
+  return {
+    top: getTopForPanel(panel),
+    panel,
+    workspaceTop: state.workspace.top || "",
+    agreementStep: state.workspace.agreementStep || 1,
+    bookingEventId: state.workspace.bookingEventId || "",
+    activeBookingDraftId: state.workspace.activeBookingDraftId || "",
+    contractWizardOpen: Boolean(state.workspace.contractWizardOpen),
+    calendarSelectedDate: state.calendar.selectedDate || "",
+    calendarSelectedEventId: state.calendar.selectedEventId || "",
+    calendarMonthOffset: state.calendar.monthOffset || 0,
+    workOrderFocusId: state.workOrderView?.focusId || "",
+    workOrderShowCreate: state.workOrderView?.showCreate !== false,
+    savedAt: Date.now(),
+  };
+}
+
+function persistNavigationState() {
+  console.log("[GigOS nav DEBUG] persistNavigationState start", {
+    activeTab: state.activeTab,
+    workspaceTop: state.workspace.top,
+    current: getCurrentVisiblePanel(),
+  });
+  const nav = getNavigationState();
+  safeSessionSet(NAVIGATION_STATE_KEY, JSON.stringify(nav));
+  return nav;
+}
+
+function loadPersistedNavigationState() {
+  console.log("[GigOS nav DEBUG] loadPersistedNavigationState start", {
+    activeTab: state.activeTab,
+    workspaceTop: state.workspace.top,
+    current: getCurrentVisiblePanel(),
+  });
+  try {
+    const stored = safeSessionGet(NAVIGATION_STATE_KEY);
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    if (!parsed || typeof parsed !== "object") return null;
+    if (!parsed.panel || !parsed.top) return null;
+    return parsed;
+  } catch (error) {
+    return null;
+  }
+}
+
+function applyNavigationState(nav) {
+  console.log("[GigOS nav DEBUG] applyNavigationState start", {
+    nav,
+    activeTab: state.activeTab,
+    workspaceTop: state.workspace.top,
+    current: getCurrentVisiblePanel(),
+  });
+  if (!nav || typeof nav !== "object") return false;
+  if (nav.agreementStep) state.workspace.agreementStep = nav.agreementStep;
+  state.workspace.bookingEventId = nav.bookingEventId || state.workspace.bookingEventId || "";
+  state.workspace.activeBookingDraftId = nav.activeBookingDraftId || state.workspace.activeBookingDraftId || "";
+  state.workspace.contractWizardOpen = Boolean(nav.contractWizardOpen);
+  state.calendar.selectedDate = nav.calendarSelectedDate || state.calendar.selectedDate || "";
+  state.calendar.selectedEventId = nav.calendarSelectedEventId || state.calendar.selectedEventId || "";
+  if (Number.isFinite(Number(nav.calendarMonthOffset))) {
+    state.calendar.monthOffset = Number(nav.calendarMonthOffset);
+  }
+  if (state.workOrderView) {
+    state.workOrderView.focusId = nav.workOrderFocusId || state.workOrderView.focusId || "";
+    state.workOrderView.showCreate = nav.workOrderShowCreate !== false;
+  }
+  state.activeTab = nav.panel || state.activeTab;
+  state.workspace.top = nav.top || state.workspace.top;
+  return true;
+}
+
+function getActivePanelElement(panel = state.activeTab) {
+  if (!panel) return null;
+  const panelIds = {
+    bookhub: "bookHubTab",
+    bandprofile: "bandProfileTab",
+    workorders: "workOrdersTab",
+    quotebuilder: "quoteBuilderTab",
+    contractshub: "contractsHubTab",
+    contractscreated: "contractsCreatedTab",
+  };
+  return document.getElementById(panelIds[panel] || `${panel}Tab`);
+}
+
+function getCurrentVisiblePanel() {
+  const panelIds = [
+    "loginTab",
+    "homeTab",
+    "bookTab",
+    "docsTab",
+    "marketingTab",
+    "moreTab",
+    "onboardingTab",
+    "bookHubTab",
+    "bandProfileTab",
+    "workOrdersTab",
+    "agreementTab",
+    "quoteBuilderTab",
+    "invoiceTab",
+    "receiptTab",
+    "calendarTab",
+    "contractsTab",
+    "contractsCreatedTab",
+    "contractsHubTab",
+    "musiciansTab",
+    "troubleshootingTab",
+    "showsTab",
+    "allaboutTab",
+    "howtoTab",
+  ];
+  const panelForId = {
+    bookHubTab: "bookhub",
+    bandProfileTab: "bandprofile",
+    workOrdersTab: "workorders",
+    quoteBuilderTab: "quotebuilder",
+    contractsHubTab: "contractshub",
+    contractsCreatedTab: "contractscreated",
+  };
+  const visibleId = panelIds.find((id) => {
+    const el = document.getElementById(id);
+    return el && !el.classList.contains("hidden") && el.style.display !== "none";
+  });
+  if (!visibleId) return "";
+  return panelForId[visibleId] || visibleId.replace(/Tab$/, "").toLowerCase();
+}
+
+function logGigOSEvent(eventName) {
+  console.log("[GigOS EVENT]", eventName, {
+    visibility: document.visibilityState,
+    hasFocus: document.hasFocus(),
+    href: location.href,
+    hash: location.hash,
+  });
+}
+
+function logGigOSAboutOpened() {
+  console.group("[GigOS ABOUT OPENED]");
+  console.log("time:", new Date().toISOString());
+  console.log("document.visibilityState:", document.visibilityState);
+  console.log("document.hasFocus():", document.hasFocus());
+  console.trace("CALL STACK");
+  console.groupEnd();
+}
+
+function persistActiveFormSnapshot() {
+  const panel = state.activeTab || "";
+  const container = getActivePanelElement(panel);
+  if (!panel || !container) return false;
+  const fields = {};
+  container.querySelectorAll("input, select, textarea").forEach((field) => {
+    if (!field.id || field.type === "password" || field.type === "file") return;
+    if (field.type === "checkbox" || field.type === "radio") {
+      fields[field.id] = { checked: Boolean(field.checked) };
+    } else {
+      fields[field.id] = { value: field.value };
+    }
+  });
+  safeSessionSet(
+    VISIBLE_FORM_STATE_KEY,
+    JSON.stringify({
+      panel,
+      fields,
+      savedAt: Date.now(),
+    })
+  );
+  return true;
+}
+
+function restoreActiveFormSnapshot(panel = state.activeTab) {
+  console.log("[GigOS nav DEBUG] restoreActiveFormSnapshot start", {
+    panel,
+    activeTab: state.activeTab,
+    workspaceTop: state.workspace.top,
+    current: getCurrentVisiblePanel(),
+  });
+  try {
+    const stored = safeSessionGet(VISIBLE_FORM_STATE_KEY);
+    if (!stored) return false;
+    const snapshot = JSON.parse(stored);
+    if (!snapshot || snapshot.panel !== panel || !snapshot.fields) return false;
+    Object.entries(snapshot.fields).forEach(([id, entry]) => {
+      const field = document.getElementById(id);
+      if (!field || field.type === "password" || field.type === "file") return;
+      if ("checked" in entry && (field.type === "checkbox" || field.type === "radio")) {
+        field.checked = Boolean(entry.checked);
+      } else if ("value" in entry) {
+        field.value = entry.value;
+      }
+    });
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function addSuggestionValue(bucket, value) {
+  const clean = String(value || "").trim();
+  if (!clean) return;
+  bucket.add(clean);
+}
+
+function extractEmailSuggestions(text, bucket) {
+  String(text || "").match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)?.forEach((value) => {
+    addSuggestionValue(bucket, value);
+  });
+}
+
+function extractPhoneSuggestions(text, bucket) {
+  String(text || "").match(/(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/g)?.forEach((value) => {
+    addSuggestionValue(bucket, value);
+  });
+}
+
+function collectGigOSSuggestionValues(kind) {
+  const values = new Set();
+  const add = (value) => addSuggestionValue(values, value);
+  const scan = (text) => {
+    if (kind === "email" || kind === "contact") extractEmailSuggestions(text, values);
+    if (kind === "phone" || kind === "contact") extractPhoneSuggestions(text, values);
+  };
+
+  (state.calendar.events || []).forEach((event) => {
+    if (kind === "name") add(event.title);
+    if (kind === "venue") add(getVenueDisplayNameForMemberShow(event));
+    if (kind === "address") add(event.venue_address || event.venue || "");
+    scan(`${event.title || ""} ${event.notes || ""} ${event.venue_address || ""}`);
+  });
+
+  (state.calendar.contracts || []).forEach((contract) => {
+    if (kind === "name") add(contract.client_name || contract.name);
+    if (kind === "email") add(contract.client_email);
+    if (kind === "venue") add(contract.venue_name);
+    if (kind === "address") add(contract.venue_address);
+    scan(`${contract.name || ""} ${contract.client_email || ""} ${contract.venue_name || ""} ${contract.venue_address || ""}`);
+  });
+
+  (state.billing.invoices || []).forEach((invoice) => {
+    if (kind === "name") add(invoice.client_name);
+    if (kind === "email") add(invoice.client_email);
+    scan(`${invoice.client_name || ""} ${invoice.client_email || ""} ${invoice.description || ""}`);
+  });
+
+  (state.billing.receipts || []).forEach((receipt) => {
+    if (kind === "name") add(receipt.client_name);
+    if (kind === "venue") add(receipt.venue_name);
+    if (kind === "address") add(receipt.venue_name);
+    scan(`${receipt.client_name || ""} ${receipt.venue_name || ""} ${receipt.related_invoice || ""}`);
+  });
+
+  (state.bookingDrafts || []).forEach((draft) => {
+    const agreement = draft.agreement || {};
+    if (kind === "name") add(agreement.clientName);
+    if (kind === "email") add(agreement.clientEmail);
+    if (kind === "phone") add(agreement.clientPhone);
+    if (kind === "venue") add(agreement.venueName || agreement.venueAddress);
+    if (kind === "address") add(agreement.venueAddress);
+    scan(`${agreement.clientEmail || ""} ${agreement.clientPhone || ""} ${agreement.venueAddress || ""}`);
+  });
+
+  (state.musicians || []).forEach((musician) => {
+    if (kind === "name") add(musician.name);
+    if (kind === "email") add(musician.email);
+    if (kind === "phone") add(musician.phone);
+  });
+
+  (state.workOrderWorkspace?.followUps || []).forEach((entry) => {
+    if (kind === "name") add(entry.contactName);
+    if (kind === "venue") add(entry.venueName);
+    if (kind === "email" || kind === "phone" || kind === "contact") scan(entry.contactInfo);
+  });
+
+  return Array.from(values);
+}
+
+function getFilteredSuggestions(kind, query) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return [];
+  const normalizePhone = (value) => String(value || "").replace(/\D/g, "");
+  const phoneQuery = normalizePhone(q);
+  const matches = collectGigOSSuggestionValues(kind).filter((value) => {
+    const lower = value.toLowerCase();
+    if ((kind === "phone" || kind === "contact") && phoneQuery && normalizePhone(value).includes(phoneQuery)) {
+      return true;
+    }
+    return lower.includes(q);
+  });
+  return matches
+    .sort((a, b) => {
+      const al = a.toLowerCase();
+      const bl = b.toLowerCase();
+      const aPrefix = al.startsWith(q);
+      const bPrefix = bl.startsWith(q);
+      if (aPrefix !== bPrefix) return aPrefix ? -1 : 1;
+      return al.localeCompare(bl);
+    })
+    .slice(0, 8);
+}
+
+function attachGigOSAutocomplete(inputId, kind) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const parent = input.parentElement || input.closest("label") || input;
+  if (parent instanceof HTMLElement) parent.style.position = "relative";
+  const list = document.createElement("div");
+  list.className = "gigos-autocomplete-list hidden";
+  list.setAttribute("role", "listbox");
+  list.style.cssText =
+    "position:absolute;z-index:1000;left:0;right:0;top:100%;background:#fff;border:1px solid #e8a855;border-radius:8px;box-shadow:0 8px 18px rgba(0,0,0,.18);max-height:180px;overflow:auto;margin-top:4px;";
+  parent.appendChild(list);
+  let activeIndex = -1;
+  let current = [];
+
+  const hide = () => {
+    list.classList.add("hidden");
+    list.innerHTML = "";
+    activeIndex = -1;
+    current = [];
+  };
+  const choose = (value) => {
+    input.value = value;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    hide();
+  };
+  const render = () => {
+    current = getFilteredSuggestions(kind, input.value);
+    activeIndex = -1;
+    if (!current.length) {
+      hide();
+      return;
+    }
+    list.innerHTML = "";
+    current.forEach((value, index) => {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.setAttribute("role", "option");
+      option.textContent = value;
+      option.style.cssText =
+        "display:block;width:100%;border:0;background:#fff;color:#2c1a00;text-align:left;padding:9px 10px;font:inherit;cursor:pointer;";
+      option.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        choose(value);
+      });
+      option.addEventListener("mouseenter", () => {
+        activeIndex = index;
+        Array.from(list.children).forEach((child, childIndex) => {
+          child.style.background = childIndex === activeIndex ? "#fdf0e3" : "#fff";
+        });
+      });
+      list.appendChild(option);
+    });
+    list.classList.remove("hidden");
+  };
+
+  input.setAttribute("autocomplete", "off");
+  input.addEventListener("input", render);
+  input.addEventListener("focus", render);
+  input.addEventListener("keydown", (event) => {
+    if (list.classList.contains("hidden") || !current.length) return;
+    if (event.key === "Escape") {
+      hide();
+      return;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const delta = event.key === "ArrowDown" ? 1 : -1;
+      activeIndex = (activeIndex + delta + current.length) % current.length;
+      Array.from(list.children).forEach((child, index) => {
+        child.style.background = index === activeIndex ? "#fdf0e3" : "#fff";
+      });
+      return;
+    }
+    if (event.key === "Enter" && activeIndex >= 0) {
+      event.preventDefault();
+      choose(current[activeIndex]);
+    }
+  });
+  document.addEventListener("click", (event) => {
+    if (event.target === input || list.contains(event.target)) return;
+    hide();
+  });
+}
+
+function setupGigOSAutocomplete() {
+  [
+    ["clientName", "name"],
+    ["clientEmail", "email"],
+    ["clientPhone", "phone"],
+    ["venueAddress", "address"],
+    ["promoContactName", "name"],
+    ["promoVenueName", "venue"],
+    ["followUpVenueName", "venue"],
+    ["followUpContactName", "name"],
+    ["followUpContactInfo", "contact"],
+    ["invoiceClientName", "name"],
+    ["invoiceClientEmail", "email"],
+    ["receiptClientName", "name"],
+    ["receiptVenueName", "venue"],
+    ["musicianEmail", "email"],
+    ["musicianPhone", "phone"],
+  ].forEach(([inputId, kind]) => attachGigOSAutocomplete(inputId, kind));
+}
+
 function persistVisibleFormState() {
+  console.log("[GigOS nav DEBUG] persistVisibleFormState start", {
+    activeTab: state.activeTab,
+    workspaceTop: state.workspace.top,
+    current: getCurrentVisiblePanel(),
+  });
   if (state.activeTab === "agreement") {
     syncAgreementStateFromForm();
     updatePerformanceHoursFromTimes();
@@ -2534,6 +3000,8 @@ function persistVisibleFormState() {
   } else if (state.activeTab === "receipt") {
     updateReceiptPreview();
   }
+  persistActiveFormSnapshot();
+  persistNavigationState();
   saveDraft();
 }
 
@@ -2587,6 +3055,12 @@ function loadDraft() {
     }
     if (parsed.receipt) {
       state.receipt = { ...state.receipt, ...parsed.receipt };
+    }
+    if (parsed.forms && typeof parsed.forms === "object") {
+      state.forms = {
+        ...state.forms,
+        ...parsed.forms,
+      };
     }
     if (Array.isArray(parsed.bookingDrafts)) {
       state.bookingDrafts = parsed.bookingDrafts;
@@ -4422,6 +4896,7 @@ function refreshQuoteBuilderFromAgreement() {
     acceptedBanner: "",
     skipExistingQuoteLoad: true,
   };
+  state.forms.quote = { mode: "create", editingRecordId: "" };
 }
 
 function createQuoteOptionRowMarkup(option = {}, index = 0) {
@@ -4656,6 +5131,7 @@ async function renderQuoteBuilder() {
         ...createInitialQuoteBuilderState(),
         options: getQuoteBuilderOptionsForRender(),
       };
+      state.forms.quote = { mode: "create", editingRecordId: "" };
       renderQuoteLinkDisplay("");
       setQuoteBuilderStatus("No quote generated yet.");
       stopQuoteStatusPolling();
@@ -4663,6 +5139,7 @@ async function renderQuoteBuilder() {
     }
 
     const quoteOptions = getRenderableQuoteOptions(existingQuote.options);
+    state.forms.quote = { mode: "edit", editingRecordId: existingQuote.id || "" };
     state.quoteBuilder = {
       ...state.quoteBuilder,
       activeQuoteId: existingQuote.id || "",
@@ -4764,6 +5241,7 @@ async function saveQuoteToSupabase() {
 
     const quoteId = savedQuote?.id || "";
     const link = getQuoteBuilderLink(quoteId);
+    state.forms.quote = { mode: quoteId ? "edit" : "create", editingRecordId: quoteId };
     state.quoteBuilder = {
       ...state.quoteBuilder,
       activeQuoteId: quoteId,
@@ -7048,9 +7526,10 @@ function updateInvoiceList() {
 }
 
 function editInvoiceRecord(invoice = {}) {
+  state.forms.invoice = { mode: "edit", editingRecordId: invoice.id || "" };
   state.invoice = {
     ...createInitialInvoiceState(),
-    invoiceNumber: invoice.invoice_number || state.invoice.invoiceNumber || DEFAULT_INVOICE_NUMBER,
+    invoiceNumber: invoice.invoice_number || DEFAULT_INVOICE_NUMBER,
     clientName: invoice.client_name || "",
     clientEmail: invoice.client_email || "",
     issueDate: normalizeDateValue(invoice.issue_date || ""),
@@ -7076,6 +7555,38 @@ function editInvoiceRecord(invoice = {}) {
   if (switchTopView) switchTopView("bookkeeping");
   window.requestAnimationFrame(() => {
     const firstField = document.getElementById("invoiceNumber");
+    firstField?.scrollIntoView({ behavior: "smooth", block: "center" });
+    firstField?.focus({ preventScroll: true });
+  });
+}
+
+function editReceiptRecord(receipt = {}) {
+  state.forms.receipt = { mode: "edit", editingRecordId: receipt.id || "" };
+  state.receipt = {
+    ...createInitialReceiptState(),
+    receiptNumber: receipt.receipt_number || DEFAULT_RECEIPT_NUMBER,
+    clientName: receipt.client_name || "",
+    paymentDate: normalizeDateValue(receipt.payment_date || ""),
+    eventDate: normalizeDateValue(receipt.event_date || ""),
+    venueName: receipt.venue_name || "",
+    amountPaid: receipt.amount_paid ?? "",
+    paymentMethod: receipt.payment_method || "Venmo",
+    relatedInvoice: receipt.related_invoice || "",
+    link: "",
+  };
+  syncReceiptForm();
+  renderReceiptLinkDisplay("");
+  updateReceiptPreview();
+  saveDraft();
+  const status = document.getElementById("receiptStatus");
+  if (status) {
+    status.textContent = "Receipt loaded for editing. Preview or share when ready.";
+    status.classList.remove("warning");
+  }
+  state.activeTab = "receipt";
+  if (switchTopView) switchTopView("bookkeeping");
+  window.requestAnimationFrame(() => {
+    const firstField = document.getElementById("receiptNumber");
     firstField?.scrollIntoView({ behavior: "smooth", block: "center" });
     firstField?.focus({ preventScroll: true });
   });
@@ -7163,6 +7674,14 @@ function updateReceiptList() {
     header.appendChild(badge);
     const actions = document.createElement("div");
     actions.className = "event-actions";
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "btn ghost";
+    edit.textContent = "Edit";
+    edit.addEventListener("click", () => {
+      editReceiptRecord(receipt);
+    });
+    actions.appendChild(edit);
     const view = document.createElement("button");
     view.className = "btn ghost";
     view.textContent = "View PDF";
@@ -7230,12 +7749,16 @@ async function saveInvoiceToSupabaseInternal(silent) {
     paid: false,
   };
 
-  const { data: existing } = await client
-    .from("invoices")
-    .select("id")
-    .eq("invoice_number", payload.invoice_number)
-    .order("created_at", { ascending: false })
-    .limit(1);
+  const editingInvoiceId =
+    state.forms.invoice?.mode === "edit" ? state.forms.invoice.editingRecordId || "" : "";
+  const { data: existing } = editingInvoiceId
+    ? { data: [{ id: editingInvoiceId }] }
+    : await client
+      .from("invoices")
+      .select("id")
+      .eq("invoice_number", payload.invoice_number)
+      .order("created_at", { ascending: false })
+      .limit(1);
   let savedInvoiceId = "";
   if (existing && existing.length) {
     const { data: updatedInvoice, error } = await client
@@ -7292,17 +7815,23 @@ async function saveReceiptToSupabaseInternal(silent) {
     receipt_number: state.receipt.receiptNumber || "RCPT-001",
     client_name: state.receipt.clientName,
     payment_date: state.receipt.paymentDate || null,
+    event_date: state.receipt.eventDate || null,
+    venue_name: state.receipt.venueName || "",
     amount_paid: toNumber(state.receipt.amountPaid),
     payment_method: state.receipt.paymentMethod,
     related_invoice: state.receipt.relatedInvoice,
     paid: true,
   };
-  const { data: existing } = await client
-    .from("receipts")
-    .select("id")
-    .eq("receipt_number", payload.receipt_number)
-    .order("created_at", { ascending: false })
-    .limit(1);
+  const editingReceiptId =
+    state.forms.receipt?.mode === "edit" ? state.forms.receipt.editingRecordId || "" : "";
+  const { data: existing } = editingReceiptId
+    ? { data: [{ id: editingReceiptId }] }
+    : await client
+      .from("receipts")
+      .select("id")
+      .eq("receipt_number", payload.receipt_number)
+      .order("created_at", { ascending: false })
+      .limit(1);
   let savedReceiptId = "";
   if (existing && existing.length) {
     const { data: updatedReceipt, error } = await client
@@ -7759,6 +8288,7 @@ function initSupabaseClient() {
     syncTopAuthTabLabel();
     updateLandingHeaderVisibility();
     updateCalendarAuthVisibility();
+    finishAuthLoading();
 
     const loginSignInBtn = document.getElementById("loginSignIn");
     if (loginSignInBtn) {
@@ -7777,7 +8307,7 @@ function initSupabaseClient() {
       safeStorageSet(CALENDAR_AUTH_SEEN_KEY, "1");
       updateSupabaseStatus("Signed in.");
       if (event === "SIGNED_IN") {
-        void refreshAuthState();
+        void refreshAuthState("auth-listener");
       }
       queueSupabaseSyncRefresh();
     } else if (event === "PASSWORD_RECOVERY") {
@@ -7817,6 +8347,37 @@ function updateSupabaseStatus(message, isError = false) {
     status.textContent = message;
     status.classList.toggle("warning", isError);
   });
+}
+
+function setAuthLoading(loading, message = "") {
+  state.calendar.authLoading = Boolean(loading);
+  const signedIn = Boolean(state.calendar.session);
+  [
+    { id: "loginSignIn", idle: signedIn ? "Sign out" : "Sign In", busy: "Signing in..." },
+    { id: "signIn", idle: "Sign in", busy: "Signing in..." },
+  ].forEach(({ id, idle, busy }) => {
+    const button = document.getElementById(id);
+    if (!button) return;
+    button.disabled = Boolean(loading);
+    button.textContent = loading ? busy : idle;
+  });
+  if (message) updateSupabaseStatus(message);
+}
+
+function finishAuthLoading() {
+  setAuthLoading(false);
+}
+
+async function runAuthStep(label, fn, options = {}) {
+  const { statusMessage = "" } = options;
+  try {
+    const result = await fn();
+    return { ok: true, result };
+  } catch (error) {
+    console.error(`${label} failed:`, error);
+    if (statusMessage) updateSupabaseStatus(statusMessage, true);
+    return { ok: false, error };
+  }
 }
 
 function setCalendarStatus(message, isError = false) {
@@ -7951,45 +8512,49 @@ async function signInWithCredentials(email, password) {
     updateSupabaseStatus("Enter email and password first.", true);
     return false;
   }
-  const { error } = await client.auth.signInWithPassword({ email, password });
-  if (error) {
-    console.error("Sign in failed:", error);
-    const lower = (error.message || "").toLowerCase();
-    if (lower.includes("email not confirmed")) {
-      updateSupabaseStatus(
-        "Sign in failed: email not confirmed. Open your Supabase confirmation email first.",
-        true
-      );
+  setAuthLoading(true, "Signing in...");
+  try {
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) {
+      console.error("Sign in failed:", error);
+      const lower = (error.message || "").toLowerCase();
+      if (lower.includes("email not confirmed")) {
+        updateSupabaseStatus(
+          "Sign in failed: email not confirmed. Open your Supabase confirmation email first.",
+          true
+        );
+        return false;
+      }
+      if (lower.includes("invalid login credentials")) {
+        updateSupabaseStatus(
+          `Sign in failed: invalid email/password. ${error.message || ""}`.trim(),
+          true
+        );
+      } else {
+        updateSupabaseStatus(
+          `Sign in failed: ${error.message}${error.status ? ` (status ${error.status})` : ""}`,
+          true
+        );
+      }
       return false;
     }
-    if (lower.includes("invalid login credentials")) {
-      updateSupabaseStatus(
-        `Sign in failed: invalid email/password. ${error.message || ""}`.trim(),
-        true
-      );
-    } else {
-      updateSupabaseStatus(
-        `Sign in failed: ${error.message}${error.status ? ` (status ${error.status})` : ""}`,
-        true
-      );
+    syncAuthFields(email, password);
+    if (data?.session) {
+      state.calendar.session = data.session;
+      safeStorageSet(CALENDAR_AUTH_SEEN_KEY, "1");
+      updateSupabaseStatus("Signed in. Loading app data...");
+      await initializeAuthenticatedApp("login");
+      return true;
     }
+    await refreshAuthState("login");
+    return Boolean(state.calendar.session);
+  } catch (error) {
+    console.error("Sign-in exception:", error);
+    updateSupabaseStatus(formatSupabaseError(error, "Sign in failed."), true);
     return false;
+  } finally {
+    finishAuthLoading();
   }
-  syncAuthFields(email, password);
-  safeStorageSet(CALENDAR_AUTH_SEEN_KEY, "1");
-  updateSupabaseStatus("Signed in.");
-  await refreshAuthState();
-  await loadOverridePin();
-  await fetchEventsForMonth();
-  await fetchContracts();
-  await fetchMusicians();
-  await fetchMusicianAssignments();
-  await fetchMusicianBlackouts();
-  await fetchInvoices();
-  await fetchReceipts();
-  await loadBandDNAFromSupabase();
-  repairLineupRates();
-  return true;
 }
 
 async function requestPasswordReset(email) {
@@ -8084,6 +8649,9 @@ function getPostAuthTopView() {
     return "onboarding";
   }
   if (!state.bandDNA.onboardingComplete) return "onboarding";
+  if (state.activeTab && state.activeTab !== "login" && state.activeTab !== "onboarding") {
+    return getTopForPanel(state.activeTab);
+  }
   const top = state.workspace.top;
   if (top && top !== "login" && top !== "onboarding") return top;
   return "home";
@@ -8276,10 +8844,127 @@ function applyRoleBasedUI() {
   }
 }
 
-async function refreshAuthState() {
+async function initializeAuthenticatedApp(source = "auth") {
+  console.log("[GigOS nav DEBUG] initializeAuthenticatedApp start", {
+    source,
+    activeTab: state.activeTab,
+    workspaceTop: state.workspace.top,
+    current: getCurrentVisiblePanel(),
+    hasSession: Boolean(state.calendar.session),
+  });
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session) return true;
+  if (state.calendar.authInitPromise) {
+    return state.calendar.authInitPromise;
+  }
+
+  state.calendar.authInitPromise = (async () => {
+    safeStorageSet(CALENDAR_AUTH_SEEN_KEY, "1");
+    startSupabaseSync();
+
+    const failures = [];
+    const step = async (label, fn, statusMessage = "") => {
+      const result = await runAuthStep(label, fn, { statusMessage });
+      if (!result.ok) failures.push(label);
+      return result;
+    };
+
+    await step("load override PIN", loadOverridePin, "Signed in, but the override PIN could not load.");
+    await step("load calendar events", fetchEventsForMonth, "Signed in, but calendar events could not load.");
+    await step("load contracts", fetchContracts, "Signed in, but contracts could not load.");
+    await step("load musicians", fetchMusicians, "Signed in, but musicians could not load.");
+    await step("load musician assignments", fetchMusicianAssignments, "Signed in, but musician assignments could not load.");
+    await step("load musician blackouts", fetchMusicianBlackouts, "Signed in, but musician blackouts could not load.");
+    await step("load work orders", fetchWorkOrders, "Signed in, but work orders could not load.");
+    await step("load invoices", fetchInvoices, "Signed in, but invoices could not load.");
+    await step("load receipts", fetchReceipts, "Signed in, but receipts could not load.");
+    await step("load Band DNA/profile", loadBandDNAFromSupabase, "Signed in, but Band DNA/profile data could not load.");
+
+    if (
+      state.bandDNA.contactEmail &&
+      state.calendar.session &&
+      state.bandDNA.contactEmail !== state.calendar.session.user.email
+    ) {
+      state.bandDNA = createInitialBandDNAState();
+      saveDraft();
+    }
+
+    const pendingInviteCode = safeStorageGet("pendingBandInviteCode");
+    if (pendingInviteCode) {
+      await step("process pending band invite", () => processBandInviteCode(pendingInviteCode), "Signed in, but the saved band invite could not be processed.");
+    }
+
+    await step("load user role/profile", fetchBandMemberRoleForSession, "Signed in, but user role/profile data could not load.");
+
+    if (state.calendar.session && state.userRole === "member") {
+      await step("load member onboarding flag", async () => {
+        const { data: onboardingFlag, error } = await client
+          .from("app_settings")
+          .select("value")
+          .eq("key", "memberOnboardingComplete")
+          .eq("user_id", state.calendar.session.user.id)
+          .maybeSingle();
+        if (error) throw error;
+        if (onboardingFlag?.value === "true") {
+          state.bandDNA.onboardingComplete = true;
+        }
+      }, "Signed in, but member onboarding status could not load.");
+    }
+
+    repairLineupRates();
+    void renderMoreTab();
+    const shouldNavigateAfterAuth =
+      source === "login" ||
+      source === "url-restore" ||
+      source === "init" ||
+      state.activeTab === "login" ||
+      state.workspace.top === "login";
+    if (shouldNavigateAfterAuth) {
+      const restored = source === "init" && restoreNavigationView
+        ? restoreNavigationView(loadPersistedNavigationState())
+        : false;
+      if (!restored && switchTopView) switchTopView(getPostAuthTopView());
+    } else {
+      persistNavigationState();
+    }
+
+    if (failures.length) {
+      updateSupabaseStatus(
+        `Signed in. Some app data could not load: ${failures.join(", ")}. Check the console and Supabase policies.`,
+        true
+      );
+    } else {
+      updateSupabaseStatus("Signed in.");
+    }
+    return true;
+  })();
+
+  try {
+    return await state.calendar.authInitPromise;
+  } finally {
+    state.calendar.authInitPromise = null;
+  }
+}
+
+async function refreshAuthState(source = "manual") {
+  console.log("[GigOS nav DEBUG] refreshAuthState start", {
+    source,
+    activeTab: state.activeTab,
+    workspaceTop: state.workspace.top,
+    current: getCurrentVisiblePanel(),
+  });
   const client = state.calendar.client;
   if (!client) return;
-  const { data } = await client.auth.getSession();
+  let data = null;
+  try {
+    const result = await client.auth.getSession();
+    data = result.data;
+  } catch (error) {
+    console.error("Could not check current session:", error);
+    updateSupabaseStatus(formatSupabaseError(error, "Could not check current session."), true);
+    if (switchTopView) switchTopView("login");
+    return;
+  }
   state.calendar.session = data?.session || null;
   syncTopAuthTabLabel();
   updateLandingHeaderVisibility();
@@ -8319,44 +9004,7 @@ async function refreshAuthState() {
     return;
   }
 
-  safeStorageSet(CALENDAR_AUTH_SEEN_KEY, "1");
-  startSupabaseSync();
-  await loadOverridePin();
-  await fetchEventsForMonth();
-  await fetchContracts();
-  await fetchMusicians();
-  await fetchMusicianAssignments();
-  await fetchMusicianBlackouts();
-  await fetchWorkOrders();
-  await fetchInvoices();
-  await fetchReceipts();
-  await loadBandDNAFromSupabase();
-  if (
-    state.bandDNA.contactEmail &&
-    state.bandDNA.contactEmail !== state.calendar.session.user.email
-  ) {
-    state.bandDNA = createInitialBandDNAState();
-    saveDraft();
-  }
-  const pendingInviteCode = safeStorageGet("pendingBandInviteCode");
-  if (pendingInviteCode) {
-    await processBandInviteCode(pendingInviteCode);
-  }
-  await fetchBandMemberRoleForSession();
-  if (state.calendar.session && state.userRole === "member") {
-    const { data: onboardingFlag } = await client
-      .from("app_settings")
-      .select("value")
-      .eq("key", "memberOnboardingComplete")
-      .eq("user_id", state.calendar.session.user.id)
-      .maybeSingle();
-    if (onboardingFlag?.value === "true") {
-      state.bandDNA.onboardingComplete = true;
-    }
-  }
-  repairLineupRates();
-  void renderMoreTab();
-  if (switchTopView) switchTopView(getPostAuthTopView());
+  await initializeAuthenticatedApp(source);
 }
 
 async function signUpWithCredentials(email, password, confirmPassword) {
@@ -8611,9 +9259,7 @@ async function restoreSupabaseSessionFromUrl() {
   try {
     const queryParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    console.log("Checking session...");
-const existingSession = await client.auth.getSession();
-console.log("Session result:", existingSession);;
+    const existingSession = await client.auth.getSession();
 
     if (existingSession.data?.session) {
       state.calendar.session = existingSession.data.session;
@@ -8624,6 +9270,7 @@ console.log("Session result:", existingSession);;
     if (window.location.search.includes("code=") && typeof client.auth.exchangeCodeForSession === "function") {
       const { error } = await client.auth.exchangeCodeForSession(window.location.href);
       if (error) {
+        console.error("Could not exchange auth code for session:", error);
         updateSupabaseStatus(`Could not finish sign-in: ${error.message}`, true);
         return false;
       }
@@ -8640,13 +9287,14 @@ console.log("Session result:", existingSession);;
       return false;
     }
 
-    await refreshAuthState();
+    await refreshAuthState("url-restore");
     if (state.calendar.session) {
       updateSupabaseStatus("Signed in.");
     }
     clearSupabaseAuthParams();
     return Boolean(state.calendar.session);
   } catch (error) {
+    console.error("Could not finish URL session restore:", error);
     updateSupabaseStatus(formatSupabaseError(error, "Could not finish sign-in."), true);
     clearSupabaseAuthParams();
     return false;
@@ -8674,7 +9322,7 @@ function queueSupabaseSyncRefresh() {
   state.calendar.syncRefreshTimer = setTimeout(async () => {
     state.calendar.syncRefreshTimer = null;
     if (!state.calendar.session) return;
-    await Promise.all([
+    const results = await Promise.allSettled([
       fetchEventsForMonth(),
       fetchContracts(),
       fetchMusicianAssignments(),
@@ -8684,6 +9332,11 @@ function queueSupabaseSyncRefresh() {
       fetchInvoices(),
       fetchReceipts(),
     ]);
+    const failures = results.filter((result) => result.status === "rejected");
+    if (failures.length) {
+      console.error("Background sync refresh failed:", failures);
+      updateSupabaseStatus("Signed in, but background sync hit an error. Check the console.", true);
+    }
   }, 400);
 }
 
@@ -9026,6 +9679,32 @@ function renderCalendar() {
 }
 
 function populateCalendarForm(dateValue) {
+  state.forms.booking = { mode: "create", editingRecordId: "" };
+  state.calendar.selectedEventId = "";
+  [
+    "calendarEventTitle",
+    "calendarStartTime",
+    "calendarEndTime",
+    "calendarMonthlyWeek",
+    "calendarPauseUntil",
+    "calendarNotes",
+    "contractEventId",
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  setSelectedMonthlyWeekValues([]);
+  updateCalendarRepeatHelp();
+  const typeSelect = document.getElementById("calendarType");
+  if (typeSelect) typeSelect.value = "Contract Needed";
+  const pauseFuture = document.getElementById("calendarPauseFuture");
+  if (pauseFuture) pauseFuture.checked = true;
+  const allDayInput = document.getElementById("calendarAllDay");
+  if (allDayInput) allDayInput.checked = false;
+  const startTime = document.getElementById("calendarStartTime");
+  const endTime = document.getElementById("calendarEndTime");
+  if (startTime) startTime.removeAttribute("disabled");
+  if (endTime) endTime.removeAttribute("disabled");
   const startDate = document.getElementById("calendarStartDate");
   const endDate = document.getElementById("calendarEndDate");
   if (startDate) startDate.value = dateValue;
@@ -9395,6 +10074,7 @@ async function syncMonthlyRecurringEvents(payloads = [], seriesSeed = null) {
 
 function selectEventForEdit(event, selectedDateOverride = "") {
   if (!event) return;
+  state.forms.booking = { mode: "edit", editingRecordId: event.id || "" };
   const selectedDate = selectedDateOverride || formatDateInput(new Date(event.start_time));
   state.calendar.selectedDate = selectedDate;
   state.calendar.selectedEventId = event.id;
@@ -11140,6 +11820,8 @@ async function addAgreementToCalendarPending() {
 }
 
 function resetAgreementForm() {
+  state.forms.booking = { mode: "create", editingRecordId: "" };
+  state.forms.contract = { mode: "create", editingRecordId: "" };
   state.agreement = createInitialAgreementState();
   clearAgreementContractContext();
   state.workspace.agreementStep = 1;
@@ -11238,6 +11920,7 @@ function openBookingDraft(draftId) {
     ...createInitialAgreementState(),
     ...(draft.agreement || {}),
   };
+  state.forms.booking = { mode: "edit", editingRecordId: draft.id || "" };
   state.quoteBuilder = {
     ...state.quoteBuilder,
     ...(draft.quoteBuilder || {}),
@@ -11306,6 +11989,7 @@ async function saveBookingOnly() {
     }
     state.workspace.bookingSaved = true;
     state.workspace.bookingEventId = result.eventId || "";
+    state.forms.booking = { mode: "edit", editingRecordId: result.eventId || "" };
     state.workspace.contractWizardOpen = false;
     state.workspace.agreementStep = AGREEMENT_STEP_COUNT;
     syncActiveBookingDraftAfterSave(result.eventId || "");
@@ -11635,6 +12319,7 @@ function syncReceiptForm() {
 }
 
 function resetInvoiceForm() {
+  state.forms.invoice = { mode: "create", editingRecordId: "" };
   state.invoice = createInitialInvoiceState();
   syncInvoiceForm();
   const invoiceBandFull = document.getElementById("invoiceBandFull");
@@ -11650,6 +12335,7 @@ function resetInvoiceForm() {
 }
 
 function resetReceiptForm() {
+  state.forms.receipt = { mode: "create", editingRecordId: "" };
   state.receipt = createInitialReceiptState();
   syncReceiptForm();
   const receiptFile = document.getElementById("receiptFile");
@@ -11657,6 +12343,24 @@ function resetReceiptForm() {
   renderReceiptLinkDisplay("");
   updateReceiptPreview();
   updateMessagePreview();
+  saveDraft();
+}
+
+async function startNewInvoiceForm() {
+  resetInvoiceForm();
+  await assignNextBillingDocumentNumber("invoice");
+  state.forms.invoice = { mode: "create", editingRecordId: "" };
+  renderInvoiceLinkDisplay("");
+  updateInvoicePreview();
+  saveDraft();
+}
+
+async function startNewReceiptForm() {
+  resetReceiptForm();
+  await assignNextBillingDocumentNumber("receipt");
+  state.forms.receipt = { mode: "create", editingRecordId: "" };
+  renderReceiptLinkDisplay("");
+  updateReceiptPreview();
   saveDraft();
 }
 
@@ -13015,6 +13719,7 @@ function saveFollowUpEntry() {
     notes: document.getElementById("followUpNotes")?.value.trim() || "",
     createdAt: new Date().toISOString(),
   };
+  state.forms.contact = { mode: "create", editingRecordId: "" };
   state.workOrderWorkspace.followUps.unshift(entry);
   saveDraft();
   renderFollowUps();
@@ -13023,6 +13728,7 @@ function saveFollowUpEntry() {
 }
 
 function resetFollowUpForm() {
+  state.forms.contact = { mode: "create", editingRecordId: "" };
   [
     "followUpVenueName",
     "followUpContactName",
@@ -15401,6 +16107,23 @@ function setupListeners() {
 
   const switchPanel = (target) => {
     if (!target) return;
+    console.log("[GigOS switchPanel]", {
+      requested: target,
+      current: getCurrentVisiblePanel(),
+      activeTop,
+      activeTab: state.activeTab,
+      workspaceTop: state.workspace.top,
+    });
+    if (target === "allabout") {
+      logGigOSAboutOpened();
+    } else {
+      console.log("[GigOS nav DEBUG] selecting panel", {
+        target,
+        activeTop,
+        workspaceTop: state.workspace.top,
+        currentActiveTab: state.activeTab,
+      });
+    }
     state.activeTab = target;
     document.getElementById("loginTab").classList.toggle("hidden", target !== "login");
     document.getElementById("bookHubTab").classList.toggle("hidden", target !== "bookhub");
@@ -15481,6 +16204,7 @@ function setupListeners() {
     rememberRoute(activeTop, target);
     updateMessagePreview();
     saveDraft();
+    persistNavigationState();
     syncTopLevelShellDisplays();
   if (target === "home") {
       renderHomeDrafts();
@@ -15498,6 +16222,12 @@ function setupListeners() {
   };
 
   const switchTop = (topTarget) => {
+    console.log("[GigOS switchTop]", {
+      requested: topTarget,
+      current: getCurrentVisiblePanel(),
+      activeTab: state.activeTab,
+      workspaceTop: state.workspace.top,
+    });
     TOP_LEVEL_SHELL_IDS.forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.style.display = "none";
@@ -15509,7 +16239,7 @@ function setupListeners() {
     }
     const navTarget = normalizeTopTarget(topTarget);
     activeTop = navTarget;
-    state.workspace.top = navTarget; const csw = document.getElementById('contractSendWrap'); if (csw) csw.classList.add('hidden');
+    state.workspace.top = topTarget || navTarget; const csw = document.getElementById('contractSendWrap'); if (csw) csw.classList.add('hidden');
     document.querySelectorAll(".bottom-nav-tab[data-bottom]").forEach((btn) => {
       btn.classList.toggle("active", btn.getAttribute("data-bottom") === navTarget);
     });
@@ -15590,10 +16320,41 @@ function setupListeners() {
       switchPanel(valid ? state.activeTab : "calendar");
       return;
     }
+    if (topTarget === "about") {
+      const valid = state.activeTab === "allabout" || state.activeTab === "howto";
+      const aboutPanel = valid ? state.activeTab : "allabout";
+      switchPanel(aboutPanel);
+      return;
+    }
+    console.warn("[GigOS nav DEBUG] default top fallback to About", {
+      topTarget,
+      activeTab: state.activeTab,
+      workspaceTop: state.workspace.top,
+    });
     const valid = state.activeTab === "allabout" || state.activeTab === "howto";
     switchPanel(valid ? state.activeTab : "allabout");
+    return;
   };
   switchTopView = switchTop;
+  restoreNavigationView = (nav) => {
+    console.log("[GigOS nav DEBUG] restoreNavigationView start", {
+      nav,
+      activeTab: state.activeTab,
+      workspaceTop: state.workspace.top,
+      current: getCurrentVisiblePanel(),
+    });
+    if (!nav || !state.calendar.session) return false;
+    applyNavigationState(nav);
+    const targetTop = nav.top || getTopForPanel(nav.panel);
+    const targetPanel = nav.panel || state.activeTab;
+    switchTop(targetTop);
+    if (targetPanel && state.activeTab !== targetPanel) {
+      switchPanel(targetPanel);
+    }
+    restoreActiveFormSnapshot(targetPanel);
+    persistNavigationState();
+    return true;
+  };
 
   const workspaceBackBtn = document.getElementById("workspaceBack");
   if (workspaceBackBtn) {
@@ -15739,17 +16500,17 @@ function setupListeners() {
       const target = btn.getAttribute("data-more-panel");
       if (!target) return;
       if (target === "invoice") {
+        await startNewInvoiceForm();
         state.activeTab = "invoice";
         switchTop("bookkeeping");
         switchPanel("invoice");
-        await assignNextBillingDocumentNumber("invoice");
         return;
       }
       if (target === "receipt") {
+        await startNewReceiptForm();
         state.activeTab = "receipt";
         switchTop("bookkeeping");
         switchPanel("receipt");
-        await assignNextBillingDocumentNumber("receipt");
         return;
       }
       if (target === "allabout" || target === "howto") {
@@ -16297,9 +17058,10 @@ function setupListeners() {
 
   const signInBtn = document.getElementById("signIn");
   if (signInBtn) {
-    signInBtn.addEventListener("click", async () => {
-      const email = document.getElementById("authEmail").value.trim();
-      const password = document.getElementById("authPassword").value;
+    signInBtn.addEventListener("click", async (event) => {
+      event.preventDefault();
+      const email = document.getElementById("authEmail")?.value.trim() || "";
+      const password = document.getElementById("authPassword")?.value || "";
       await signInWithCredentials(email, password);
     });
   }
@@ -16359,16 +17121,27 @@ function setupListeners() {
 
   const loginSignInBtn = document.getElementById("loginSignIn");
   if (loginSignInBtn) {
-    loginSignInBtn.addEventListener("click", async () => {
+    loginSignInBtn.addEventListener("click", async (event) => {
+      event.preventDefault();
       if (state.calendar.session) {
         await signOutCurrentUser();
         return;
       }
-      const email = document.getElementById("loginEmail").value.trim();
-      const password = document.getElementById("loginPassword").value;
+      const email = document.getElementById("loginEmail")?.value.trim() || "";
+      const password = document.getElementById("loginPassword")?.value || "";
       await signInWithCredentials(email, password);
     });
   }
+  ["loginEmail", "loginPassword", "authEmail", "authPassword"].forEach((id) => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      const buttonId = id.startsWith("login") ? "loginSignIn" : "signIn";
+      document.getElementById(buttonId)?.click();
+    });
+  });
 
   const loginResetBtn = document.getElementById("loginResetPassword");
   if (loginResetBtn) {
@@ -17061,16 +17834,52 @@ function setupListeners() {
     });
   }
 
+  document.addEventListener("DOMContentLoaded", () => {
+    logGigOSEvent("DOMContentLoaded");
+  });
+  window.addEventListener("load", () => {
+    logGigOSEvent("load");
+  });
+  window.addEventListener("popstate", () => {
+    logGigOSEvent("popstate");
+  });
+  window.addEventListener("hashchange", () => {
+    logGigOSEvent("hashchange");
+  });
   document.addEventListener("visibilitychange", () => {
+    logGigOSEvent("visibilitychange");
     if (document.hidden) {
       persistVisibleFormState();
       return;
     }
+    persistNavigationState();
     if (state.calendar.session) {
       queueSupabaseSyncRefresh();
     }
   });
-  window.addEventListener("pagehide", persistVisibleFormState);
+  window.addEventListener("pageshow", (event) => {
+    logGigOSEvent("pageshow");
+    console.log("[GigOS EVENT detail]", "pageshow", {
+      persisted: Boolean(event.persisted),
+      activeTab: state.activeTab,
+      workspaceTop: state.workspace.top,
+    });
+    if (!event.persisted) return;
+    persistNavigationState();
+    if (state.calendar.session) {
+      queueSupabaseSyncRefresh();
+    }
+  });
+  window.addEventListener("focus", () => {
+    logGigOSEvent("focus");
+  });
+  window.addEventListener("blur", () => {
+    logGigOSEvent("blur");
+  });
+  window.addEventListener("pagehide", () => {
+    logGigOSEvent("pagehide");
+    persistVisibleFormState();
+  });
   window.addEventListener("beforeunload", persistVisibleFormState);
 
   const uploadContract = document.getElementById("uploadContract");
@@ -17585,12 +18394,13 @@ async function init() {
     state.calendar.selectedDate = "";
     setCalendarEventFormExpanded(false);
     setupListeners();
+    setupGigOSAutocomplete();
     if (switchTopView) switchTopView("login");
     initSupabaseClient();
     updateCalendarAuthVisibility();
 
     await restoreSupabaseSessionFromUrl();
-    await refreshAuthState();
+    await refreshAuthState("init");
 
     updateHolidayFromDate();
     updatePerformanceHoursFromTimes();
@@ -17615,8 +18425,9 @@ async function init() {
     renderBlackoutList();
     updateOpsProgress();
   } catch (error) {
-    console.error("init() failed:", error);
+    console.error("App initialization failed:", error);
     if (error && error.stack) console.error(error.stack);
+    updateSupabaseStatus(formatSupabaseError(error, "App initialization failed."), true);
     if (switchTopView) switchTopView("login");
   }
 }
@@ -17624,5 +18435,6 @@ async function init() {
 init().catch((error) => {
   console.error("App initialization failed:", error);
   if (error && error.stack) console.error(error.stack);
+  updateSupabaseStatus(formatSupabaseError(error, "App initialization failed."), true);
   if (switchTopView) switchTopView("login");
 });
