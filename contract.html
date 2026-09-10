@@ -317,11 +317,6 @@
           page-break-inside: avoid;
         }
 
-        .contract-pdf-export .contract-signatures,
-        .contract-pdf-export .contract-footer {
-          break-inside: avoid;
-          page-break-inside: avoid;
-        }
       }
 
       @media print and (max-width: 700px) {
@@ -366,13 +361,41 @@
         .contract-pdf-export .contract-summary,
         .contract-pdf-export .contract-signatures {
           grid-template-columns: 1fr 1fr !important;
-          break-inside: avoid;
-          page-break-inside: avoid;
+          gap: 0.04in !important;
+          padding: 0.035in !important;
+          margin-bottom: 0.03in !important;
+          font-size: 8.6pt !important;
+          line-height: 1.1 !important;
+          break-inside: auto;
+          page-break-inside: auto;
+        }
+
+        .contract-pdf-export .contract-summary p,
+        .contract-pdf-export .contract-signatures p {
+          margin-bottom: 0.025in !important;
+        }
+
+        .contract-pdf-export .summary-header {
+          gap: 0.03in !important;
+          margin-bottom: 0.02in !important;
+        }
+
+        .contract-pdf-export .summary-title,
+        .contract-pdf-export .badge {
+          font-size: 6.9pt !important;
         }
 
         .contract-pdf-export .contract-footer {
-          break-inside: avoid;
-          page-break-inside: avoid;
+          margin-top: 0.01in !important;
+          padding-top: 0.01in !important;
+          font-size: 8pt !important;
+          line-height: 1.08 !important;
+          break-inside: auto;
+          page-break-inside: auto;
+        }
+
+        .contract-pdf-export .contract-footer p {
+          margin-bottom: 0.015in !important;
         }
       }
 
@@ -530,6 +553,42 @@
       function setUnavailable(message = "This contract is no longer available.") {
         app.innerHTML = `<p>${escapeHtml(message)}</p>`;
       }
+
+      function logContractPrintBottomDiagnostics() {
+        const labels = [
+          [".contract-summary", "summary box"],
+          [".contract-signatures", "signature box"],
+          [".contract-footer", "footer"],
+        ];
+        console.group("[GigOS CONTRACT PRINT BOTTOM]");
+        labels.forEach(([selector, label]) => {
+          const el = document.querySelector(selector);
+          if (!el) {
+            console.log(label, "not found");
+            return;
+          }
+          const style = window.getComputedStyle(el);
+          const parentStyle = el.parentElement ? window.getComputedStyle(el.parentElement) : null;
+          console.log(label, {
+            selector,
+            height: `${el.getBoundingClientRect().height}px`,
+            marginTop: style.marginTop,
+            marginBottom: style.marginBottom,
+            padding: style.padding,
+            breakInside: style.breakInside,
+            pageBreakInside: style.pageBreakInside,
+            minHeight: style.minHeight,
+            display: style.display,
+            gap: style.gap,
+            parentSelector: el.parentElement?.className || el.parentElement?.tagName || "",
+            parentBreakInside: parentStyle?.breakInside || "",
+            parentPageBreakInside: parentStyle?.pageBreakInside || "",
+          });
+        });
+        console.groupEnd();
+      }
+
+      window.addEventListener("beforeprint", logContractPrintBottomDiagnostics);
 
       function getContractPaymentMeta(contract = {}, bandDNA = {}) {
         return {
