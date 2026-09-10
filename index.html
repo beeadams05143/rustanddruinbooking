@@ -1800,7 +1800,7 @@
           <div class="form-grid">
             <label>
               Receipt number
-              <input id="receiptNumber" value="REC-001" />
+              <input id="receiptNumber" value="R-0001" />
             </label>
             <label>
               Client name
@@ -1811,12 +1811,26 @@
               <input id="receiptPaymentDate" type="date" />
             </label>
             <label>
-              Show / event date
+              Event date (optional)
               <input id="receiptEventDate" type="date" />
             </label>
             <label>
-              Show / venue
+              Venue (optional)
               <input id="receiptVenueName" placeholder="Optional" />
+            </label>
+            <label>
+              Payment for
+              <select id="receiptPaymentFor">
+                <option>Deposit</option>
+                <option>Partial Payment</option>
+                <option>Final Balance</option>
+                <option>Full Payment</option>
+                <option>Other</option>
+              </select>
+            </label>
+            <label id="receiptPaymentForOtherWrap" class="hidden">
+              Other description
+              <input id="receiptPaymentForOther" maxlength="80" placeholder="What was this payment for?" />
             </label>
             <label>
               Amount paid
@@ -1832,14 +1846,15 @@
               </select>
             </label>
             <label>
-              Related invoice
-              <input id="receiptRelatedInvoice" />
+              Related invoice (optional)
+              <select id="receiptRelatedInvoice"></select>
             </label>
           </div>
           <div class="form-section invoice-workflow-card">
             <h3>Review & Send Receipt</h3>
             <p class="inline-help">Preview the customer receipt or share the client message. The receipt link is created automatically when needed.</p>
             <div class="inline-actions">
+              <button class="btn ghost" id="receiptPdf" type="button">Preview PDF</button>
               <button class="btn ghost" id="receiptPreviewLinkBtn" type="button">Preview Customer View</button>
               <button class="btn" id="receiptShareLinkBtn" type="button">Share Message + Link</button>
             </div>
@@ -1862,33 +1877,7 @@
         </section>
 
         <section class="panel preview-panel" aria-label="Receipt preview">
-          <div class="receipt" id="receiptPreview">
-            <div class="invoice-header">
-              <div>
-                <p class="contract-tag">Receipt</p>
-                <h2 data-fill="bandName">Band Name</h2>
-                <p data-fill="receiptNumber"></p>
-              </div>
-              <div>
-                <p>Show date: <span data-fill="receiptEventDate"></span></p>
-                <p>Show / venue: <span data-fill="receiptVenueName"></span></p>
-                <p>Payment date: <span data-fill="receiptPaymentDate"></span></p>
-              </div>
-            </div>
-            <div class="invoice-body">
-              <p>Received from: <span data-fill="receiptClientName"></span></p>
-              <p>Payment method: <span data-fill="receiptPaymentMethod"></span></p>
-              <p>Related invoice: <span data-fill="receiptRelatedInvoice"></span></p>
-              <div class="invoice-total">
-                <span>Total paid</span>
-                <span data-fill="receiptAmountPaid"></span>
-              </div>
-            </div>
-            <footer class="contract-footer">
-              <p data-fill="paymentSummary">Thank you for supporting live music.</p>
-              <p data-fill="bandContactLine"></p>
-            </footer>
-          </div>
+          <div id="receiptPreview"></div>
         </section>
       </main>
 
@@ -2591,6 +2580,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
     <script src="final-contract-renderer.js"></script>
+    <script src="final-receipt-renderer.js"></script>
     <script src="app.js"></script>
     <div id="buildBadge" style="
       position: fixed;

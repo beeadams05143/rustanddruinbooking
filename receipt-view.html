@@ -33,37 +33,12 @@
   <body>
     <p class="receipt-status" id="receiptViewStatus">Loading receipt...</p>
     <div class="receipt-shell">
-      <div class="receipt" id="receiptPreview">
-        <div class="invoice-header">
-          <div>
-            <p class="contract-tag">Receipt</p>
-            <h2 data-fill="bandName">Band Name</h2>
-            <p data-fill="receiptNumber"></p>
-          </div>
-          <div>
-            <p>Show date: <span data-fill="receiptEventDate"></span></p>
-            <p>Show / venue: <span data-fill="receiptVenueName"></span></p>
-            <p>Payment date: <span data-fill="receiptPaymentDate"></span></p>
-          </div>
-        </div>
-        <div class="invoice-body">
-          <p>Received from: <span data-fill="receiptClientName"></span></p>
-          <p>Payment method: <span data-fill="receiptPaymentMethod"></span></p>
-          <p>Related invoice: <span data-fill="receiptRelatedInvoice"></span></p>
-          <div class="invoice-total">
-            <span>Total paid</span>
-            <span data-fill="receiptAmountPaid"></span>
-          </div>
-        </div>
-        <footer class="contract-footer">
-          <p>Thank you for supporting live music.</p>
-          <p id="receiptBandContact"></p>
-        </footer>
-      </div>
+      <div id="receiptPreview"></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
+    <script src="final-receipt-renderer.js"></script>
     <script>
       const params = new URLSearchParams(window.location.search);
       const receiptId = params.get("id");
@@ -113,10 +88,12 @@
           receiptNumber: row.receipt_number || "",
           clientName: row.client_name || "",
           paymentDate: row.payment_date || "",
-          eventDate: "",
-          venueName: "",
+          eventDate: row.event_date || "",
+          venueName: row.venue_name || "",
           amountPaid: Number(row.amount_paid || 0),
           paymentMethod: row.payment_method || "",
+          paymentFor: row.payment_for || "Deposit",
+          paymentForOther: row.payment_for_other || "",
           relatedInvoice: row.related_invoice || "",
         };
       }
@@ -136,6 +113,8 @@
             venueName: receipt.venueName || row.venue_name || "",
             amountPaid: Number(receipt.amountPaid || 0),
             paymentMethod: receipt.paymentMethod || "",
+            paymentFor: receipt.paymentFor || "Deposit",
+            paymentForOther: receipt.paymentForOther || "",
             relatedInvoice: receipt.relatedInvoice || "",
           },
           bandDNA: {
@@ -166,18 +145,7 @@
           statusEl.textContent = "Receipt not found.";
           return;
         }
-        setText("[data-fill='bandName']", bandDNA.bandName || "the band");
-        setText("[data-fill='receiptNumber']", data.receiptNumber || "__");
-        setText("[data-fill='receiptClientName']", data.clientName || "__");
-        setText("[data-fill='receiptEventDate']", formatDate(data.eventDate));
-        setText("[data-fill='receiptVenueName']", data.venueName || "__");
-        setText("[data-fill='receiptPaymentDate']", formatDate(data.paymentDate));
-        setText("[data-fill='receiptPaymentMethod']", data.paymentMethod || "__");
-        setText("[data-fill='receiptRelatedInvoice']", data.relatedInvoice || "__");
-        setText("[data-fill='receiptAmountPaid']", toMoney(data.amountPaid));
-        document.getElementById("receiptBandContact").textContent = [bandDNA.contactEmail, bandDNA.contactPhone]
-          .filter(Boolean)
-          .join(" · ");
+        document.getElementById("receiptPreview").outerHTML = window.GigOSReceiptRenderer.renderReceiptDocument(data, bandDNA);
         statusEl.textContent = "";
       }
 

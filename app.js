@@ -74,9 +74,11 @@ function createInitialInvoiceState() {
 
 function createInitialReceiptState() {
   return {
-    receiptNumber: "REC-001",
+    receiptNumber: "R-0001",
     clientName: "",
     paymentDate: "",
+    paymentFor: "Deposit",
+    paymentForOther: "",
     eventDate: "",
     venueName: "",
     amountPaid: "",
@@ -87,11 +89,12 @@ function createInitialReceiptState() {
 }
 
 const DEFAULT_INVOICE_NUMBER = "INV-001";
-const DEFAULT_RECEIPT_NUMBER = "REC-001";
+const DEFAULT_RECEIPT_NUMBER = "R-0001";
 
 function formatBillingDocumentNumber(prefix, sequence) {
   const safeSequence = Math.max(1, Number(sequence) || 1);
-  return `${prefix}-${String(safeSequence).padStart(3, "0")}`;
+  const width = prefix === "R" ? 4 : 3;
+  return `${prefix}-${String(safeSequence).padStart(width, "0")}`;
 }
 
 function parseBillingDocumentSequence(value, prefix) {
@@ -118,6 +121,8 @@ function isInvoiceFormFresh() {
 function isReceiptFormFresh() {
   return !String(state.receipt.clientName || "").trim()
     && !String(state.receipt.paymentDate || "").trim()
+    && (!String(state.receipt.paymentFor || "").trim() || state.receipt.paymentFor === "Deposit")
+    && !String(state.receipt.paymentForOther || "").trim()
     && !toNumber(state.receipt.amountPaid)
     && !String(state.receipt.relatedInvoice || "").trim()
     && String(state.receipt.paymentMethod || "Venmo").trim() === "Venmo";
@@ -142,7 +147,7 @@ async function assignNextBillingDocumentNumber(kind) {
     : {
         table: "receipts",
         column: "receipt_number",
-        prefix: "REC",
+        prefix: "R",
         defaultNumber: DEFAULT_RECEIPT_NUMBER,
         isFresh: isReceiptFormFresh,
         getValue: () => state.receipt.receiptNumber,
@@ -542,6 +547,8 @@ const receiptFields = [
   "receiptNumber",
   "receiptClientName",
   "receiptPaymentDate",
+  "receiptPaymentFor",
+  "receiptPaymentForOther",
   "receiptEventDate",
   "receiptVenueName",
   "receiptAmountPaid",
@@ -5629,6 +5636,165 @@ function renderReceiptLinkDisplay(link = state.receipt.link || "") {
   if (shareBtn) shareBtn.disabled = false;
 }
 
+function getReceiptData() {
+  return {
+    receiptNumber: state.receipt.receiptNumber || DEFAULT_RECEIPT_NUMBER,
+    clientName: state.receipt.clientName || "",
+    paymentDate: state.receipt.paymentDate || "",
+    paymentFor: state.receipt.paymentFor || "Deposit",
+    paymentForOther: state.receipt.paymentForOther || "",
+    eventDate: state.receipt.eventDate || "",
+    venueName: state.receipt.venueName || "",
+    amountPaid: toNumber(state.receipt.amountPaid),
+    paymentMethod: state.receipt.paymentMethod || "Venmo",
+    relatedInvoice: state.receipt.relatedInvoice || "",
+  };
+}
+
+function getInvoiceTotalFromRecord(invoice = {}) {
+  const override = toNumber(invoice.total_override);
+  if (override > 0) return override;
+  return Math.max(
+    0,
+    toNumber(invoice.performance_fee) +
+      toNumber(invoice.deposit_due) -
+      toNumber(invoice.deposit_paid) +
+      toNumber(invoice.addons)
+  );
+}
+
+function validateReceiptForSave() {
+  const receipt = getReceiptData();
+  const missing = [];
+  if (!String(receipt.receiptNumber || "").trim()) missing.push("receipt number");
+  if (!String(receipt.clientName || "").trim()) missing.push("client name");
+  if (!String(receipt.paymentDate || "").trim()) missing.push("payment date");
+  if (!String(receipt.paymentFor || "").trim()) missing.push("payment for");
+  if (receipt.paymentFor === "Other" && !String(receipt.paymentForOther || "").trim()) missing.push("other description");
+  if (!Number.isFinite(Number(receipt.amountPaid)) || Number(receipt.amountPaid) <= 0) missing.push("amount paid");
+  if (!String(receipt.paymentMethod || "").trim()) missing.push("payment method");
+  return {
+    ok: missing.length === 0,
+    missing,
+  };
+}
+
+function setReceiptStatus(message, isError = false) {
+  const status = document.getElementById("receiptStatus");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("warning", isError);
+}
+
+async function updateLinkedInvoicePaidStatusForReceipt(receiptData = getReceiptData()) {
+  const invoiceNumber = String(receiptData.relatedInvoice || "").trim();
+  const client = state.calendar.client;
+  if (!client || !state.calendar.session || !invoiceNumber) return;
+  const { data: invoice, error: invoiceError } = await client
+    .from("invoices")
+    .select("*")
+    .eq("invoice_number", invoiceNumber)
+    .maybeSingle();
+  if (invoiceError || !invoice) return;
+  const { data: receipts, error: receiptsError } = await client
+    .from("receipts")
+    .select("amount_paid")
+    .eq("related_invoice", invoiceNumber);
+  if (receiptsError) return;
+  const paidTotal = (receipts || []).reduce((sum, row) => sum + toNumber(row.amount_paid), 0);
+  const invoiceTotal = getInvoiceTotalFromRecord(invoice);
+  await client
+    .from("invoices")
+    .update({ paid: invoiceTotal > 0 && paidTotal >= invoiceTotal })
+    .eq("id", invoice.id);
+}
+
+function invoiceReceiptOptionLabel(invoice = {}) {
+  const amount = getInvoiceTotalFromRecord(invoice);
+  const date = formatMessageDate(invoice.performance_date || invoice.issue_date || invoice.created_at || "");
+  const parts = [
+    invoice.invoice_number || "Invoice",
+    invoice.client_name || invoice.description || "Client",
+    toMoney(amount),
+    date,
+  ].filter(Boolean);
+  return parts.join(" — ");
+}
+
+function renderReceiptInvoiceOptions() {
+  const select = document.getElementById("receiptRelatedInvoice");
+  if (!select) return;
+  const current = state.receipt.relatedInvoice || "";
+  const clientName = normalizeText(state.receipt.clientName || "");
+  const invoices = [...(state.billing.invoices || [])].sort((a, b) => {
+    const aMatch = clientName && normalizeText(a.client_name || "").includes(clientName);
+    const bMatch = clientName && normalizeText(b.client_name || "").includes(clientName);
+    if (aMatch !== bMatch) return aMatch ? -1 : 1;
+    return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+  });
+  select.innerHTML = `<option value="">No related invoice</option>`;
+  invoices.forEach((invoice) => {
+    const option = document.createElement("option");
+    option.value = invoice.invoice_number || invoice.id || "";
+    option.textContent = invoiceReceiptOptionLabel(invoice);
+    select.appendChild(option);
+  });
+  if (current && !Array.from(select.options).some((option) => option.value === current)) {
+    const option = document.createElement("option");
+    option.value = current;
+    option.textContent = current;
+    select.appendChild(option);
+  }
+  select.value = current;
+}
+
+function applyRelatedInvoiceToReceipt(invoiceNumber) {
+  const invoice = (state.billing.invoices || []).find((row) => {
+    return row.invoice_number === invoiceNumber || row.id === invoiceNumber;
+  });
+  if (!invoice) return;
+  if (!state.receipt.clientName) state.receipt.clientName = invoice.client_name || "";
+  if (!state.receipt.eventDate) state.receipt.eventDate = normalizeDateValue(invoice.performance_date || "");
+  if (!state.receipt.venueName) state.receipt.venueName = invoice.venue_name || "";
+}
+
+async function startReceiptFromInvoice(invoice = {}) {
+  resetReceiptForm();
+  await assignNextBillingDocumentNumber("receipt");
+  state.receipt.clientName = invoice.client_name || "";
+  state.receipt.paymentDate = todayString();
+  state.receipt.paymentFor = "Full Payment";
+  state.receipt.eventDate = normalizeDateValue(invoice.performance_date || "");
+  state.receipt.venueName = invoice.venue_name || "";
+  state.receipt.amountPaid = getInvoiceTotalFromRecord(invoice) || "";
+  state.receipt.relatedInvoice = invoice.invoice_number || invoice.id || "";
+  state.forms.receipt = { mode: "create", editingRecordId: "" };
+  state.activeTab = "receipt";
+  syncReceiptForm();
+  updateReceiptPreview();
+  if (switchTopView) switchTopView("bookkeeping");
+  const status = document.getElementById("receiptStatus");
+  if (status) {
+    status.textContent = "Receipt started from invoice. Review payment details before sharing.";
+    status.classList.remove("warning");
+  }
+}
+
+async function ensureReceiptNumberForCreate() {
+  if (state.forms.receipt?.mode === "edit") return state.receipt.receiptNumber;
+  const current = String(state.receipt.receiptNumber || "").trim();
+  const currentSequence = parseBillingDocumentSequence(current, "R");
+  if (current && current !== DEFAULT_RECEIPT_NUMBER && currentSequence > 0) return current;
+  const previousReceipt = { ...state.receipt };
+  state.receipt = createInitialReceiptState();
+  await assignNextBillingDocumentNumber("receipt");
+  const nextNumber = state.receipt.receiptNumber || DEFAULT_RECEIPT_NUMBER;
+  state.receipt = { ...previousReceipt, receiptNumber: nextNumber };
+  const input = document.getElementById("receiptNumber");
+  if (input) input.value = nextNumber;
+  return nextNumber;
+}
+
 function keepBookkeepingWorkspaceActive(tab = state.activeTab) {
   const target = tab === "receipt" ? "receipt" : tab === "invoice" ? "invoice" : state.activeTab;
   state.activeTab = target;
@@ -5733,22 +5899,24 @@ async function saveInvoicePublicLinkToSupabase(client, invoicePayload, savedInvo
 }
 
 function updateReceiptPreview() {
-  const paymentConfig = getBandPaymentConfig();
-  setText("[data-fill='bandName']", state.bandDNA.bandName || "the band");
-  setText("[data-fill='receiptNumber']", state.receipt.receiptNumber || "__");
-  setText("[data-fill='receiptClientName']", state.receipt.clientName || "__");
-  setText("[data-fill='receiptEventDate']", formatDate(state.receipt.eventDate));
-  setText("[data-fill='receiptVenueName']", state.receipt.venueName || "__");
-  setText("[data-fill='receiptPaymentDate']", formatDate(state.receipt.paymentDate));
-  setText("[data-fill='receiptPaymentMethod']", state.receipt.paymentMethod || "__");
-  setText("[data-fill='receiptRelatedInvoice']", state.receipt.relatedInvoice || "__");
-  setText("[data-fill='receiptAmountPaid']", toMoney(toNumber(state.receipt.amountPaid)));
-  setText("[data-fill='paymentSummary']", paymentConfig.paymentSummary);
-  setText("[data-fill='bandContactLine']", [state.bandDNA.contactEmail, state.bandDNA.contactPhone].filter(Boolean).join(" · "));
+  const preview = document.getElementById("receiptPreview");
+  if (preview && window.GigOSReceiptRenderer?.renderReceiptDocument) {
+    preview.outerHTML = window.GigOSReceiptRenderer.renderReceiptDocument(getReceiptData(), {
+      bandName: state.bandDNA.bandName || "the band",
+      contactEmail: state.bandDNA.contactEmail || "",
+      contactPhone: state.bandDNA.contactPhone || "",
+    });
+  }
+  const otherWrap = document.getElementById("receiptPaymentForOtherWrap");
+  if (otherWrap) {
+    otherWrap.classList.toggle("hidden", state.receipt.paymentFor !== "Other");
+  }
+  renderReceiptInvoiceOptions();
   updateMessagePreview();
 }
 
 async function saveReceiptAndGetLink(data = null) {
+  console.log("[GigOS RECEIPT DEBUG] receipt data", data || getReceiptData());
   const client = state.calendar.client;
   const status = document.getElementById("receiptStatus");
   if (!client || !state.calendar.session) {
@@ -5763,6 +5931,11 @@ async function saveReceiptAndGetLink(data = null) {
     syncReceiptForm();
     updateReceiptPreview();
   }
+  try {
+    await ensureReceiptNumberForCreate();
+  } catch (error) {
+    console.error("[GigOS RECEIPT ERROR]", error);
+  }
   const saveResult = await saveReceiptToSupabaseInternal(true);
   if (!saveResult?.ok || !saveResult.id) {
     if (status) {
@@ -5771,7 +5944,7 @@ async function saveReceiptAndGetLink(data = null) {
     }
     return "";
   }
-  const publicLinkId = await saveReceiptPublicLinkToSupabase(client, state.receipt, saveResult.id);
+  const publicLinkId = await saveReceiptPublicLinkToSupabase(client, getReceiptData(), saveResult.id);
   if (!publicLinkId) return "";
   const link = `${getPublicPageUrl("receipt-view.html")}?id=${encodeURIComponent(publicLinkId)}&receipt=${encodeURIComponent(state.receipt.receiptNumber || "")}`;
   state.receipt.link = link;
@@ -5787,13 +5960,15 @@ async function saveReceiptPublicLinkToSupabase(client, receiptPayload, savedRece
     client_name: receiptPayload.clientName || "",
     client_email: "",
     venue_name: receiptPayload.venueName || "",
-    event_date: receiptPayload.eventDate || null,
+    event_date: receiptPayload.eventDate || "",
     options: [
       {
         __receipt: {
           ...receiptPayload,
           savedReceiptId,
           paymentDate: receiptPayload.paymentDate || "",
+          paymentFor: receiptPayload.paymentFor || "Deposit",
+          paymentForOther: receiptPayload.paymentForOther || "",
         },
         __meta: {
           band_name: state.bandDNA.bandName || "",
@@ -7400,6 +7575,7 @@ async function fetchInvoices() {
   }
   state.billing.invoices = data || [];
   updateInvoiceList();
+  renderReceiptInvoiceOptions();
 }
 
 async function fetchReceipts() {
@@ -7470,6 +7646,14 @@ function updateInvoiceList() {
       editInvoiceRecord(invoice);
     });
     actions.appendChild(edit);
+    const receipt = document.createElement("button");
+    receipt.type = "button";
+    receipt.className = "btn ghost";
+    receipt.textContent = "Create Receipt";
+    receipt.addEventListener("click", () => {
+      void startReceiptFromInvoice(invoice);
+    });
+    actions.appendChild(receipt);
     const view = document.createElement("button");
     view.type = "button";
     view.className = "btn ghost";
@@ -7558,6 +7742,8 @@ function editReceiptRecord(receipt = {}) {
     receiptNumber: receipt.receipt_number || DEFAULT_RECEIPT_NUMBER,
     clientName: receipt.client_name || "",
     paymentDate: normalizeDateValue(receipt.payment_date || ""),
+    paymentFor: receipt.payment_for || "Deposit",
+    paymentForOther: receipt.payment_for_other || "",
     eventDate: normalizeDateValue(receipt.event_date || ""),
     venueName: receipt.venue_name || "",
     amountPaid: receipt.amount_paid ?? "",
@@ -7802,16 +7988,32 @@ async function saveReceiptToSupabaseInternal(silent) {
     if (status && !silent) status.textContent = "Sign in to save receipts.";
     return { ok: false, id: "" };
   }
-  const payload = {
-    receipt_number: state.receipt.receiptNumber || "RCPT-001",
-    client_name: state.receipt.clientName,
-    payment_date: state.receipt.paymentDate || null,
-    event_date: state.receipt.eventDate || null,
-    venue_name: state.receipt.venueName || "",
-    amount_paid: toNumber(state.receipt.amountPaid),
-    payment_method: state.receipt.paymentMethod,
-    related_invoice: state.receipt.relatedInvoice,
+  await ensureReceiptNumberForCreate();
+  const validation = validateReceiptForSave();
+  if (!validation.ok) {
+    const message = `Receipt needs ${validation.missing.join(", ")}.`;
+    if (status) {
+      status.textContent = message;
+      status.classList.add("warning");
+    }
+    return { ok: false, id: "" };
+  }
+  const receiptData = getReceiptData();
+  const basePayload = {
+    receipt_number: state.receipt.receiptNumber || DEFAULT_RECEIPT_NUMBER,
+    client_name: receiptData.clientName,
+    payment_date: receiptData.paymentDate || null,
+    event_date: receiptData.eventDate || null,
+    venue_name: receiptData.venueName || "",
+    amount_paid: receiptData.amountPaid,
+    payment_method: receiptData.paymentMethod,
+    related_invoice: receiptData.relatedInvoice,
     paid: true,
+  };
+  const payload = {
+    ...basePayload,
+    payment_for: receiptData.paymentFor,
+    payment_for_other: receiptData.paymentForOther,
   };
   const editingReceiptId =
     state.forms.receipt?.mode === "edit" ? state.forms.receipt.editingRecordId || "" : "";
@@ -7825,12 +8027,20 @@ async function saveReceiptToSupabaseInternal(silent) {
       .limit(1);
   let savedReceiptId = "";
   if (existing && existing.length) {
-    const { data: updatedReceipt, error } = await client
+    let { data: updatedReceipt, error } = await client
       .from("receipts")
       .update(payload)
       .eq("id", existing[0].id)
       .select("id")
       .single();
+    if (error && /payment_for/i.test(error.message || "")) {
+      ({ data: updatedReceipt, error } = await client
+        .from("receipts")
+        .update(basePayload)
+        .eq("id", existing[0].id)
+        .select("id")
+        .single());
+    }
     if (error) {
       console.error("Receipt update failed:", error);
       if (status && !silent) {
@@ -7840,11 +8050,18 @@ async function saveReceiptToSupabaseInternal(silent) {
     }
     savedReceiptId = updatedReceipt?.id || existing[0].id;
   } else {
-    const { data: insertedReceipt, error } = await client
+    let { data: insertedReceipt, error } = await client
       .from("receipts")
       .insert(payload)
       .select("id")
       .single();
+    if (error && /payment_for/i.test(error.message || "")) {
+      ({ data: insertedReceipt, error } = await client
+        .from("receipts")
+        .insert(basePayload)
+        .select("id")
+        .single());
+    }
     if (error) {
       console.error("Receipt save failed:", error);
       if (status && !silent) {
@@ -7860,7 +8077,11 @@ async function saveReceiptToSupabaseInternal(silent) {
   } else if (status) {
     status.textContent = "Receipt saved.";
   }
+  await updateLinkedInvoicePaidStatusForReceipt(receiptData);
   await fetchReceipts();
+  if (receiptData.relatedInvoice) {
+    await fetchInvoices();
+  }
   return { ok: true, id: savedReceiptId };
 }
 
@@ -7943,7 +8164,7 @@ async function uploadReceiptPdf() {
     if (status) status.textContent = "Choose a receipt PDF to upload.";
     return;
   }
-  const receiptNumber = state.receipt.receiptNumber || "RCPT-001";
+  const receiptNumber = state.receipt.receiptNumber || DEFAULT_RECEIPT_NUMBER;
   const safeName = file.name.replace(/\s+/g, "-");
   const path = `receipts/${Date.now()}-${safeName}`.replace(/[^a-zA-Z0-9-_/.]/g, "");
   const { error: uploadError } = await client
@@ -8027,7 +8248,7 @@ async function autoSaveReceiptPdf(blob, fileName) {
     if (status) status.textContent = "Auto-upload failed.";
     return;
   }
-  const receiptNumber = state.receipt.receiptNumber || "RCPT-001";
+  const receiptNumber = state.receipt.receiptNumber || DEFAULT_RECEIPT_NUMBER;
   await client
     .from("receipts")
     .update({ file_path: path })
@@ -12126,6 +12347,7 @@ function seedInvoiceFromAgreement() {
 function seedReceiptFromAgreement() {
   state.receipt.clientName = state.agreement.clientName || state.receipt.clientName;
   state.receipt.paymentDate = todayString();
+  state.receipt.paymentFor = state.receipt.paymentFor || "Final Balance";
   state.receipt.amountPaid = state.agreement.amountDueDayOf || state.receipt.amountPaid;
   syncReceiptForm();
   updateReceiptPreview();
@@ -12295,6 +12517,8 @@ function syncReceiptForm() {
     receiptNumber: "receiptNumber",
     receiptClientName: "clientName",
     receiptPaymentDate: "paymentDate",
+    receiptPaymentFor: "paymentFor",
+    receiptPaymentForOther: "paymentForOther",
     receiptEventDate: "eventDate",
     receiptVenueName: "venueName",
     receiptAmountPaid: "amountPaid",
@@ -12307,6 +12531,7 @@ function syncReceiptForm() {
     if (!el) return;
     el.value = state.receipt[map[id]];
   });
+  renderReceiptInvoiceOptions();
   renderReceiptLinkDisplay(state.receipt.link || "");
 }
 
@@ -15914,6 +16139,8 @@ function setupListeners() {
         receiptNumber: "receiptNumber",
         receiptClientName: "clientName",
         receiptPaymentDate: "paymentDate",
+        receiptPaymentFor: "paymentFor",
+        receiptPaymentForOther: "paymentForOther",
         receiptEventDate: "eventDate",
         receiptVenueName: "venueName",
         receiptAmountPaid: "amountPaid",
@@ -15921,6 +16148,10 @@ function setupListeners() {
         receiptRelatedInvoice: "relatedInvoice",
       };
       state.receipt[map[id]] = el.value;
+      if (id === "receiptRelatedInvoice") {
+        applyRelatedInvoiceToReceipt(el.value);
+        syncReceiptForm();
+      }
       state.receipt.link = "";
       renderReceiptLinkDisplay("");
       updateReceiptPreview();
@@ -16881,7 +17112,32 @@ function setupListeners() {
   }
   const receiptPdfBtn = document.getElementById("receiptPdf");
   if (receiptPdfBtn) {
-    receiptPdfBtn.addEventListener("click", () => generatePdf("receipt"));
+    receiptPdfBtn.addEventListener("click", async (event) => {
+      event.preventDefault();
+      const previewWindow = openPendingPdfPreviewWindow();
+      const statusEl = document.getElementById("receiptStatus");
+      console.log("[GigOS RECEIPT DEBUG] preview clicked");
+      console.log("[GigOS RECEIPT DEBUG] receipt data", getReceiptData());
+      try {
+        if (statusEl) {
+          statusEl.textContent = "Generating receipt PDF...";
+          statusEl.classList.remove("warning");
+        }
+        console.log("[GigOS RECEIPT DEBUG] render started");
+        await generatePdf("receipt", { openAfterGenerate: true, previewWindow });
+        console.log("[GigOS RECEIPT DEBUG] render completed");
+        console.log("[GigOS RECEIPT DEBUG] preview opened");
+      } catch (error) {
+        console.error("[GigOS RECEIPT ERROR]", error);
+        if (statusEl) {
+          statusEl.textContent = "Receipt PDF preview failed. Check the console for details.";
+          statusEl.classList.add("warning");
+        }
+        if (previewWindow && !previewWindow.closed) {
+          previewWindow.document.body.textContent = "Receipt PDF preview failed. Check the GigOS console for details.";
+        }
+      }
+    });
   }
   const getOrCreateReceiptLink = async () => {
     keepBookkeepingWorkspaceActive("receipt");
@@ -16910,21 +17166,41 @@ function setupListeners() {
   if (receiptPreviewLinkBtn) {
     receiptPreviewLinkBtn.addEventListener("click", async (event) => {
       event.preventDefault();
-      const link = await getOrCreateReceiptLink();
+      const previewWindow = window.open("", "_blank");
       const statusEl = document.getElementById("receiptStatus");
-      if (!link) {
+      console.log("[GigOS RECEIPT DEBUG] preview clicked");
+      console.log("[GigOS RECEIPT DEBUG] receipt data", getReceiptData());
+      try {
+        console.log("[GigOS RECEIPT DEBUG] render started");
+        const link = await getOrCreateReceiptLink();
+        if (!link) {
+          if (previewWindow && !previewWindow.closed) previewWindow.close();
+          if (statusEl) {
+            statusEl.textContent = "Could not generate the receipt link for preview.";
+            statusEl.classList.add("warning");
+          }
+          return;
+        }
+        console.log("[GigOS RECEIPT DEBUG] render completed");
         if (statusEl) {
-          statusEl.textContent = "Could not generate the receipt link for preview.";
+          statusEl.textContent = "Customer preview opened.";
+          statusEl.classList.remove("warning");
+        }
+        keepBookkeepingWorkspaceActive("receipt");
+        if (previewWindow) {
+          previewWindow.location.href = link;
+        } else {
+          window.open(link, "_blank", "noopener,noreferrer");
+        }
+        console.log("[GigOS RECEIPT DEBUG] preview opened");
+      } catch (error) {
+        console.error("[GigOS RECEIPT ERROR]", error);
+        if (previewWindow && !previewWindow.closed) previewWindow.close();
+        if (statusEl) {
+          statusEl.textContent = "Receipt customer preview failed. Check the console for details.";
           statusEl.classList.add("warning");
         }
-        return;
       }
-      if (statusEl) {
-        statusEl.textContent = "Customer preview opened.";
-        statusEl.classList.remove("warning");
-      }
-      keepBookkeepingWorkspaceActive("receipt");
-      window.open(link, "_blank", "noopener,noreferrer");
     });
   }
   const receiptCopyLinkBtn = document.getElementById("receiptCopyLinkBtn");
@@ -16952,35 +17228,46 @@ function setupListeners() {
   if (receiptShareLinkBtn) {
     receiptShareLinkBtn.addEventListener("click", async (event) => {
       event.preventDefault();
-      const link = await getOrCreateReceiptLink();
       const statusEl = document.getElementById("receiptStatus");
-      if (!link) {
-        if (statusEl) {
-          statusEl.textContent = "Could not generate the receipt link before sharing.";
-          statusEl.classList.add("warning");
-        }
-        return;
-      }
-      keepBookkeepingWorkspaceActive("receipt");
-      updateMessagePreview();
-      const { subject, payload } = getCurrentShareMessage();
-      if (navigator.share) {
-        try {
-          await navigator.share({ title: subject, text: payload, url: link });
+      console.log("[GigOS RECEIPT DEBUG] preview clicked");
+      console.log("[GigOS RECEIPT DEBUG] receipt data", getReceiptData());
+      try {
+        const link = await getOrCreateReceiptLink();
+        if (!link) {
           if (statusEl) {
-            statusEl.textContent = "Receipt message and link shared.";
-            statusEl.classList.remove("warning");
+            statusEl.textContent = "Could not generate the receipt link before sharing.";
+            statusEl.classList.add("warning");
           }
           return;
-        } catch (error) {
-          if (error?.name === "AbortError") return;
+        }
+        console.log("[GigOS RECEIPT DEBUG] render completed");
+        keepBookkeepingWorkspaceActive("receipt");
+        updateMessagePreview();
+        const { subject, payload } = getCurrentShareMessage();
+        if (navigator.share) {
+          try {
+            await navigator.share({ title: subject, text: payload, url: link });
+            if (statusEl) {
+              statusEl.textContent = "Receipt message and link shared.";
+              statusEl.classList.remove("warning");
+            }
+            return;
+          } catch (error) {
+            if (error?.name === "AbortError") return;
+          }
+        }
+        await copyTextToClipboard(payload, {
+          statusEl,
+          successMessage: "Receipt message and link copied for sharing.",
+          failureMessage: "Could not copy receipt message and link.",
+        });
+      } catch (error) {
+        console.error("[GigOS RECEIPT ERROR]", error);
+        if (statusEl) {
+          statusEl.textContent = "Receipt sharing failed. Check the console for details.";
+          statusEl.classList.add("warning");
         }
       }
-      await copyTextToClipboard(payload, {
-        statusEl,
-        successMessage: "Receipt message and link copied for sharing.",
-        failureMessage: "Could not copy receipt message and link.",
-      });
     });
   }
   const receiptCopyMessageBtn = document.getElementById("receiptCopyMessage");
@@ -18112,7 +18399,10 @@ async function generatePdf(type, options = {}) {
     receipt: "receiptPreview",
   };
 
-  const target = document.getElementById(previewMap[type]);
+  let target = document.getElementById(previewMap[type]);
+  if (type === "receipt") {
+    console.log("[GigOS RECEIPT DEBUG] receipt element found", !!target);
+  }
   console.log("[GigOS PDF DEBUG] contract element found", !!target);
   if (!target) {
     if (statusEl) statusEl.textContent = "PDF target not found.";
@@ -18130,6 +18420,12 @@ async function generatePdf(type, options = {}) {
       refreshAgreementCreatedDate();
       updateAgreementPreview();
       saveDraft();
+    }
+
+    if (type === "receipt") {
+      console.log("[GigOS RECEIPT DEBUG] render started");
+      updateReceiptPreview();
+      target = document.getElementById(previewMap[type]);
     }
 
     if (type === "invoice") {
@@ -18248,6 +18544,9 @@ async function generatePdf(type, options = {}) {
         renderScale: 1.05,
         jpegQuality: 0.58,
       });
+      if (type === "receipt") {
+        console.log("[GigOS RECEIPT DEBUG] render completed");
+      }
       document.body.classList.remove("pdf-export");
     }
 
