@@ -18310,6 +18310,16 @@ function printLastPdf() {
     if (statusEl) statusEl.textContent = "Generate a PDF first.";
     return;
   }
+  const isMobileSafari = /iP(hone|ad|od)/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent);
+  if (isMobileSafari) {
+    const opened = openLastPdfPreview();
+    if (statusEl) {
+      statusEl.textContent = opened
+        ? "PDF opened. Use Share or Print from the preview."
+        : "Open the PDF preview, then use Share or Print.";
+    }
+    return;
+  }
   const iframe = document.createElement("iframe");
   iframe.style.position = "fixed";
   iframe.style.right = "0";
