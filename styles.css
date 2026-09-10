@@ -2519,8 +2519,8 @@ textarea {
   background: #fff !important;
   color: #000 !important;
   font-family: Georgia, "Times New Roman", serif !important;
-  font-size: 9.3pt !important;
-  line-height: 1.18 !important;
+  font-size: 9pt !important;
+  line-height: 1.14 !important;
 }
 
 .contract-pdf-export * {
@@ -2557,7 +2557,7 @@ textarea {
 }
 
 .contract-pdf-export p {
-  margin: 0 0 0.045in !important;
+  margin: 0 0 0.035in !important;
 }
 
 .contract-pdf-export .contract-note,
@@ -2569,7 +2569,7 @@ textarea {
 }
 
 .contract-pdf-export .contract-section {
-  margin: 0 0 0.075in !important;
+  margin: 0 0 0.055in !important;
   padding: 0 !important;
 }
 
@@ -2577,9 +2577,9 @@ textarea {
 .contract-pdf-export .contract-signatures {
   display: grid !important;
   grid-template-columns: 1fr 1fr !important;
-  gap: 0.08in !important;
-  padding: 0.07in !important;
-  margin: 0 0 0.08in !important;
+  gap: 0.06in !important;
+  padding: 0.05in !important;
+  margin: 0 0 0.055in !important;
   border: 0.5pt solid #777 !important;
   border-radius: 0 !important;
 }
@@ -2602,8 +2602,8 @@ textarea {
 }
 
 .contract-pdf-export .contract-footer {
-  margin-top: 0.04in !important;
-  padding-top: 0.04in !important;
+  margin-top: 0.025in !important;
+  padding-top: 0.025in !important;
   border-top: 0.5pt solid #777 !important;
   text-align: center !important;
 }
@@ -4155,8 +4155,8 @@ button.btn.ghost.active:hover {
     box-shadow: none !important;
     background: white !important;
     color: black !important;
-    font-size: 9.3pt !important;
-    line-height: 1.18 !important;
+    font-size: 9pt !important;
+    line-height: 1.14 !important;
     page-break-after: avoid !important;
   }
 
@@ -4198,7 +4198,7 @@ button.btn.ghost.active:hover {
   }
 
   #agreementPreview p {
-    margin: 0 0 0.045in !important;
+    margin: 0 0 0.035in !important;
   }
 
   #agreementPreview .contract-note,
@@ -4210,7 +4210,7 @@ button.btn.ghost.active:hover {
   }
 
   #agreementPreview .contract-section {
-    margin: 0 0 0.075in !important;
+    margin: 0 0 0.055in !important;
     padding: 0 !important;
     break-inside: auto !important;
     page-break-inside: auto !important;
@@ -4226,9 +4226,9 @@ button.btn.ghost.active:hover {
   #agreementPreview .contract-signatures {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
-    gap: 0.08in !important;
-    padding: 0.07in !important;
-    margin: 0 0 0.08in !important;
+    gap: 0.06in !important;
+    padding: 0.05in !important;
+    margin: 0 0 0.055in !important;
     border: 0.5pt solid #777 !important;
     border-radius: 0 !important;
     break-inside: avoid !important;
@@ -4253,8 +4253,8 @@ button.btn.ghost.active:hover {
   }
 
   #agreementPreview .contract-footer {
-    margin-top: 0.04in !important;
-    padding-top: 0.04in !important;
+    margin-top: 0.025in !important;
+    padding-top: 0.025in !important;
     border-top: 0.5pt solid #777 !important;
     text-align: center !important;
     break-inside: avoid !important;

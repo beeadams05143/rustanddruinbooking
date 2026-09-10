@@ -4526,7 +4526,7 @@ function updateAgreementPreview() {
   setText("[data-fill='depositDue']", toMoney(totals.depositAmount));
   setText("[data-fill='amountDueDayOf']", state.agreement.amountDueDayOf || "__");
   setText("[data-fill='requestedSongs']", state.agreement.requestedSongs || "None");
-  setText("[data-fill='signatureName']", state.agreement.signatureName || bandDetails.bandSignatureName || "__");
+  setText("[data-fill='signatureName']", state.agreement.signatureName || "__");
   setText("[data-fill='signatureDate']", state.agreement.signatureDate || state.agreement.agreementCreatedDate || todayString());
   setText("[data-fill='agreementCreatedDate']", state.agreement.agreementCreatedDate || todayString());
 

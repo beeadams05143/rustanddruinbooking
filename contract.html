@@ -111,6 +111,99 @@
         background: rgba(255, 255, 255, 0.65);
       }
 
+      .contract-pdf-export {
+        background: #fff;
+        color: #000;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 9pt;
+        line-height: 1.14;
+      }
+
+      .contract-pdf-export * {
+        box-shadow: none;
+        color: #000;
+        background: transparent;
+      }
+
+      .contract-pdf-export .contract-header {
+        display: grid;
+        grid-template-columns: 1.25fr 0.75fr;
+        gap: 0.12in;
+        padding: 0 0 0.08in;
+        margin: 0 0 0.08in;
+        border-bottom: 0.5pt solid #777;
+      }
+
+      .contract-pdf-export .contract-tag {
+        font-size: 8pt;
+        letter-spacing: 0.08em;
+        margin: 0 0 0.03in;
+      }
+
+      .contract-pdf-export h2 {
+        font-size: 14pt;
+        line-height: 1.05;
+        margin: 0 0 0.03in;
+      }
+
+      .contract-pdf-export h3 {
+        font-size: 10.5pt;
+        line-height: 1.1;
+        margin: 0 0 0.03in;
+      }
+
+      .contract-pdf-export p {
+        margin: 0 0 0.035in;
+      }
+
+      .contract-pdf-export .contract-note,
+      .contract-pdf-export .contract-meta,
+      .contract-pdf-export .signature-note,
+      .contract-pdf-export .contract-footer {
+        font-size: 8.3pt;
+        line-height: 1.15;
+      }
+
+      .contract-pdf-export .contract-section {
+        margin: 0 0 0.055in;
+        padding: 0;
+      }
+
+      .contract-pdf-export .contract-summary,
+      .contract-pdf-export .contract-signatures {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.06in;
+        padding: 0.05in;
+        margin: 0 0 0.055in;
+        border: 0.5pt solid #777;
+        border-radius: 0;
+      }
+
+      .contract-pdf-export .summary-header {
+        gap: 0.04in;
+        margin: 0 0 0.03in;
+      }
+
+      .contract-pdf-export .summary-title,
+      .contract-pdf-export .badge {
+        font-size: 7.2pt;
+        letter-spacing: 0.04em;
+      }
+
+      .contract-pdf-export .badge {
+        display: inline;
+        padding: 0;
+        border-radius: 0;
+      }
+
+      .contract-pdf-export .contract-footer {
+        margin-top: 0.025in;
+        padding-top: 0.025in;
+        border-top: 0.5pt solid #777;
+        text-align: center;
+      }
+
       .contract-scroll :where(h1, h2, h3) {
         font-family: Georgia, "Times New Roman", serif;
       }
@@ -173,9 +266,61 @@
       }
 
       @media print {
+        @page {
+          size: letter portrait;
+          margin: 0.35in;
+        }
+
+        html,
+        body {
+          width: auto;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #fff !important;
+          color: #000 !important;
+        }
+
+        .page,
+        .shell {
+          width: 100% !important;
+          max-width: none !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          border: 0 !important;
+          border-radius: 0 !important;
+          box-shadow: none !important;
+          background: #fff !important;
+        }
+
+        .success,
+        .notice,
+        .sign-section,
         button.primary-btn,
-        .payment-buttons {
+        .payment-buttons,
+        .eyebrow,
+        .signed-print-note {
           display: none !important;
+        }
+
+        .contract-scroll {
+          max-height: none !important;
+          overflow: visible !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          border: 0 !important;
+          border-radius: 0 !important;
+          background: #fff !important;
+        }
+
+        .contract-pdf-export .contract-header {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+
+        .contract-pdf-export .contract-signatures,
+        .contract-pdf-export .contract-footer {
+          break-inside: avoid;
+          page-break-inside: avoid;
         }
       }
 
@@ -341,6 +486,65 @@
         };
       }
 
+      function compactBrandingFooterHtml() {
+        return `
+          <p>Rust and Ruin — “One of the Top 5 Bands for Hire in New England” — GigSalad</p>
+          <p>Thank you for trusting us with your event.</p>
+        `;
+      }
+
+      function buildPrintableContractHtml(contract = {}, bandDNA = {}, options = {}) {
+        const { signed = false, typedSignature = "" } = options;
+        const rawHtml = contract.contract_text ? String(contract.contract_text) : String(contract.legal_text || "");
+        const wrap = document.createElement("div");
+        wrap.className = "contract-pdf-export";
+        wrap.innerHTML = rawHtml || "<p><em>Contract text will appear here once saved from the booking app.</em></p>";
+
+        const clientSignature = String(typedSignature || contract.client_signature || "").trim();
+        const clientName = escapeHtml(contract.client_name || "—");
+        const clientEmail = escapeHtml(contract.client_email || "—");
+        const clientPhone = escapeHtml(contract.client_phone || "—");
+        const dateSigned = signed
+          ? escapeHtml(formatDisplayDate(contract.signed_at) || "—")
+          : "—";
+        const bandName = escapeHtml(contract.band_name || bandDNA.bandName || "Band");
+        const bandEmail = escapeHtml(contract.band_email || bandDNA.contactEmail || "—");
+        const bandPhone = escapeHtml(contract.band_phone || bandDNA.contactPhone || "—");
+        const managerSignature = escapeHtml(contract.manager_name || bandDNA.managerName || contract.band_signature_name || bandDNA.signoffName || "—");
+        const bandSignature = escapeHtml(contract.band_signature_name || bandDNA.signoffName || contract.band_name || "Band representative");
+        const venueAddress = escapeHtml(contract.venue_address || contract.venue_name || "—");
+
+        const signatures = wrap.querySelector(".contract-signatures");
+        if (signatures) {
+          signatures.innerHTML = `
+            <div>
+              <p>Client name: ${clientName}</p>
+              <p>Client email: ${clientEmail}</p>
+              <p>Client phone: ${clientPhone}</p>
+              <p>Client signature: ${escapeHtml(clientSignature || "—")}</p>
+              <p>Date signed: ${dateSigned}</p>
+            </div>
+            <div>
+              <p>Manager signature: ${managerSignature}</p>
+              <p>Venue address: ${venueAddress}</p>
+              <p>Band signature: ${bandSignature}</p>
+              <p>${bandName}</p>
+              <p>Band email: ${bandEmail}</p>
+              <p>Band phone: ${bandPhone}</p>
+            </div>
+          `;
+        }
+
+        let footer = wrap.querySelector(".contract-footer");
+        if (!footer) {
+          footer = document.createElement("footer");
+          footer.className = "contract-footer";
+          wrap.appendChild(footer);
+        }
+        footer.innerHTML = compactBrandingFooterHtml();
+        return wrap.outerHTML;
+      }
+
       function normalizePublicContractRow(row) {
         const entries = Array.isArray(row?.options) ? row.options : [];
         const contractEntry = entries.find((entry) => entry && typeof entry === "object" && entry.__contract);
@@ -370,7 +574,7 @@
       function renderSigned(contract, bandDNA = {}) {
         const name = escapeHtml(contract.client_signature || contract.client_name || "Client");
         const when = formatDisplayDate(contract.signed_at);
-        const bodyHtml = contract.contract_text ? String(contract.contract_text) : String(contract.legal_text || "");
+        const bodyHtml = buildPrintableContractHtml(contract, bandDNA, { signed: true });
         const paymentActions = renderPaymentActions(
           contract.deposit_amount ?? 0,
           `${contract.band_name || "Band"} deposit`,
@@ -380,7 +584,7 @@
           <div class="stack">
             <span class="eyebrow">Performance contract</span>
             <h1>Already signed</h1>
-            <p class="meta">This contract has already been signed by ${name} on ${escapeHtml(when)}. Thank you!</p>
+            <p class="meta signed-print-note">This contract has already been signed by ${name} on ${escapeHtml(when)}. Thank you!</p>
             ${paymentActions}
             <button type="button" class="primary-btn" onclick="window.print()">Download / Print PDF</button>
             <div class="contract-scroll" style="max-height:none">${bodyHtml}</div>
@@ -393,7 +597,7 @@
         const dep = formatMoney(contract.deposit_amount ?? 0);
         const methods = escapeHtml(contract.payment_methods || "the payment options in your agreement");
         const signedAt = escapeHtml(formatDisplayDate(new Date().toISOString()));
-        const bodyHtml = contract.contract_text ? String(contract.contract_text) : String(contract.legal_text || "");
+        const bodyHtml = buildPrintableContractHtml(contract, bandDNA, { signed: true, typedSignature: clientName });
         const paymentActions = renderPaymentActions(
           contract.deposit_amount ?? 0,
           `${contract.band_name || "Band"} deposit`,
@@ -433,9 +637,7 @@
         const perfFee = formatMoney(contract.performance_fee ?? 0);
         const depDue = formatMoney(contract.deposit_amount ?? 0);
         const dayOf = formatMoney(contract.amount_due_day_of ?? 0);
-        const bodyHtml = contract.contract_text
-          ? String(contract.contract_text)
-          : String(contract.legal_text || "<p><em>Contract text will appear here once saved from the booking app.</em></p>");
+        const bodyHtml = buildPrintableContractHtml(contract, bandDNA, { signed: false });
         const pay = escapeHtml(
           contract.payment_methods ||
             "the payment options in your agreement"
