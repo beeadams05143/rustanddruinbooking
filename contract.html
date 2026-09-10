@@ -656,12 +656,35 @@
         `;
       }
 
+      function getContractBacklineFee(contract = {}) {
+        return contract.backline_fee ?? contract.backlineTechFee ?? contract.backline_tech_fee ?? 0;
+      }
+
+      function ensureBacklineSummaryLine(wrap, contract = {}) {
+        const summary = wrap.querySelector(".contract-summary");
+        if (!summary || /backline\s+tech/i.test(summary.textContent || "")) return;
+        const summaryColumn = summary.children[1] || summary.lastElementChild || summary;
+        const line = document.createElement("p");
+        line.textContent = `Backline tech: ${formatMoney(getContractBacklineFee(contract))}`;
+
+        const lines = Array.from(summaryColumn.querySelectorAll("p"));
+        const insertAfter = lines.find((el) => /additional\s+on-site\s+time\s+fee/i.test(el.textContent || ""))
+          || lines.find((el) => /performance\s+time\s+fee/i.test(el.textContent || ""));
+        if (insertAfter?.parentNode) {
+          insertAfter.parentNode.insertBefore(line, insertAfter.nextSibling);
+        } else {
+          summaryColumn.appendChild(line);
+        }
+      }
+
       function buildPrintableContractHtml(contract = {}, bandDNA = {}, options = {}) {
         const { signed = false, typedSignature = "" } = options;
         const rawHtml = contract.contract_text ? String(contract.contract_text) : String(contract.legal_text || "");
         const wrap = document.createElement("div");
         wrap.className = "contract-pdf-export";
         wrap.innerHTML = rawHtml || "<p><em>Contract text will appear here once saved from the booking app.</em></p>";
+        wrap.querySelectorAll(".signature-note").forEach((el) => el.remove());
+        ensureBacklineSummaryLine(wrap, contract);
 
         const clientSignature = String(typedSignature || contract.client_signature || "").trim();
         const clientName = escapeHtml(contract.client_name || "—");
