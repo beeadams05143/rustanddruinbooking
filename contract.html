@@ -324,6 +324,58 @@
         }
       }
 
+      @media print and (max-width: 700px) {
+        html,
+        body {
+          width: 8.5in !important;
+          min-width: 8.5in !important;
+          max-width: 8.5in !important;
+          -webkit-text-size-adjust: 100% !important;
+          text-size-adjust: 100% !important;
+        }
+
+        .page,
+        .shell,
+        .contract-scroll,
+        .contract-pdf-export {
+          width: 7.8in !important;
+          min-width: 7.8in !important;
+          max-width: 7.8in !important;
+          box-sizing: border-box !important;
+          -webkit-text-size-adjust: 100% !important;
+          text-size-adjust: 100% !important;
+        }
+
+        .page,
+        .shell,
+        .contract-scroll {
+          margin-left: auto !important;
+          margin-right: auto !important;
+        }
+
+        .contract-pdf-export,
+        .contract-pdf-export * {
+          -webkit-text-size-adjust: 100% !important;
+          text-size-adjust: 100% !important;
+        }
+
+        .contract-pdf-export .contract-header {
+          grid-template-columns: 1.25fr 0.75fr !important;
+        }
+
+        .contract-pdf-export .contract-summary,
+        .contract-pdf-export .contract-signatures {
+          grid-template-columns: 1fr 1fr !important;
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+
+        .contract-pdf-export .contract-footer {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+      }
+
       .notice,
       .success {
         margin-top: 14px;
