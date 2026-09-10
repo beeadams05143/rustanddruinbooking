@@ -115,8 +115,8 @@
         background: #fff;
         color: #000;
         font-family: Georgia, "Times New Roman", serif;
-        font-size: 9pt;
-        line-height: 1.14;
+        font-size: 9.25pt;
+        line-height: 1.16;
       }
 
       .contract-pdf-export * {
@@ -147,13 +147,13 @@
       }
 
       .contract-pdf-export h3 {
-        font-size: 10.5pt;
-        line-height: 1.1;
-        margin: 0 0 0.03in;
+        font-size: 10.75pt;
+        line-height: 1.12;
+        margin: 0 0 0.035in;
       }
 
       .contract-pdf-export p {
-        margin: 0 0 0.035in;
+        margin: 0 0 0.043in;
       }
 
       .contract-pdf-export .contract-note,
@@ -165,7 +165,7 @@
       }
 
       .contract-pdf-export .contract-section {
-        margin: 0 0 0.055in;
+        margin: 0 0 0.07in;
         padding: 0;
       }
 
@@ -173,9 +173,9 @@
       .contract-pdf-export .contract-signatures {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 0.06in;
-        padding: 0.05in;
-        margin: 0 0 0.055in;
+        gap: 0.07in;
+        padding: 0.065in;
+        margin: 0 0 0.07in;
         border: 0.5pt solid #777;
         border-radius: 0;
       }
@@ -198,8 +198,8 @@
       }
 
       .contract-pdf-export .contract-footer {
-        margin-top: 0.025in;
-        padding-top: 0.025in;
+        margin-top: 0.04in;
+        padding-top: 0.04in;
         border-top: 0.5pt solid #777;
         text-align: center;
       }
@@ -359,8 +359,8 @@
           margin: 0 !important;
           padding: 0.04in !important;
           box-sizing: border-box !important;
-          font-size: 9pt !important;
-          line-height: 1.14 !important;
+          font-size: 9.25pt !important;
+          line-height: 1.16 !important;
           overflow: visible !important;
         }
 
@@ -379,16 +379,16 @@
         #signedContractPrintRoot .contract-signatures {
           display: grid !important;
           grid-template-columns: 1fr 1fr !important;
-          gap: 0.06in !important;
-          padding: 0.05in !important;
-          margin-bottom: 0.055in !important;
+          gap: 0.07in !important;
+          padding: 0.065in !important;
+          margin-bottom: 0.07in !important;
           break-inside: auto !important;
           page-break-inside: auto !important;
         }
 
         #signedContractPrintRoot .contract-summary p,
         #signedContractPrintRoot .contract-signatures p {
-          margin-bottom: 0.035in !important;
+          margin-bottom: 0.043in !important;
         }
 
         #signedContractPrintRoot .summary-header {
@@ -402,8 +402,8 @@
         }
 
         #signedContractPrintRoot .contract-footer {
-          margin-top: 0.025in !important;
-          padding-top: 0.025in !important;
+          margin-top: 0.04in !important;
+          padding-top: 0.04in !important;
           font-size: 8.3pt !important;
           line-height: 1.15 !important;
           break-inside: auto !important;
@@ -411,7 +411,7 @@
         }
 
         #signedContractPrintRoot .contract-footer p {
-          margin-bottom: 0.035in !important;
+          margin-bottom: 0.043in !important;
         }
       }
 
@@ -457,6 +457,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
+    <script src="final-contract-renderer.js"></script>
     <script>
       const SUPABASE_URL =
         window.RR_SUPABASE_CONFIG?.url || "https://ipxjalcgiaqcyubrxqxu.supabase.co";
@@ -649,86 +650,16 @@
         };
       }
 
-      function compactBrandingFooterHtml() {
-        return `
-          <p>Rust and Ruin — “One of the Top 5 Bands for Hire in New England” — GigSalad</p>
-          <p>Thank you for trusting us with your event.</p>
-        `;
-      }
-
-      function getContractBacklineFee(contract = {}) {
-        return contract.backline_fee ?? contract.backlineTechFee ?? contract.backline_tech_fee ?? 0;
-      }
-
-      function ensureBacklineSummaryLine(wrap, contract = {}) {
-        const summary = wrap.querySelector(".contract-summary");
-        if (!summary || /backline\s+tech/i.test(summary.textContent || "")) return;
-        const summaryColumn = summary.children[1] || summary.lastElementChild || summary;
-        const line = document.createElement("p");
-        line.textContent = `Backline tech: ${formatMoney(getContractBacklineFee(contract))}`;
-
-        const lines = Array.from(summaryColumn.querySelectorAll("p"));
-        const insertAfter = lines.find((el) => /additional\s+on-site\s+time\s+fee/i.test(el.textContent || ""))
-          || lines.find((el) => /performance\s+time\s+fee/i.test(el.textContent || ""));
-        if (insertAfter?.parentNode) {
-          insertAfter.parentNode.insertBefore(line, insertAfter.nextSibling);
-        } else {
-          summaryColumn.appendChild(line);
-        }
-      }
-
       function buildPrintableContractHtml(contract = {}, bandDNA = {}, options = {}) {
         const { signed = false, typedSignature = "" } = options;
         const rawHtml = contract.contract_text ? String(contract.contract_text) : String(contract.legal_text || "");
-        const wrap = document.createElement("div");
-        wrap.className = "contract-pdf-export";
-        wrap.innerHTML = rawHtml || "<p><em>Contract text will appear here once saved from the booking app.</em></p>";
-        wrap.querySelectorAll(".signature-note").forEach((el) => el.remove());
-        ensureBacklineSummaryLine(wrap, contract);
-
-        const clientSignature = String(typedSignature || contract.client_signature || "").trim();
-        const clientName = escapeHtml(contract.client_name || "—");
-        const clientEmail = escapeHtml(contract.client_email || "—");
-        const clientPhone = escapeHtml(contract.client_phone || "—");
-        const dateSigned = signed
-          ? escapeHtml(formatDisplayDate(contract.signed_at) || "—")
-          : "—";
-        const bandName = escapeHtml(contract.band_name || bandDNA.bandName || "Band");
-        const bandEmail = escapeHtml(contract.band_email || bandDNA.contactEmail || "—");
-        const bandPhone = escapeHtml(contract.band_phone || bandDNA.contactPhone || "—");
-        const managerSignature = escapeHtml(contract.manager_name || bandDNA.managerName || contract.band_signature_name || bandDNA.signoffName || "—");
-        const bandSignature = escapeHtml(contract.band_signature_name || bandDNA.signoffName || contract.band_name || "Band representative");
-        const venueAddress = escapeHtml(contract.venue_address || contract.venue_name || "—");
-
-        const signatures = wrap.querySelector(".contract-signatures");
-        if (signatures) {
-          signatures.innerHTML = `
-            <div>
-              <p>Client name: ${clientName}</p>
-              <p>Client email: ${clientEmail}</p>
-              <p>Client phone: ${clientPhone}</p>
-              <p>Client signature: ${escapeHtml(clientSignature || "—")}</p>
-              <p>Date signed: ${dateSigned}</p>
-            </div>
-            <div>
-              <p>Manager signature: ${managerSignature}</p>
-              <p>Venue address: ${venueAddress}</p>
-              <p>Band signature: ${bandSignature}</p>
-              <p>${bandName}</p>
-              <p>Band email: ${bandEmail}</p>
-              <p>Band phone: ${bandPhone}</p>
-            </div>
-          `;
-        }
-
-        let footer = wrap.querySelector(".contract-footer");
-        if (!footer) {
-          footer = document.createElement("footer");
-          footer.className = "contract-footer";
-          wrap.appendChild(footer);
-        }
-        footer.innerHTML = compactBrandingFooterHtml();
-        return wrap.outerHTML;
+        return window.GigOSContractRenderer.renderFinalContractDocument({
+          sourceHtml: rawHtml,
+          contract,
+          bandDNA,
+          signed,
+          typedSignature,
+        });
       }
 
       function normalizePublicContractRow(row) {

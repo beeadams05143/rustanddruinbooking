@@ -8083,6 +8083,7 @@ function buildAgreementContractDigitalPayload() {
       0,
       totals.balanceDueAtShow
     ),
+    backline_fee: totals.backlineFee,
     payment_methods: buildDynamicPaymentMethodsText(),
     venmo_handle: paymentConfig.venmoHandle,
     paypal_handle: paymentConfig.paypalHandle,
@@ -14945,6 +14946,7 @@ async function renderBookedDatesList() {
       performance_fee: performanceFee,
       deposit_amount: depositAmount,
       amount_due_day_of: Math.max(0, performanceFee - depositAmount),
+      backline_fee: 0,
       payment_methods: buildDynamicPaymentMethodsText(),
       venmo_handle: paymentConfig.venmoHandle || "",
       paypal_handle: paymentConfig.paypalHandle || "",
@@ -17959,7 +17961,7 @@ function createInvoicePdfExportTarget(source) {
   return wrapper;
 }
 
-function createContractPdfExportTarget(source) {
+function createContractPdfExportTarget(source, contractOptions = {}) {
   console.log("[GigOS PDF DEBUG] cloning/render prep complete");
   const wrapper = document.createElement("div");
   wrapper.className = "contract-pdf-export-wrapper";
@@ -17975,10 +17977,18 @@ function createContractPdfExportTarget(source) {
   wrapper.style.zIndex = "9999";
   wrapper.style.pointerEvents = "none";
 
-  const clone = source.cloneNode(true);
-  clone.id = "agreementPreviewPdfExport";
-  clone.classList.add("contract-pdf-export");
-  wrapper.appendChild(clone);
+  const finalHtml = window.GigOSContractRenderer?.renderFinalContractDocument
+    ? window.GigOSContractRenderer.renderFinalContractDocument({
+        sourceElement: source,
+        ...contractOptions,
+      })
+    : source.outerHTML;
+  wrapper.innerHTML = finalHtml;
+  const contractEl = wrapper.firstElementChild;
+  if (contractEl) {
+    contractEl.id = "agreementPreviewPdfExport";
+    contractEl.classList.add("contract-pdf-export");
+  }
   document.body.appendChild(wrapper);
   return wrapper;
 }
@@ -18208,11 +18218,23 @@ async function generatePdf(type, options = {}) {
     let pdfBlob = null;
     if (type === "agreement") {
       fileName = `RustAndRuin-Agreement-${state.agreement.clientName || "Client"}.pdf`;
-      exportTarget = createContractPdfExportTarget(target);
+      const contractData = buildAgreementContractDigitalPayload();
+      exportTarget = createContractPdfExportTarget(target, {
+        contract: contractData,
+        bandDNA: {
+          bandName: contractData.band_name,
+          contactEmail: contractData.band_email,
+          contactPhone: contractData.band_phone,
+          managerName: contractData.manager_name,
+          signoffName: contractData.band_signature_name,
+        },
+        signed: Boolean(state.agreement.signatureName),
+        typedSignature: state.agreement.signatureName || "",
+      });
       pdfBlob = await renderElementToPdfBlob(exportTarget.firstElementChild, fileName, {
-        maxPages: 2,
+        maxPages: 1,
         renderScale: 1.35,
-        jpegQuality: 0.74,
+        jpegQuality: 0.78,
       });
     } else {
       fileName = type === "receipt"

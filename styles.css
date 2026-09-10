@@ -2519,8 +2519,8 @@ textarea {
   background: #fff !important;
   color: #000 !important;
   font-family: Georgia, "Times New Roman", serif !important;
-  font-size: 9pt !important;
-  line-height: 1.14 !important;
+  font-size: 9.25pt !important;
+  line-height: 1.16 !important;
 }
 
 .contract-pdf-export * {
@@ -2551,13 +2551,13 @@ textarea {
 }
 
 .contract-pdf-export h3 {
-  font-size: 10.5pt !important;
-  line-height: 1.1 !important;
-  margin: 0 0 0.03in !important;
+  font-size: 10.75pt !important;
+  line-height: 1.12 !important;
+  margin: 0 0 0.035in !important;
 }
 
 .contract-pdf-export p {
-  margin: 0 0 0.035in !important;
+  margin: 0 0 0.043in !important;
 }
 
 .contract-pdf-export .contract-note,
@@ -2569,7 +2569,7 @@ textarea {
 }
 
 .contract-pdf-export .contract-section {
-  margin: 0 0 0.055in !important;
+  margin: 0 0 0.07in !important;
   padding: 0 !important;
 }
 
@@ -2577,9 +2577,9 @@ textarea {
 .contract-pdf-export .contract-signatures {
   display: grid !important;
   grid-template-columns: 1fr 1fr !important;
-  gap: 0.06in !important;
-  padding: 0.05in !important;
-  margin: 0 0 0.055in !important;
+  gap: 0.07in !important;
+  padding: 0.065in !important;
+  margin: 0 0 0.07in !important;
   border: 0.5pt solid #777 !important;
   border-radius: 0 !important;
 }
@@ -2602,8 +2602,8 @@ textarea {
 }
 
 .contract-pdf-export .contract-footer {
-  margin-top: 0.025in !important;
-  padding-top: 0.025in !important;
+  margin-top: 0.04in !important;
+  padding-top: 0.04in !important;
   border-top: 0.5pt solid #777 !important;
   text-align: center !important;
 }
