@@ -6435,6 +6435,9 @@ function renderNeedsYourAttention(notifications = []) {
   const summary = document.getElementById("homeAttentionSummary");
   const badge = document.getElementById("homeAttentionCount");
   const navBadge = document.getElementById("homeNavAttentionCount");
+  const nextTitle = document.getElementById("homeNextActionTitle");
+  const nextMeta = document.getElementById("homeNextActionMeta");
+  const nextButton = document.getElementById("homeNextActionButton");
   if (!list || !summary || !badge || !navBadge) return;
 
   const count = notifications.length;
@@ -6443,9 +6446,35 @@ function renderNeedsYourAttention(notifications = []) {
   navBadge.textContent = String(count);
   navBadge.classList.toggle("hidden", count === 0);
 
-  summary.textContent = count
-    ? `${count} booking follow-up${count === 1 ? "" : "s"} waiting on you.`
-    : "No booking follow-ups are waiting right now.";
+  const isMember = state.userRole === "member";
+  summary.textContent = isMember
+    ? "Your assigned shows and tasks will appear here."
+    : count
+      ? `${count} booking follow-up${count === 1 ? "" : "s"} waiting on you.`
+      : "No booking follow-ups are waiting right now.";
+
+  if (nextTitle && nextMeta && nextButton) {
+    const next = notifications[0];
+    if (isMember) {
+      nextTitle.textContent = "Your next show";
+      nextMeta.textContent = "See the date, lineup, and details for your assigned shows.";
+      nextButton.textContent = "Open calendar";
+      nextButton.onclick = () => {
+        if (switchTopView) switchTopView("calendar");
+      };
+      nextButton.classList.add("primary");
+    } else {
+      nextTitle.textContent = next?.title || "You’re all caught up";
+      nextMeta.textContent = next?.meta || "Your next booking step will show here. Ready to bring in another show?";
+      nextButton.textContent = next?.actionLabel || (next ? "Open next step" : "+ New booking");
+      nextButton.onclick = next
+        ? () => openBookingFlowNotificationTarget(next.event, next.target)
+        : () => {
+            document.getElementById("homeNewBookingQuick")?.click();
+          };
+      nextButton.classList.toggle("primary", Boolean(next));
+    }
+  }
 
   list.innerHTML = "";
   if (!count) {
@@ -9050,9 +9079,13 @@ function applyRoleBasedUI() {
     btn.textContent = member ? "My Profile" : "Musicians + Tech Crew";
   });
 
-  const homeBookingAttention = document.querySelector("#homeTab .attention-feed-card");
+  const homeBookingAttention = document.querySelector("#homeTab .dashboard-followups-card");
   if (homeBookingAttention) {
     homeBookingAttention.style.display = member ? "none" : "";
+  }
+  const homeContentGrid = document.querySelector("#homeTab .dashboard-content-grid");
+  if (homeContentGrid) {
+    homeContentGrid.style.gridTemplateColumns = member ? "1fr" : "";
   }
   document.querySelectorAll("#homeTab .dashboard-stats [data-dashboard-stat-role='admin']").forEach((el) => {
     el.style.display = member ? "none" : "";
@@ -16705,13 +16738,14 @@ function setupListeners() {
     });
   }
   const homeNewBookingBtn = document.getElementById("homeNewBooking");
-  if (homeNewBookingBtn) {
-    homeNewBookingBtn.addEventListener("click", () => {
+  const startNewBooking = () => {
       resetAgreementForm();
       state.activeTab = "agreement";
       switchTop("bookkeeping");
-    });
-  }
+  };
+  if (homeNewBookingBtn) homeNewBookingBtn.addEventListener("click", startNewBooking);
+  const homeNewBookingQuickBtn = document.getElementById("homeNewBookingQuick");
+  if (homeNewBookingQuickBtn) homeNewBookingQuickBtn.addEventListener("click", startNewBooking);
   const bookHubNewBookingBtn = document.getElementById("bookHubNewBooking");
   if (bookHubNewBookingBtn) {
     bookHubNewBookingBtn.addEventListener("click", () => {
@@ -16748,6 +16782,13 @@ function setupListeners() {
   const homeOpenCalendarBtn = document.getElementById("homeOpenCalendar");
   if (homeOpenCalendarBtn) {
     homeOpenCalendarBtn.addEventListener("click", () => {
+      state.activeTab = "calendar";
+      switchTop("calendar");
+    });
+  }
+  const homeOpenUpcomingCalendarBtn = document.getElementById("homeOpenUpcomingCalendar");
+  if (homeOpenUpcomingCalendarBtn) {
+    homeOpenUpcomingCalendarBtn.addEventListener("click", () => {
       state.activeTab = "calendar";
       switchTop("calendar");
     });

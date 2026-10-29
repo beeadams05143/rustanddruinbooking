@@ -177,40 +177,68 @@
             <button class="dashboard-profile-btn" id="homeEditBandDNA" type="button">Edit Band DNA</button>
           </div>
 
-          <article class="board-card dashboard-drafts-card" id="homeDraftsCard">
-            <div class="dashboard-card-head">
-              <h3>Draft Bookings</h3>
-              <button class="dashboard-card-action" id="homeOpenBookDrafts" type="button">Open drafts</button>
-            </div>
-            <p class="dashboard-card-subtext" id="homeDraftsSummary">No draft bookings saved.</p>
-            <div class="booking-drafts-list" id="homeDraftsList"></div>
-          </article>
+          <div class="dashboard-overview-grid">
+            <article class="board-card dashboard-next-card" aria-live="polite">
+              <div class="dashboard-eyebrow">Your next step</div>
+              <h3 id="homeNextActionTitle">You’re all caught up</h3>
+              <p class="dashboard-card-subtext" id="homeNextActionMeta">Your next booking step will show here.</p>
+              <button class="dashboard-next-button" id="homeNextActionButton" type="button">＋ New booking</button>
+            </article>
+            <article class="board-card dashboard-snapshot-card">
+              <div class="dashboard-card-head">
+                <div>
+                  <div class="dashboard-eyebrow">At a glance</div>
+                  <h3>Booking pulse</h3>
+                </div>
+              </div>
+              <div class="dashboard-snapshot-grid">
+                <div><strong id="snapshotUpcomingShows">0</strong><span>Upcoming shows</span></div>
+                <div><strong id="snapshotContractsPending">0</strong><span>Contracts pending</span></div>
+                <div><strong id="snapshotConfirmationsNeeded">0</strong><span>Confirmations needed</span></div>
+              </div>
+              <p class="dashboard-card-detail" id="opsProgressDetail">No urgent items right now.</p>
+            </article>
+          </div>
 
-          <article class="board-card attention-feed-card">
-            <div class="dashboard-card-head">
-              <h3>Needs Your Attention</h3>
-              <button class="dashboard-card-action" id="homeWorkOrders" type="button">+ Task</button>
-              <span class="dashboard-badge badge-now hidden" id="homeAttentionCount">0</span>
-            </div>
-            <p class="dashboard-card-subtext" id="homeAttentionSummary">No booking follow-ups are waiting right now.</p>
-            <div class="attention-list" id="homeAttentionList">
-              <div class="attention-empty">Nothing needs your attention right now.</div>
-            </div>
-            <p class="dashboard-card-subtext" id="opsProgressSummary">What needs attention this week.</p>
-            <p class="dashboard-card-detail" id="opsProgressDetail">No urgent items right now.</p>
-            <div class="hidden">
-              <strong id="snapshotUpcomingShows">0</strong>
-              <strong id="snapshotContractsPending">0</strong>
-              <strong id="snapshotConfirmationsNeeded">0</strong>
-            </div>
-            <div id="managerChecklistList">
+          <div class="dashboard-quick-actions" aria-label="Quick actions">
+            <button class="dashboard-quick-action primary" id="homeNewBookingQuick" type="button"><span aria-hidden="true">＋</span> New booking</button>
+            <button class="dashboard-quick-action" id="homeOpenContracts" type="button"><span aria-hidden="true">▤</span> Contracts</button>
+            <button class="dashboard-quick-action" id="homeOpenCalendar" type="button"><span aria-hidden="true">▦</span> Calendar</button>
+            <button class="dashboard-quick-action" id="homeWorkOrders" type="button"><span aria-hidden="true">☑</span> Work orders</button>
+          </div>
+
+          <div class="board-grid dashboard-content-grid">
+            <article class="board-card upcoming-card">
+              <div class="dashboard-card-head">
+                <div><div class="dashboard-eyebrow">On the calendar</div><h3>Upcoming shows</h3></div>
+                <button class="dashboard-text-action" id="homeOpenUpcomingCalendar" type="button">Open calendar →</button>
+              </div>
+              <p class="dashboard-card-subtext" id="upcomingShowsSummary">Your next 3 upcoming bookings.</p>
+              <ul class="board-list" id="upcomingShowsList">
+                <li>No upcoming bookings yet.</li>
+              </ul>
+            </article>
+            <article class="board-card dashboard-followups-card">
+              <div class="dashboard-card-head">
+                <div><div class="dashboard-eyebrow">Keep things moving</div><h3>Needs your attention</h3></div>
+                <span class="dashboard-badge badge-now hidden" id="homeAttentionCount">0</span>
+              </div>
+              <p class="dashboard-card-subtext" id="homeAttentionSummary">No booking follow-ups are waiting right now.</p>
+              <div class="attention-list" id="homeAttentionList">
+                <div class="attention-empty">Nothing needs your attention right now.</div>
+              </div>
+              <div class="hidden">
+                <span id="opsProgressSummary">What needs attention this week.</span>
+                <div id="managerChecklistList">
               <div class="checklist-row">
                 <span class="dashboard-row-dot" aria-hidden="true"></span>
                 <span class="checklist-text">No checklist items yet.</span>
                 <span class="dashboard-badge badge-done">Done</span>
               </div>
-            </div>
-          </article>
+                </div>
+              </div>
+            </article>
+          </div>
 
           <div class="dashboard-stats" aria-label="Shows booked record" id="homeDashboardStats">
             <article class="dashboard-stat-card" data-dashboard-stat-role="admin">
@@ -232,19 +260,16 @@
             </article>
           </div>
 
-          <div class="board-grid dashboard-grid">
-            <article class="board-card upcoming-card">
-              <div class="dashboard-card-head">
-                <h3>Upcoming Shows</h3>
-              </div>
-              <p class="dashboard-card-subtext" id="upcomingShowsSummary">Your next 3 upcoming bookings.</p>
-              <ul class="board-list" id="upcomingShowsList">
-                <li>No upcoming bookings yet.</li>
-              </ul>
-            </article>
-          </div>
+          <article class="board-card dashboard-drafts-card" id="homeDraftsCard">
+            <div class="dashboard-card-head">
+              <div><div class="dashboard-eyebrow">Pick up where you left off</div><h3>Saved drafts</h3></div>
+              <button class="dashboard-text-action" id="homeOpenBookDrafts" type="button">All drafts →</button>
+            </div>
+            <p class="dashboard-card-subtext" id="homeDraftsSummary">No draft bookings saved.</p>
+            <div class="booking-drafts-list" id="homeDraftsList"></div>
+          </article>
 
-          <button class="dashboard-booking-btn" id="homeNewBooking" type="button">+ New Booking</button>
+          <button class="dashboard-booking-btn hidden" id="homeNewBooking" type="button">+ New Booking</button>
         </section>
       </main>
 
