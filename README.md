@@ -24,3 +24,7 @@ This repo is configured for static deployment.
 - Publish directory: `.`
 
 Netlify will serve `index.html` as the site entry point.
+
+## Social Content Planner storage setup
+
+The Social Content tab stores post drafts and video-folder metadata in Supabase and uploads clips to a private Storage bucket. Before using video uploads, run `database/social_media_planner_setup.sql` in the Supabase SQL Editor for this project. The SQL creates the required tables, private bucket, and signed-in-user RLS policies. The application limits videos to 60 seconds and 100 MB.

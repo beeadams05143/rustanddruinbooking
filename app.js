@@ -225,6 +225,8 @@ function createInitialEpkState() {
     website: "",
     instagram: "",
     facebook: "",
+    tiktok: "",
+    youtube: "",
     musicLink: "",
     videoLink: "",
     photoLinks: "",
@@ -328,6 +330,8 @@ function createInitialWorkOrderWorkspaceState() {
     epkSection: "profile",
     promoBuilder: createInitialPromoBuilderState(),
     promoTemplates: [],
+    socialPosts: [],
+    socialFolders: [],
     followUps: [],
     bandProfile: createInitialBandProfileState(),
     businessProfile: createInitialBusinessProfileState(),
@@ -376,6 +380,8 @@ function createInitialBandDNAState() {
     videoLink: "",
     instagram: "",
     facebook: "",
+    tiktok: "",
+    youtube: "",
     loadInTime: "",
     soundCheckMinutes: "",
     breakPolicy: "",
@@ -485,6 +491,7 @@ const state = {
   userRole: "owner",
   userBandId: null,
 };
+window.state = state;
 
 
 const agreementFields = [
@@ -1058,6 +1065,8 @@ function migrateLegacyToBandDNA() {
     videoLink: epk.videoLink || "",
     instagram: epk.instagram || "",
     facebook: epk.facebook || "",
+    tiktok: epk.tiktok || "",
+    youtube: epk.youtube || "",
     venmoHandle: state.bandDNA.venmoHandle || "",
     paypalHandle: state.bandDNA.paypalHandle || "",
     lineups: lineupRates.length
@@ -3380,6 +3389,8 @@ const bandDnaEpkFieldMap = [
   ["bandDnaWebsite", "website"],
   ["bandDnaInstagram", "instagram"],
   ["bandDnaFacebook", "facebook"],
+  ["bandDnaTiktok", "tiktok"],
+  ["bandDnaYoutube", "youtube"],
   ["bandDnaMusicLink", "musicLink"],
   ["bandDnaVideoLink", "videoLink"],
   ["bandDnaPhotoLinks", "photoLinks"],
@@ -12889,6 +12900,8 @@ function syncEpkStateFromForm() {
   epk.website = document.getElementById("epkWebsite")?.value.trim() || "";
   epk.instagram = document.getElementById("epkInstagram")?.value.trim() || "";
   epk.facebook = document.getElementById("epkFacebook")?.value.trim() || "";
+  epk.tiktok = document.getElementById("epkTikTok")?.value.trim() || "";
+  epk.youtube = document.getElementById("epkYouTube")?.value.trim() || "";
   epk.musicLink = document.getElementById("epkMusicLink")?.value.trim() || "";
   epk.videoLink = document.getElementById("epkVideoLink")?.value.trim() || "";
   epk.photoLinks = document.getElementById("epkPhotoLinks")?.value.trim() || "";
@@ -13385,9 +13398,12 @@ function switchPromoChannel(channel = "email") {
   });
   const builderWrap = document.getElementById("promoBuilderWrap");
   const followUpWrap = document.getElementById("followUpsWrap");
-  if (builderWrap) builderWrap.classList.toggle("hidden", channel === "followups");
+  const socialWrap = document.getElementById("socialContentWrap");
+  if (builderWrap) builderWrap.classList.toggle("hidden", channel === "followups" || channel === "social");
   if (followUpWrap) followUpWrap.classList.toggle("hidden", channel !== "followups");
-  if (channel !== "followups") {
+  if (socialWrap) socialWrap.classList.toggle("hidden", channel !== "social");
+  if (channel === "social") window.GigOSSocialPlanner?.render();
+  if (channel !== "followups" && channel !== "social") {
     updatePromoGeneratedMessage(true);
   }
   saveDraft();
@@ -13490,12 +13506,31 @@ function renderFollowUps() {
   });
 }
 
+function getEpkSocialLink(platform, value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const handle = raw.replace(/^@+/, "").trim();
+  const path = encodeURIComponent(handle).replace(/%2F/gi, "/");
+  const domains = {
+    instagram: "https://www.instagram.com/",
+    facebook: "https://www.facebook.com/",
+    tiktok: "https://www.tiktok.com/@",
+    youtube: "https://www.youtube.com/",
+  };
+  return domains[platform] ? `${domains[platform]}${path}` : raw;
+}
+
 function renderEpkSummary() {
   const summary = document.getElementById("epkSummary");
   if (!summary) return;
   const dna = state.bandDNA;
   const profile = state.workOrderWorkspace.bandProfile;
   const epk = state.workOrderWorkspace.epk;
+  const instagram = getEpkSocialLink("instagram", epk.instagram || dna.instagram);
+  const facebook = getEpkSocialLink("facebook", epk.facebook || dna.facebook);
+  const tiktok = getEpkSocialLink("tiktok", epk.tiktok || dna.tiktok);
+  const youtube = getEpkSocialLink("youtube", epk.youtube || dna.youtube);
   summary.innerHTML = `
     <p><strong>EPK Draft Preview</strong></p>
     <p class="epk-extra-note-preview"><strong>Extra EPK + bio notes:</strong> ${epk.extraNotes || "Add story notes, press blurbs, audience details, or bio wording in the field above."}</p>
@@ -13506,6 +13541,10 @@ function renderEpkSummary() {
     <p><strong>Artists / references:</strong> ${profile.artistReferences || "Not set yet"}</p>
     <p><strong>Lineup options:</strong> ${epk.lineupOptions || profile.lineupSummary || "Not set yet"}</p>
     <p><strong>Website:</strong> ${epk.website || "Not set yet"}</p>
+    <p><strong>Instagram:</strong> ${instagram ? `<a href="${escapeHtml(instagram)}" target="_blank" rel="noopener noreferrer">${escapeHtml(epk.instagram || dna.instagram)}</a>` : "Not set yet"}</p>
+    <p><strong>Facebook:</strong> ${facebook ? `<a href="${escapeHtml(facebook)}" target="_blank" rel="noopener noreferrer">${escapeHtml(epk.facebook || dna.facebook)}</a>` : "Not set yet"}</p>
+    <p><strong>TikTok:</strong> ${tiktok ? `<a href="${escapeHtml(tiktok)}" target="_blank" rel="noopener noreferrer">${escapeHtml(epk.tiktok || dna.tiktok)}</a>` : "Not set yet"}</p>
+    <p><strong>YouTube:</strong> ${youtube ? `<a href="${escapeHtml(youtube)}" target="_blank" rel="noopener noreferrer">${escapeHtml(epk.youtube || dna.youtube)}</a>` : "Not set yet"}</p>
     <p><strong>Music:</strong> ${epk.musicLink || "Not set yet"}</p>
     <p><strong>Video:</strong> ${epk.videoLink || "Not set yet"}</p>
     <p><strong>Photo assets:</strong> ${epk.photoLinks || "Add photo links or asset locations"}</p>
@@ -13671,6 +13710,8 @@ function renderWorkOrderWorkspace() {
   setValue("epkWebsite", epk.website);
   setValue("epkInstagram", epk.instagram);
   setValue("epkFacebook", epk.facebook);
+  setValue("epkTikTok", epk.tiktok);
+  setValue("epkYouTube", epk.youtube);
   setValue("epkMusicLink", epk.musicLink);
   setValue("epkVideoLink", epk.videoLink);
   setValue("epkPhotoLinks", epk.photoLinks);
@@ -13993,6 +14034,38 @@ function saveEpkProfile() {
   setEpkStatus("EPK saved.");
 }
 
+function fillEpkFromBandDNA() {
+  syncBandProfileStateFromForm();
+  syncEpkStateFromForm();
+  const dna = state.bandDNA || {};
+  const profile = state.workOrderWorkspace.bandProfile || {};
+  const epk = state.workOrderWorkspace.epk || createInitialEpkState();
+  const genreTags = Array.isArray(dna.genreTags) ? dna.genreTags.join(", ") : String(dna.genreTags || "");
+  const lineupNames = Array.isArray(dna.lineups)
+    ? dna.lineups.map((lineup) => lineup?.name).filter(Boolean).join(", ")
+    : "";
+  state.workOrderWorkspace.epk = {
+    ...epk,
+    bandName: epk.bandName || dna.bandName || profile.bandName || "",
+    shortBio: epk.shortBio || profile.bioShortDraft || profile.introLine || dna.oneLineBio || "",
+    longBio: epk.longBio || profile.bioFullDraft || profile.bioStoryLine || "",
+    genres: epk.genres || genreTags || profile.genreTags || "",
+    lineupOptions: epk.lineupOptions || lineupNames || profile.lineupSummary || "",
+    website: epk.website || dna.website || "",
+    instagram: epk.instagram || dna.instagram || "",
+    facebook: epk.facebook || dna.facebook || "",
+    tiktok: epk.tiktok || dna.tiktok || "",
+    youtube: epk.youtube || dna.youtube || "",
+    musicLink: epk.musicLink || dna.musicLink || "",
+    videoLink: epk.videoLink || dna.videoLink || "",
+    contactEmail: epk.contactEmail || dna.contactEmail || "",
+    contactPhone: epk.contactPhone || dna.contactPhone || "",
+  };
+  saveDraft();
+  renderWorkOrderWorkspace();
+  setEpkStatus("Missing EPK fields filled from Band DNA. Review links and public details before sharing.");
+}
+
 function buildEpkSummaryText() {
   syncEpkStateFromForm();
   syncBandProfileStateFromForm();
@@ -14011,6 +14084,10 @@ function buildEpkSummaryText() {
     profile.artistReferences ? `Artists / references: ${profile.artistReferences}` : "",
     epk.lineupOptions || profile.lineupSummary ? `Lineup options: ${epk.lineupOptions || profile.lineupSummary}` : "",
     epk.website ? `Website: ${epk.website}` : "",
+    epk.instagram || state.bandDNA.instagram ? `Instagram: ${getEpkSocialLink("instagram", epk.instagram || state.bandDNA.instagram)}` : "",
+    epk.facebook || state.bandDNA.facebook ? `Facebook: ${getEpkSocialLink("facebook", epk.facebook || state.bandDNA.facebook)}` : "",
+    epk.tiktok || state.bandDNA.tiktok ? `TikTok: ${getEpkSocialLink("tiktok", epk.tiktok || state.bandDNA.tiktok)}` : "",
+    epk.youtube || state.bandDNA.youtube ? `YouTube: ${getEpkSocialLink("youtube", epk.youtube || state.bandDNA.youtube)}` : "",
     epk.musicLink ? `Music: ${epk.musicLink}` : "",
     epk.videoLink ? `Video: ${epk.videoLink}` : "",
     epk.photoLinks ? `Photo assets: ${epk.photoLinks}` : "",
@@ -17889,6 +17966,8 @@ function setupListeners() {
     "epkWebsite",
     "epkInstagram",
     "epkFacebook",
+    "epkTikTok",
+    "epkYouTube",
     "epkMusicLink",
     "epkVideoLink",
     "epkPhotoLinks",
@@ -17909,6 +17988,10 @@ function setupListeners() {
   const epkSaveBtn = document.getElementById("epkSave");
   if (epkSaveBtn) {
     epkSaveBtn.addEventListener("click", saveEpkProfile);
+  }
+  const epkFillFromBandDnaBtn = document.getElementById("epkFillFromBandDNA");
+  if (epkFillFromBandDnaBtn) {
+    epkFillFromBandDnaBtn.addEventListener("click", fillEpkFromBandDNA);
   }
   const epkCopyShortBioBtn = document.getElementById("epkCopyShortBio");
   if (epkCopyShortBioBtn) {

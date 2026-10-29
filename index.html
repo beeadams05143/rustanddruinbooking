@@ -612,7 +612,66 @@
                 <button class="tab" type="button" data-promo-channel="text">Text</button>
                 <button class="tab" type="button" data-promo-channel="dm">DM</button>
                 <button class="tab" type="button" data-promo-channel="followups">Follow-Ups</button>
+                <button class="tab" type="button" data-promo-channel="social">Social Content</button>
               </nav>
+
+              <div id="socialContentWrap" class="hidden">
+                <div class="social-planner-intro">
+                  <h3>Social Content Planner</h3>
+                  <p class="muted">Build a week of posts around your goals, booked shows, or holidays. Keep most posts focused on connecting with people, with show promotion mixed in.</p>
+                  <div class="social-planner-controls">
+                    <label>Plan goal
+                      <select id="socialPlanGoal">
+                        <option value="engagement">Build audience and engagement</option>
+                        <option value="booking">Book more shows</option>
+                        <option value="show">Promote a booked show</option>
+                        <option value="holiday">Connect to a holiday</option>
+                      </select>
+                    </label>
+                    <label>Booked show
+                      <select id="socialPlanEvent"><option value="">Choose a show (optional)</option></select>
+                    </label>
+                    <label>Holiday or season
+                      <select id="socialPlanHoliday">
+                        <option value="">Choose a holiday (optional)</option><option>New Year’s</option><option>Valentine’s Day</option><option>St. Patrick’s Day</option><option>Memorial Day</option><option>Fourth of July</option><option>Halloween</option><option>Thanksgiving</option><option>Christmas</option>
+                      </select>
+                    </label>
+                    <button id="socialBuildWeek" class="btn" type="button">Build my post plan</button>
+                  </div>
+                </div>
+                <div id="socialPlanStatus" class="muted" aria-live="polite"></div>
+                <div class="social-planner-columns">
+                  <section>
+                    <div class="work-order-head"><h3>Idea Library</h3><label>Category
+                      <select id="socialIdeaCategory"><option value="all">All ideas</option><option value="engagement">Engagement</option><option value="behind-scenes">Behind the scenes</option><option value="community">Community</option><option value="booking">Booking outreach</option><option value="show">Show promotion</option><option value="holiday">Holiday</option></select>
+                    </label></div>
+                    <div id="socialIdeaLibrary" class="social-idea-library"></div>
+                    <div class="social-draft-editor">
+                      <label>Selected post draft<textarea id="socialPostCaption" rows="6" placeholder="Choose an idea to start a draft. Emojis and hashtags are included and editable."></textarea></label>
+                      <p id="socialMediaSuggestion" class="muted"></p>
+                      <div class="inline-actions"><button id="socialCopyPost" class="btn ghost" type="button">Copy post</button><button id="socialSavePost" class="btn" type="button">Save draft</button></div>
+                    </div>
+                  </section>
+                  <section class="social-video-library">
+                    <div class="work-order-head"><h3>Reusable Video Library</h3><span class="priority-tag normal">Up to 60 seconds</span></div>
+                    <p class="muted">Keep clips in named folders so you can find them without searching your camera roll.</p>
+                    <div class="social-folder-controls">
+                      <label>Folder<select id="socialVideoFolder"></select></label>
+                      <button id="socialCreateFolder" class="btn ghost" type="button">＋ New folder</button>
+                    </div>
+                    <div class="social-upload-controls">
+                      <label>Video title<input id="socialVideoTitle" type="text" placeholder="e.g., Todd drum solo"></label>
+                      <label>Add video<input id="socialVideoFile" type="file" accept="video/*"></label>
+                    </div>
+                    <p id="socialVideoStatus" class="muted" aria-live="polite"></p>
+                    <div id="socialVideoList" class="social-video-list"></div>
+                  </section>
+                </div>
+                <section class="form-section">
+                  <h3>Saved post drafts</h3>
+                  <div id="socialSavedPosts" class="work-order-list"></div>
+                </section>
+              </div>
 
               <div id="promoBuilderWrap">
                 <div class="form-grid">
@@ -985,6 +1044,14 @@
                     <input id="epkFacebook" placeholder="@yourband" />
                   </label>
                   <label>
+                    TikTok (optional)
+                    <input id="epkTikTok" placeholder="@yourband or profile link" />
+                  </label>
+                  <label>
+                    YouTube (optional)
+                    <input id="epkYouTube" placeholder="channel link or handle" />
+                  </label>
+                  <label>
                     Music link
                     <input id="epkMusicLink" placeholder="Spotify, Apple Music, SoundCloud..." />
                   </label>
@@ -1030,6 +1097,7 @@
               <div class="inline-actions">
                 <button class="btn" id="profileSave">Save Band Profile</button>
                 <button class="btn ghost" id="profileApplyToBuilder">Use in Builder</button>
+                <button class="btn ghost" id="epkFillFromBandDNA" type="button">Fill from Band DNA</button>
                 <button class="btn ghost" id="epkSave">Save Links + Media</button>
                 <button class="btn ghost" id="epkCopyShortBio">Copy Short Bio</button>
                 <button class="btn ghost" id="epkCopyFull">Copy EPK Draft</button>
@@ -2582,6 +2650,8 @@
     <script src="final-contract-renderer.js"></script>
     <script src="final-receipt-renderer.js"></script>
     <script src="app.js"></script>
+    <script src="social-content-library.js"></script>
+    <script src="social-media-planner.js"></script>
     <div id="buildBadge" style="
       position: fixed;
       bottom: 8px;

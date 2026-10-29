@@ -1,0 +1,75 @@
+(function () {
+  const commonTags = ["#LiveMusic", "#SupportLocalMusic"];
+  const sets = [
+    ["engagement", "Engagement", [
+      ["First concert memory", "🎶 What was the first concert you ever went to? Tell us who you saw!", "A warm band photo or a short clip of the band waving at rehearsal."],
+      ["Pick the encore", "🙌 If you could pick our encore, what song would you choose? Drop it below!", "A real crowd photo or a video of band members holding up song choices."],
+      ["Acoustic or full band", "🎸 Help us settle this: acoustic set or full-band night? Comment your pick 👇", "Quick side-by-side clips of acoustic and full-band rehearsal."],
+      ["Song that takes you back", "💭 What song takes you right back to a special memory? We want to hear yours.", "A close-up performance clip with a simple question over the opening frame."],
+      ["Choose the set list", "🎤 Which should make the set list: [Song A] or [Song B]? Vote in the comments!", "Two members each hold a sign with one song title."],
+      ["Favorite music decade", "🕺 What decade has the best songs to sing along to? Make your case!", "A playful band reaction video with decade labels on screen."],
+      ["Request a cover", "🎵 What cover would you love to hear us play? Leave us a suggestion!", "A short clip of the band rehearsing a recognizable intro."],
+      ["Finish the lyric", "🎶 Finish this lyric: ‘__________’ ... what comes next?", "A singer starts a familiar lyric and pauses for viewers to finish it."],
+    ]],
+    ["behind-scenes", "Behind the scenes", [
+      ["Rehearsal check-in", "🎤 A little rehearsal, a lot of harmonies. What should we share next?", "A 10–30 second vertical rehearsal clip with the whole band visible."],
+      ["Before the first note", "✨ A quiet minute before we start playing. Are you a backstage or front-row person?", "A short load-in or sound-check clip, with faces and venue details clear."],
+      ["Gear we love", "🎸 This is one piece of gear we reach for every show. What’s your must-have?", "A close-up of an instrument or pedal, followed by a few seconds of it in use."],
+      ["Meet a band member", "👋 Meet [Name], who keeps [role] sounding just right. Say hi in the comments!", "A friendly 10-second member intro followed by them playing."],
+      ["Set-up time lapse", "⏱️ From an empty stage to ready to play. How long do you think set-up takes?", "A quick time-lapse of stage set-up; avoid showing private venue information."],
+      ["Song story", "📖 Every song has a story. This one always makes us think of [memory]. What song does that for you?", "Face-to-camera story, then a few seconds of the song being played."],
+      ["Practice blooper", "😂 Not every note lands on the first try. Here’s a little rehearsal moment—what makes you laugh at practice?", "A good-natured, brief rehearsal blooper with everyone comfortable being shown."],
+      ["What’s in the set", "🎼 Here’s a peek at what we’re working on this week. Which one do you recognize?", "Over-the-shoulder shot of a set list with personal details out of frame."],
+    ]],
+    ["community", "Community", [
+      ["Local favorite", "📍 We love playing around [Town]. What’s your favorite local place for live music?", "A photo outside a familiar local venue or town landmark."],
+      ["Thank a local venue", "❤️ Thanks to [Venue] for having us and to everyone who came out. Where should we play next?", "A real stage photo with the venue name and crowd, if permission is clear."],
+      ["Local artist shout-out", "👏 Shout-out to [Artist / Organization] doing great things around here. Who should we feature next?", "A photo together or a simple shared graphic with permission."],
+      ["Favorite road snack", "🚗 Tour question: what’s your favorite road-trip snack? We need new ideas!", "A lighthearted van or green-room snack video, with faces optional."],
+      ["Small business spotlight", "☕ We stopped by [Local Business] and loved it. What local spot should we visit next?", "A short visit clip or photo, with the business’s permission and tag."],
+      ["Share a music memory", "📸 Tell us about a live show you still talk about years later. What made it special?", "A nostalgic band photo or a stage-side clip from an older show."],
+      ["Community calendar", "🗓️ What local event are you looking forward to this season? We’re making our list!", "A band member shares three local events they’re excited about."],
+      ["Audience appreciation", "💛 You make these nights special. Tag someone you’d bring to a live show!", "A real audience photo or short applause clip, shared with permission."],
+    ]],
+    ["booking", "Booking outreach", [
+      ["Open dates", "📅 We have a few dates open this season and would love to play a great local room. Message us to talk!", "A clean band photo with ‘Booking dates open’ in readable text."],
+      ["Venue fit", "🍻 Looking for live music for your venue? We bring [style] and can tailor the lineup to your room. Let’s connect!", "A short live performance clip that shows the band’s sound and stage energy."],
+      ["Community event booking", "🎪 Planning a town or community event? We’d love to be part of it. Send us a message about your date!", "A wide stage photo showing the band and family-friendly audience atmosphere."],
+      ["Private event booking", "🥂 Planning a celebration? We bring live music, flexible lineups, and a set built for your guests. Let’s talk!", "A polished event photo or a direct-to-camera invitation in a quiet setting."],
+      ["Repeat venue note", "🤝 We loved playing at [Venue]. If you’re planning another music night, we’d be happy to find a date!", "A real photo from the prior show with the venue tagged, if appropriate."],
+      ["Why live music", "🎶 A great live set gives people a reason to stay, sing along, and come back. Venues: let’s plan a night!", "A 15-second montage of the band playing, audience reactions, and a closing logo."],
+      ["Seasonal booking", "🌞 Building your [season] calendar? We’re booking now and would love to be considered.", "A bright outdoor performance image or a band photo that fits the season."],
+      ["Residency idea", "📍 We’d love to become part of your regular live-music lineup. Interested in a recurring night? Let’s talk!", "A short clip from a room with the audience engaged and the venue identified."],
+    ]],
+    ["show", "Show promotion", [
+      ["Announce the date", "📣 We’re playing [Venue] on [Date]! Bring a friend and come sing along—we’d love to see you there!", "A band photo with venue, date, and start time in large readable type."],
+      ["Two-week countdown", "⏳ Two weeks until [Venue]! Who’s coming out? Tag your show buddy below.", "A 10-second invitation video with the date shown at the end."],
+      ["One-week reminder", "🎸 One week to go! We’ll be at [Venue] on [Date]. Save the date and come say hello!", "A rehearsal clip with a simple date-and-venue overlay."],
+      ["Day-of reminder", "🎤 Tonight’s the night! [Venue], [Time]. We’re ready to play—hope to see you there!", "A quick backstage or load-in video, avoiding restricted areas."],
+      ["What to expect", "🕺 Expect [music / vibe] and plenty of songs to sing along with. See you at [Venue] on [Date]!", "A short crowd-energy clip from a previous show with similar music."],
+      ["Bring a friend", "👯 Good music is better with a friend. Send this to someone you want beside you at [Venue] on [Date]!", "Two band members invite the viewer to bring a friend."],
+      ["Last call", "🚨 Last reminder for [Venue] on [Date]! Check the venue’s page for event details, then come join us.", "A bold, simple reminder graphic using a real band photo."],
+      ["After-show thanks", "❤️ Thanks to everyone who came out to [Venue]! You made it a great night. Where should we play next?", "A real post-show photo or thank-you video, with audience permission."],
+    ]],
+    ["holiday", "Holiday", [
+      ["New Year’s music memory", "🥂 What song should be on everyone’s New Year’s playlist? We’re taking notes!", "A festive rehearsal clip with a few song-title cards."],
+      ["Valentine’s weekend", "💘 Make a night of it this Valentine’s weekend—join us at [Venue] on [Date]!", "Warm stage photo with the date and venue clearly visible."],
+      ["St. Patrick’s Day set", "🍀 What song gets you moving on St. Patrick’s Day? Add your pick to our list!", "Green accents in a rehearsal video; keep the band and music central."],
+      ["Summer holiday", "🇺🇸 Making plans for the holiday weekend? Come spend part of it with live music at [Venue]!", "Outdoor band shot with venue/date and holiday-weekend details."],
+      ["Halloween choice", "🎃 Pick our Halloween set closer: spooky classic or dance-floor favorite? Vote below!", "Band members in simple costumes choose between two songs."],
+      ["Thanksgiving thanks", "🧡 We’re grateful for every person who listens, shares, and comes out to a show. What are you thankful for?", "A candid band photo from the year, with a short spoken thank-you."],
+      ["Holiday song request", "🎄 Which holiday song should we add to the set this year? Tell us your favorite!", "Each member names one holiday song in a quick-cut video."],
+      ["Year-end recap", "✨ One year of songs, stages, and good people. What was your favorite music moment this year?", "A quick montage of real show photos and clips from the year."],
+    ]],
+  ];
+  const ideas = sets.flatMap(([category, label, entries]) => entries.map(([title, caption, media]) => ({
+    id: `${category}-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    category,
+    categoryLabel: label,
+    title,
+    captionTemplate: caption,
+    mediaSuggestion: media,
+    hashtags: commonTags,
+  })));
+  window.GigOSSocialContentLibrary = Object.freeze({ ideas });
+})();
